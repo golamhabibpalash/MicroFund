@@ -122,13 +122,7 @@ import { AuthService } from '../../core/services/auth.service';
     }
     
     ::ng-deep .mat-mdc-form-field-icon-prefix {
-      padding: 0 12px 0 0 !important;
-      display: flex !important;
-      align-items: center !important;
-    }
-    
-    ::ng-deep .mat-mdc-form-field-icon-prefix mat-icon {
-      color: #666;
+      display: none !important;
     }
     
     button {
