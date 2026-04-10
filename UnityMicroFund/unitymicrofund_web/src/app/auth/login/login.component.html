@@ -1,0 +1,62 @@
+<div class="login-wrapper">
+  <div class="login-container">
+    <!-- Header -->
+    <div class="login-header">
+      <img src="assets/organization/logo.png" alt="UnityMicroFund Logo" class="logo-img" />
+      <p>Welcome Back</p>
+    </div>
+
+    <!-- Login Form -->
+    <form [formGroup]="form" (ngSubmit)="login()" class="login-form">
+      <!-- Email Field -->
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          class="form-control"
+          placeholder="Enter your email"
+          [class.is-invalid]="form.get('email')?.invalid && form.get('email')?.touched"
+        />
+        <div class="error-message" *ngIf="form.get('email')?.invalid && form.get('email')?.touched">
+          <span *ngIf="form.get('email')?.errors?.['required']">Email is required</span>
+          <span *ngIf="form.get('email')?.errors?.['email']">Please enter a valid email</span>
+        </div>
+      </div>
+
+      <!-- Password Field -->
+      <div class="form-group">
+        <div class="password-header">
+          <label for="password">Password</label>
+          <a routerLink="/auth/forgot-password" class="forgot-password">Forgot?</a>
+        </div>
+        <input
+          id="password"
+          type="password"
+          formControlName="password"
+          class="form-control"
+          placeholder="Enter your password"
+          [class.is-invalid]="form.get('password')?.invalid && form.get('password')?.touched"
+        />
+        <div
+          class="error-message"
+          *ngIf="form.get('password')?.invalid && form.get('password')?.touched"
+        >
+          <span *ngIf="form.get('password')?.errors?.['required']">Password is required</span>
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <div class="error-message server-error" *ngIf="error">{{ error }}</div>
+      <button type="submit" class="btn-submit" [disabled]="form.invalid">
+        <span>Sign In</span>
+      </button>
+    </form>
+
+    <!-- Register Link -->
+    <div class="register-link">
+      <p>Don't have an account? <a routerLink="/auth/register">Sign Up</a></p>
+    </div>
+  </div>
+</div>

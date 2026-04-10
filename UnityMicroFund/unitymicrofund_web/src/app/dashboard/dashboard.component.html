@@ -1,0 +1,106 @@
+<div class="dashboard-container">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <img src="assets/organization/logo.png" alt="UnityMicroFund Logo" class="logo-img" />
+    </div>
+    <nav class="nav-menu">
+      <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
+        <span class="material-icons">dashboard</span>
+        <span>Dashboard</span>
+      </a>
+      <a routerLink="/investments" routerLinkActive="active" class="nav-item">
+        <span class="material-icons">trending_up</span>
+        <span>Investments</span>
+      </a>
+      <a routerLink="/investors" routerLinkActive="active" class="nav-item">
+        <span class="material-icons">people</span>
+        <span>Investors</span>
+      </a>
+      <a routerLink="/payments" routerLinkActive="active" class="nav-item">
+        <span class="material-icons">payments</span>
+        <span>Payments</span>
+      </a>
+      <a routerLink="/reports" routerLinkActive="active" class="nav-item">
+        <span class="material-icons">assessment</span>
+        <span>Reports</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button (click)="logout()" class="logout-btn">
+        <span class="material-icons">logout</span>
+        <span>Logout</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Top Header -->
+    <header class="top-header">
+      <h1>Dashboard</h1>
+      <div class="user-info">
+        <span class="user-name">{{ userEmail }}</span>
+        <span class="material-icons">account_circle</span>
+      </div>
+    </header>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+      <div class="stat-card" *ngFor="let stat of stats">
+        <div class="stat-icon" [style.background-color]="stat.color">
+          <span class="material-icons">{{ stat.icon }}</span>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stat.value }}</span>
+          <span class="stat-label">{{ stat.label }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="content-section">
+      <div class="section-header">
+        <h2>Recent Transactions</h2>
+        <a routerLink="/payments" class="view-all">View All</a>
+      </div>
+      <div class="transactions-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Amount</th>
+              <th>Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let tx of recentTransactions">
+              <td>
+                <span
+                  class="tx-type"
+                  [class.investment]="tx.type === 'Investment'"
+                  [class.payment]="tx.type === 'Payment'"
+                  [class.withdrawal]="tx.type === 'Withdrawal'"
+                >
+                  {{ tx.type }}
+                </span>
+              </td>
+              <td class="amount">{{ tx.amount }}</td>
+              <td>{{ tx.date }}</td>
+              <td>
+                <span
+                  class="status"
+                  [class.completed]="tx.status === 'Completed'"
+                  [class.pending]="tx.status === 'Pending'"
+                >
+                  {{ tx.status }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
