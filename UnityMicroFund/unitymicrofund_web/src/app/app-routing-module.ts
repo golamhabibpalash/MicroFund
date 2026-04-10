@@ -38,6 +38,11 @@ const routes: Routes = [
     loadChildren: () => import('./reports/reports-module').then((m) => m.ReportsModule),
   },
   {
+    path: 'profile',
+    canActivate: [authGuard],
+    loadChildren: () => import('./profile/profile-module').then((m) => m.ProfileModule),
+  },
+  {
     path: '**',
     redirectTo: '/auth/login',
   },

@@ -100,6 +100,7 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IMemberService, MemberService>();
 builder.Services.AddScoped<IContributionService, ContributionService>();
 builder.Services.AddScoped<IInvestmentService, InvestmentService>();

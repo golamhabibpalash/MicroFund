@@ -18,7 +18,6 @@ public class MembersController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> GetMembers(
         [FromQuery] string? search = null,
         [FromQuery] bool? isActive = null)

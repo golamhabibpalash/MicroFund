@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UnityMicroFund.API.Areas.Auth.DTOs;
 using UnityMicroFund.API.Areas.Auth.Services;
+using UnityMicroFund.API.Areas.Profile.DTOs;
 
 namespace UnityMicroFund.API.Areas.Auth.Controllers;
 
@@ -11,10 +12,12 @@ namespace UnityMicroFund.API.Areas.Auth.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IProfileService _profileService;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, IProfileService profileService)
     {
         _authService = authService;
+        _profileService = profileService;
     }
 
     [HttpPost("register")]
@@ -103,5 +106,59 @@ public class AuthController : ControllerBase
     {
         var users = await _authService.GetAllUsersAsync();
         return Ok(users);
+    }
+
+    [Authorize]
+    [HttpGet("profile")]
+    public async Task<IActionResult> GetProfile()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null || !Guid.TryParse(userId, out var id))
+        {
+            return Unauthorized();
+        }
+
+        var profile = await _profileService.GetProfileAsync(id);
+        if (profile == null)
+        {
+            return NotFound();
+        }
+        return Ok(profile);
+    }
+
+    [Authorize]
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto dto)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null || !Guid.TryParse(userId, out var id))
+        {
+            return Unauthorized();
+        }
+
+        var profile = await _profileService.UpdateProfileAsync(id, dto);
+        if (profile == null)
+        {
+            return NotFound();
+        }
+        return Ok(profile);
+    }
+
+    [Authorize]
+    [HttpPut("profile/image")]
+    public async Task<IActionResult> UpdateProfileImage([FromBody] UpdateProfileImageDto dto)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null || !Guid.TryParse(userId, out var id))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _profileService.UpdateProfileImageAsync(id, dto.ImageUrl);
+        if (!result)
+        {
+            return NotFound();
+        }
+        return Ok(new { message = "Profile image updated successfully" });
     }
 }

@@ -22,8 +22,8 @@ export class AuthInterceptor implements HttpInterceptor {
     req: HttpRequest<any>,
     next: HttpHandler
   ): Observable<HttpEvent<any>> {
-    // Skip token attachment for auth endpoints
-    if (req.url.includes('/api/auth/')) {
+    // Skip token attachment only for public auth endpoints (login, register)
+    if (req.url.includes('/api/auth/login') || req.url.includes('/api/auth/register')) {
       return next.handle(req);
     }
 

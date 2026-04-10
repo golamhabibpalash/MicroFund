@@ -75,4 +75,9 @@ export class Token {
     const decoded = this.decodeToken();
     return decoded?.email || null;
   }
+
+  getUserName(): string | null {
+    const decoded = this.decodeToken();
+    return decoded?.name || null;
+  }
 }

@@ -1,0 +1,361 @@
+<div class="profile-container">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <img src="assets/organization/logo.png" alt="UnityMicroFund Logo" class="logo-img" />
+    </div>
+    <nav class="nav-menu">
+      <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
+        <span class="material-icons">dashboard</span>
+        <span>Dashboard</span>
+      </a>
+      <a routerLink="/investments" routerLinkActive="active" class="nav-item">
+        <span class="material-icons">trending_up</span>
+        <span>Investments</span>
+      </a>
+      <a routerLink="/investors" routerLinkActive="active" class="nav-item">
+        <span class="material-icons">people</span>
+        <span>Investors</span>
+      </a>
+      <a routerLink="/payments" routerLinkActive="active" class="nav-item">
+        <span class="material-icons">payments</span>
+        <span>Payments</span>
+      </a>
+      <a routerLink="/reports" routerLinkActive="active" class="nav-item">
+        <span class="material-icons">assessment</span>
+        <span>Reports</span>
+      </a>
+      <a routerLink="/profile" routerLinkActive="active" class="nav-item">
+        <span class="material-icons">person</span>
+        <span>Profile</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <button (click)="logout()" class="logout-btn">
+        <span class="material-icons">logout</span>
+        <span>Logout</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Top Header -->
+    <header class="top-header">
+      <h1>My Profile</h1>
+      <div class="header-actions">
+        <button *ngIf="!isEditing" (click)="toggleEdit()" class="btn btn-primary">
+          <span class="material-icons">edit</span>
+          Edit Profile
+        </button>
+        <button *ngIf="isEditing" (click)="toggleEdit()" class="btn btn-secondary">
+          <span class="material-icons">close</span>
+          Cancel
+        </button>
+      </div>
+    </header>
+
+    <!-- Success/Error Messages -->
+    <div *ngIf="successMessage" class="alert alert-success">
+      {{ successMessage }}
+    </div>
+    <div *ngIf="errorMessage" class="alert alert-error">
+      {{ errorMessage }}
+    </div>
+
+    <!-- Loading -->
+    <div *ngIf="isLoading" class="loading">
+      <span class="material-icons">sync</span>
+      Loading...
+    </div>
+
+    <!-- Profile Content -->
+    <div *ngIf="!isLoading && profile" class="profile-content">
+      <!-- Profile Header -->
+      <div class="profile-header">
+        <div class="profile-avatar">
+          <img *ngIf="profile.profileImageUrl" [src]="profile.profileImageUrl" alt="Profile Image" />
+          <div *ngIf="!profile.profileImageUrl" class="avatar-initials">
+            {{ getInitials(profile.name) }}
+          </div>
+          <label class="avatar-edit">
+            <span class="material-icons">camera_alt</span>
+            <input type="file" accept="image/*" (change)="onImageSelect($event)" hidden />
+          </label>
+        </div>
+        <div class="profile-info">
+          <h2>{{ profile.name }}</h2>
+          <p class="email">{{ profile.email }}</p>
+          <span class="status-badge" [class.active]="profile.isActive">
+            {{ profile.isActive ? 'Active' : 'Inactive' }}
+          </span>
+        </div>
+        <!-- Stats -->
+        <div class="profile-stats">
+          <div class="stat-item">
+            <span class="stat-value">${{ profile.totalContributions | number:'1.2-2' }}</span>
+            <span class="stat-label">Total Contributions</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value">{{ profile.totalInstallmentsPaid }}</span>
+            <span class="stat-label">Installments Paid</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value">${{ profile.currentShareValue | number:'1.2-2' }}</span>
+            <span class="stat-label">Share Value</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value">{{ profile.sharePercentage | number:'1.1-1' }}%</span>
+            <span class="stat-label">Share %</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Form -->
+      <form *ngIf="isEditing" (ngSubmit)="saveProfile()" class="profile-form">
+        <!-- Personal Information -->
+        <div class="form-section">
+          <h3>Personal Information</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Full Name</label>
+              <input type="text" [(ngModel)]="editForm.name" name="name" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Date of Birth</label>
+              <input type="date" [(ngModel)]="editForm.dateOfBirth" name="dateOfBirth" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Gender</label>
+              <select [(ngModel)]="editForm.gender" name="gender" class="form-control">
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Nationality</label>
+              <input type="text" [(ngModel)]="editForm.nationality" name="nationality" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Phone</label>
+              <input type="tel" [(ngModel)]="editForm.phone" name="phone" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Alternate Phone</label>
+              <input type="tel" [(ngModel)]="editForm.alternatePhone" name="alternatePhone" class="form-control" />
+            </div>
+            <div class="form-group full-width">
+              <label>Address</label>
+              <textarea [(ngModel)]="editForm.address" name="address" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Occupation</label>
+              <input type="text" [(ngModel)]="editForm.occupation" name="occupation" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Employer Name</label>
+              <input type="text" [(ngModel)]="editForm.employerName" name="employerName" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Monthly Contribution</label>
+              <input type="number" [(ngModel)]="editForm.monthlyAmount" name="monthlyAmount" class="form-control" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Emergency Contact -->
+        <div class="form-section">
+          <h3>Emergency Contact</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Name</label>
+              <input type="text" [(ngModel)]="editForm.emergencyContact.name" name="emergencyName" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Phone</label>
+              <input type="tel" [(ngModel)]="editForm.emergencyContact.phone" name="emergencyPhone" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Relation</label>
+              <input type="text" [(ngModel)]="editForm.emergencyContact.relation" name="emergencyRelation" class="form-control" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Nominee -->
+        <div class="form-section">
+          <h3>Nominee Information</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Nominee Name</label>
+              <input type="text" [(ngModel)]="editForm.nominee.name" name="nomineeName" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Relation</label>
+              <input type="text" [(ngModel)]="editForm.nominee.relation" name="nomineeRelation" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Phone</label>
+              <input type="tel" [(ngModel)]="editForm.nominee.phone" name="nomineePhone" class="form-control" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Bank Information -->
+        <div class="form-section">
+          <h3>Bank Information</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Bank Name</label>
+              <input type="text" [(ngModel)]="editForm.bankInfo.bankName" name="bankName" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Account Holder Name</label>
+              <input type="text" [(ngModel)]="editForm.bankInfo.accountHolderName" name="accountHolderName" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Account Number</label>
+              <input type="text" [(ngModel)]="editForm.bankInfo.accountNumber" name="accountNumber" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Routing Number</label>
+              <input type="text" [(ngModel)]="editForm.bankInfo.routingNumber" name="routingNumber" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>SWIFT Code</label>
+              <input type="text" [(ngModel)]="editForm.bankInfo.swiftCode" name="swiftCode" class="form-control" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">
+            <span class="material-icons">save</span>
+            Save Changes
+          </button>
+        </div>
+      </form>
+
+      <!-- Profile View (Non-edit mode) -->
+      <div *ngIf="!isEditing" class="profile-details">
+        <!-- Personal Information -->
+        <div class="detail-section">
+          <h3>Personal Information</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="label">Full Name</span>
+              <span class="value">{{ profile.name }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Date of Birth</span>
+              <span class="value">{{ profile.dateOfBirth || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Gender</span>
+              <span class="value">{{ profile.gender || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Nationality</span>
+              <span class="value">{{ profile.nationality || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Phone</span>
+              <span class="value">{{ profile.phone || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Alternate Phone</span>
+              <span class="value">{{ profile.alternatePhone || 'N/A' }}</span>
+            </div>
+            <div class="detail-item full-width">
+              <span class="label">Address</span>
+              <span class="value">{{ profile.address || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Occupation</span>
+              <span class="value">{{ profile.occupation || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Employer</span>
+              <span class="value">{{ profile.employerName || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Monthly Contribution</span>
+              <span class="value">${{ profile.monthlyAmount | number:'1.2-2' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Join Date</span>
+              <span class="value">{{ profile.joinDate || 'N/A' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Emergency Contact -->
+        <div class="detail-section">
+          <h3>Emergency Contact</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="label">Name</span>
+              <span class="value">{{ profile.emergencyContact?.name || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Phone</span>
+              <span class="value">{{ profile.emergencyContact?.phone || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Relation</span>
+              <span class="value">{{ profile.emergencyContact?.relation || 'N/A' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Nominee -->
+        <div class="detail-section">
+          <h3>Nominee Information</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="label">Nominee Name</span>
+              <span class="value">{{ profile.nominee?.name || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Relation</span>
+              <span class="value">{{ profile.nominee?.relation || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Phone</span>
+              <span class="value">{{ profile.nominee?.phone || 'N/A' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bank Information -->
+        <div class="detail-section">
+          <h3>Bank Information</h3>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span class="label">Bank Name</span>
+              <span class="value">{{ profile.bankInfo?.bankName || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Account Holder</span>
+              <span class="value">{{ profile.bankInfo?.accountHolderName || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Account Number</span>
+              <span class="value">{{ profile.bankInfo?.accountNumber || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Routing Number</span>
+              <span class="value">{{ profile.bankInfo?.routingNumber || 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">SWIFT Code</span>
+              <span class="value">{{ profile.bankInfo?.swiftCode || 'N/A' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
