@@ -106,27 +106,26 @@ export class ProfileComponent implements OnInit {
   loadProfile() {
     this.isLoading = true;
     const token = this.tokenService.getToken();
+    console.log('Token found:', !!token);
+    
     if (!token) {
       this.errorMessage = 'No token found. Please login.';
       this.isLoading = false;
       return;
     }
-    
-    const headers = new HttpHeaders({
-      Authorization: `Bearer ${token}`,
-    });
 
     this.http
-      .get<UserProfile>('http://localhost:5000/api/profile', { headers })
+      .get<UserProfile>('/api/profile')
       .subscribe({
         next: (data) => {
+          console.log('Profile loaded:', data);
           this.profile = data;
           this.populateForm(data);
           this.isLoading = false;
         },
         error: (err) => {
           console.error('Profile load error:', err);
-          this.errorMessage = 'Failed to load profile';
+          this.errorMessage = err.message || 'Failed to load profile';
           this.isLoading = false;
         },
       });
@@ -175,19 +174,8 @@ export class ProfileComponent implements OnInit {
     this.successMessage = '';
     this.errorMessage = '';
 
-    const token = this.tokenService.getToken();
-    if (!token) {
-      this.errorMessage = 'No token found. Please login.';
-      this.isLoading = false;
-      return;
-    }
-
-    const headers = new HttpHeaders({
-      Authorization: `Bearer ${token}`,
-    });
-
     this.http
-      .put<UserProfile>('http://localhost:5000/api/profile', this.editForm, { headers })
+      .put<UserProfile>('/api/profile', this.editForm)
       .subscribe({
         next: (data) => {
           this.profile = data;
@@ -195,8 +183,8 @@ export class ProfileComponent implements OnInit {
           this.isLoading = false;
           this.successMessage = 'Profile updated successfully';
         },
-        error: () => {
-          this.errorMessage = 'Failed to update profile';
+        error: (err) => {
+          this.errorMessage = err.message || 'Failed to update profile';
           this.isLoading = false;
         },
       });
@@ -216,21 +204,10 @@ export class ProfileComponent implements OnInit {
   }
 
   updateProfileImage(imageUrl: string) {
-    const token = this.tokenService.getToken();
-    if (!token) {
-      this.errorMessage = 'No token found. Please login.';
-      return;
-    }
-
-    const headers = new HttpHeaders({
-      Authorization: `Bearer ${token}`,
-    });
-
     this.http
       .put(
-        'http://localhost:5000/api/profile/image',
-        { imageUrl },
-        { headers }
+        '/api/profile/image',
+        { imageUrl }
       )
       .subscribe({
         next: () => {
@@ -239,8 +216,8 @@ export class ProfileComponent implements OnInit {
           }
           this.successMessage = 'Profile image updated';
         },
-        error: () => {
-          this.errorMessage = 'Failed to update profile image';
+        error: (err) => {
+          this.errorMessage = err.message || 'Failed to update profile image';
         },
       });
   }

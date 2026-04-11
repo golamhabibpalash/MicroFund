@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  mariadb:
+    image: mariadb:latest
+    container_name: maria_database
+    restart: unless-stopped
+
+    environment:
+      MARIADB_ROOT_PASSWORD: "123AsD,./"
+      MARIADB_DATABASE: microfundDb
+
+    ports:
+      - "3306:3306"
+
+    volumes:
+      # This ensures the database persists and is NOT recreated
+      - mariadb_data:/var/lib/mysql
+
+volumes:
+  mariadb_data:

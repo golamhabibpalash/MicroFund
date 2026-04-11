@@ -1,0 +1,852 @@
+[
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Audit.Controllers.ActivityLogsController",
+    "Method": "GetActivityLogs",
+    "RelativePath": "api/activity-logs",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "userId",
+        "Type": "System.Nullable\u00601[[System.Guid, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "module",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "action",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "fromDate",
+        "Type": "System.Nullable\u00601[[System.DateTime, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "toDate",
+        "Type": "System.Nullable\u00601[[System.DateTime, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Audit.Controllers.ActivityLogsController",
+    "Method": "GetActivityLog",
+    "RelativePath": "api/activity-logs/{id}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Audit.Controllers.ActivityLogsController",
+    "Method": "GetActivityStats",
+    "RelativePath": "api/activity-logs/stats",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "days",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Audit.Controllers.ActivityLogsController",
+    "Method": "GetUserActivityLogs",
+    "RelativePath": "api/activity-logs/user/{userId}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "userId",
+        "Type": "System.Guid",
+        "IsRequired": true
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Audit.Controllers.AuditLogsController",
+    "Method": "GetAuditLogs",
+    "RelativePath": "api/audit-logs",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "entityName",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "action",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "userId",
+        "Type": "System.Nullable\u00601[[System.Guid, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "fromDate",
+        "Type": "System.Nullable\u00601[[System.DateTime, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "toDate",
+        "Type": "System.Nullable\u00601[[System.DateTime, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "page",
+        "Type": "System.Int32",
+        "IsRequired": false
+      },
+      {
+        "Name": "pageSize",
+        "Type": "System.Int32",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Audit.Controllers.AuditLogsController",
+    "Method": "GetAuditLog",
+    "RelativePath": "api/audit-logs/{id}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Auth.Controllers.AuthController",
+    "Method": "ChangePassword",
+    "RelativePath": "api/Auth/change-password",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Auth.DTOs.ChangePasswordDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Auth.Controllers.AuthController",
+    "Method": "Login",
+    "RelativePath": "api/Auth/login",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Auth.DTOs.LoginDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Auth.Controllers.AuthController",
+    "Method": "GetCurrentUser",
+    "RelativePath": "api/Auth/me",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Auth.Controllers.AuthController",
+    "Method": "GetProfile",
+    "RelativePath": "api/Auth/profile",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Auth.Controllers.AuthController",
+    "Method": "UpdateProfile",
+    "RelativePath": "api/Auth/profile",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Profile.DTOs.UpdateProfileDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Auth.Controllers.AuthController",
+    "Method": "UpdateProfileImage",
+    "RelativePath": "api/Auth/profile/image",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Profile.DTOs.UpdateProfileImageDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Auth.Controllers.AuthController",
+    "Method": "RefreshToken",
+    "RelativePath": "api/Auth/refresh-token",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Auth.DTOs.RefreshTokenDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Auth.Controllers.AuthController",
+    "Method": "Register",
+    "RelativePath": "api/Auth/register",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Auth.DTOs.RegisterDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Auth.Controllers.AuthController",
+    "Method": "RegisterWithMember",
+    "RelativePath": "api/Auth/register-with-member",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Auth.DTOs.RegisterWithMemberDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Auth.Controllers.AuthController",
+    "Method": "GetAllUsers",
+    "RelativePath": "api/Auth/users",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Contributions.Controllers.ContributionsController",
+    "Method": "GetContributions",
+    "RelativePath": "api/Contributions",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "memberId",
+        "Type": "System.Nullable\u00601[[System.Guid, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "year",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "month",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "status",
+        "Type": "System.Nullable\u00601[[UnityMicroFund.API.Models.ContributionStatus, UnityMicroFund.API, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Contributions.Controllers.ContributionsController",
+    "Method": "CreateContribution",
+    "RelativePath": "api/Contributions",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Contributions.DTOs.CreateContributionDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Contributions.Controllers.ContributionsController",
+    "Method": "GetContribution",
+    "RelativePath": "api/Contributions/{id}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Contributions.Controllers.ContributionsController",
+    "Method": "DeleteContribution",
+    "RelativePath": "api/Contributions/{id}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Contributions.Controllers.ContributionsController",
+    "Method": "UpdateContributionStatus",
+    "RelativePath": "api/Contributions/{id}/status",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Guid",
+        "IsRequired": true
+      },
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Contributions.DTOs.UpdateContributionStatusDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Contributions.Controllers.ContributionsController",
+    "Method": "GenerateMonthlyContributions",
+    "RelativePath": "api/Contributions/generate-monthly",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "year",
+        "Type": "System.Nullable\u00601[[System.Int32, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      },
+      {
+        "Name": "month",
+        "Type": "System.String",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Dashboard.Controllers.DashboardController",
+    "Method": "GetDashboardStats",
+    "RelativePath": "api/Dashboard",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Investments.Controllers.InvestmentsController",
+    "Method": "GetInvestments",
+    "RelativePath": "api/Investments",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "type",
+        "Type": "System.Nullable\u00601[[UnityMicroFund.API.Models.InvestmentType, UnityMicroFund.API, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Investments.Controllers.InvestmentsController",
+    "Method": "CreateInvestment",
+    "RelativePath": "api/Investments",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Investments.DTOs.CreateInvestmentDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Investments.Controllers.InvestmentsController",
+    "Method": "GetInvestment",
+    "RelativePath": "api/Investments/{id}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Investments.Controllers.InvestmentsController",
+    "Method": "UpdateInvestment",
+    "RelativePath": "api/Investments/{id}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Guid",
+        "IsRequired": true
+      },
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Investments.DTOs.UpdateInvestmentDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Investments.Controllers.InvestmentsController",
+    "Method": "DeleteInvestment",
+    "RelativePath": "api/Investments/{id}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Members.Controllers.MembersController",
+    "Method": "GetMembers",
+    "RelativePath": "api/Members",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "search",
+        "Type": "System.String",
+        "IsRequired": false
+      },
+      {
+        "Name": "isActive",
+        "Type": "System.Nullable\u00601[[System.Boolean, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Members.Controllers.MembersController",
+    "Method": "CreateMember",
+    "RelativePath": "api/Members",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Members.DTOs.CreateMemberDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Members.Controllers.MembersController",
+    "Method": "GetMember",
+    "RelativePath": "api/Members/{id}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Members.Controllers.MembersController",
+    "Method": "UpdateMember",
+    "RelativePath": "api/Members/{id}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Guid",
+        "IsRequired": true
+      },
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Members.DTOs.UpdateMemberDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Members.Controllers.MembersController",
+    "Method": "DeleteMember",
+    "RelativePath": "api/Members/{id}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Profile.Controllers.ProfileController",
+    "Method": "GetProfile",
+    "RelativePath": "api/Profile",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Profile.Controllers.ProfileController",
+    "Method": "UpdateProfile",
+    "RelativePath": "api/Profile",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Profile.DTOs.UpdateProfileDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Profile.Controllers.ProfileController",
+    "Method": "UpdateProfileImage",
+    "RelativePath": "api/Profile/image",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Profile.DTOs.UpdateProfileImageDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Settings.Controllers.SettingsController",
+    "Method": "GetGroupSettings",
+    "RelativePath": "api/settings/group-settings",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Settings.Controllers.SettingsController",
+    "Method": "UpdateGroupSetting",
+    "RelativePath": "api/settings/group-settings/{settingType}",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "settingType",
+        "Type": "UnityMicroFund.API.Models.GroupSettingsType",
+        "IsRequired": true
+      },
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Settings.DTOs.UpdateSettingDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Settings.Controllers.SettingsController",
+    "Method": "GetRolePermissions",
+    "RelativePath": "api/settings/permissions/{role}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "role",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Settings.Controllers.SettingsController",
+    "Method": "GetAllRoleClaims",
+    "RelativePath": "api/settings/role-claims",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Settings.Controllers.SettingsController",
+    "Method": "AddRoleClaim",
+    "RelativePath": "api/settings/role-claims",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Settings.DTOs.CreateRoleClaimDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Settings.Controllers.SettingsController",
+    "Method": "RemoveRoleClaim",
+    "RelativePath": "api/settings/role-claims/{claimId}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "claimId",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Settings.Controllers.SettingsController",
+    "Method": "GetRoleClaims",
+    "RelativePath": "api/settings/role-claims/{role}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "role",
+        "Type": "System.String",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Settings.Controllers.SettingsController",
+    "Method": "GetAllUsers",
+    "RelativePath": "api/settings/users",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Settings.Controllers.SettingsController",
+    "Method": "GetUserClaims",
+    "RelativePath": "api/settings/users/{userId}/claims",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "userId",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Settings.Controllers.SettingsController",
+    "Method": "AddUserClaim",
+    "RelativePath": "api/settings/users/{userId}/claims",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "userId",
+        "Type": "System.Guid",
+        "IsRequired": true
+      },
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Settings.DTOs.CreateUserClaimDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Settings.Controllers.SettingsController",
+    "Method": "RemoveUserClaim",
+    "RelativePath": "api/settings/users/{userId}/claims/{claimId}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "userId",
+        "Type": "System.Guid",
+        "IsRequired": true
+      },
+      {
+        "Name": "claimId",
+        "Type": "System.Guid",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "UnityMicroFund.API.Areas.Settings.Controllers.SettingsController",
+    "Method": "UpdateUserRole",
+    "RelativePath": "api/settings/users/{userId}/role",
+    "HttpMethod": "PUT",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "userId",
+        "Type": "System.Guid",
+        "IsRequired": true
+      },
+      {
+        "Name": "dto",
+        "Type": "UnityMicroFund.API.Areas.Settings.DTOs.UpdateUserRoleDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  }
+]

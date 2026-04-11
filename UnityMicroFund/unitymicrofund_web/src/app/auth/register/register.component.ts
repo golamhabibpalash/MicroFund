@@ -40,7 +40,7 @@ export class RegisterComponent {
       accountHolderName: ['', [Validators.required]],
       accountNumber: ['', [Validators.required, Validators.pattern(/^[0-9]+$/)]],
       routingNumber: ['', [Validators.pattern(/^[0-9]+$/)]],
-      swiftCode: ['', [Validators.pattern(/^[A-Z]{4}[A-Z]{2}[0-9]{2}[A-Z0-9]{0,3}$/)]],
+      swiftCode: ['', []],
       nomineeName: ['', [Validators.required]],
       nomineePhone: ['', [Validators.required, Validators.pattern(/^[0-9]{10,15}$/)]],
       nomineeRelation: ['', [Validators.required]],

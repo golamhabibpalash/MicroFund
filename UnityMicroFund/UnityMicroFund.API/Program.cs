@@ -17,10 +17,10 @@ using UnityMicroFund.API.Infrastructure.Middleware;
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-    ?? "Host=localhost;Database=unitymicrofund;Username=postgres;Password=postgres";
+    ?? "Server=localhost;Port=3306;Database=microfundDb;User=root;Password=123AsD,./";
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
 builder.Services.AddHttpContextAccessor();
 
@@ -133,7 +133,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     try
     {
-        await db.Database.EnsureCreatedAsync();
+        await db.Database.MigrateAsync();
         Console.WriteLine("Database connected and schema ensured.");
     }
     catch (Exception ex)

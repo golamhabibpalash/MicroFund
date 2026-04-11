@@ -1,6 +1,8 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth-guard';
+import { UserLayoutComponent } from './layout/user-layout.component';
+import { AdminLayoutComponent } from './layout/admin-layout.component';
 
 const routes: Routes = [
   {
@@ -14,33 +16,70 @@ const routes: Routes = [
   },
   {
     path: 'dashboard',
+    component: UserLayoutComponent,
     canActivate: [authGuard],
-    loadChildren: () => import('./dashboard/dashboard-module').then((m) => m.DashboardModule),
+    children: [
+      {
+        path: '',
+        loadChildren: () => import('./dashboard/dashboard-module').then((m) => m.DashboardModule),
+      },
+    ],
   },
   {
     path: 'investments',
+    component: UserLayoutComponent,
     canActivate: [authGuard],
-    loadChildren: () => import('./investments/investments-module').then((m) => m.InvestmentsModule),
+    children: [
+      {
+        path: '',
+        loadChildren: () =>
+          import('./investments/investments-module').then((m) => m.InvestmentsModule),
+      },
+    ],
   },
   {
     path: 'investors',
+    component: AdminLayoutComponent,
     canActivate: [authGuard],
-    loadChildren: () => import('./investors/investors-module').then((m) => m.InvestorsModule),
+    children: [
+      {
+        path: '',
+        loadChildren: () => import('./investors/investors-module').then((m) => m.InvestorsModule),
+      },
+    ],
   },
   {
     path: 'payments',
+    component: AdminLayoutComponent,
     canActivate: [authGuard],
-    loadChildren: () => import('./payments/payments-module').then((m) => m.PaymentsModule),
+    children: [
+      {
+        path: '',
+        loadChildren: () => import('./payments/payments-module').then((m) => m.PaymentsModule),
+      },
+    ],
   },
   {
     path: 'reports',
+    component: AdminLayoutComponent,
     canActivate: [authGuard],
-    loadChildren: () => import('./reports/reports-module').then((m) => m.ReportsModule),
+    children: [
+      {
+        path: '',
+        loadChildren: () => import('./reports/reports-module').then((m) => m.ReportsModule),
+      },
+    ],
   },
   {
     path: 'profile',
+    component: UserLayoutComponent,
     canActivate: [authGuard],
-    loadChildren: () => import('./profile/profile-module').then((m) => m.ProfileModule),
+    children: [
+      {
+        path: '',
+        loadChildren: () => import('./profile/profile-module').then((m) => m.ProfileModule),
+      },
+    ],
   },
   {
     path: '**',
