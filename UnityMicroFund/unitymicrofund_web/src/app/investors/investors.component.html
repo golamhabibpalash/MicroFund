@@ -1,115 +1,72 @@
-<div class="investors-container">
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <div class="logo">
-      <img src="assets/organization/logo.png" alt="UnityMicroFund Logo" class="logo-img" />
-    </div>
-    <nav class="nav-menu">
-      <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
-        <span class="material-icons">dashboard</span>
-        <span>Dashboard</span>
-      </a>
-      <a routerLink="/investments" routerLinkActive="active" class="nav-item">
-        <span class="material-icons">trending_up</span>
-        <span>Investments</span>
-      </a>
-      <a routerLink="/investors" routerLinkActive="active" class="nav-item">
-        <span class="material-icons">people</span>
-        <span>Investors</span>
-      </a>
-      <a routerLink="/payments" routerLinkActive="active" class="nav-item">
-        <span class="material-icons">payments</span>
-        <span>Payments</span>
-      </a>
-      <a routerLink="/reports" routerLinkActive="active" class="nav-item">
-        <span class="material-icons">assessment</span>
-        <span>Reports</span>
-      </a>
-      <a routerLink="/profile" routerLinkActive="active" class="nav-item">
-        <span class="material-icons">person</span>
-        <span>Profile</span>
-      </a>
-    </nav>
-    <div class="sidebar-footer">
-      <button (click)="logout()" class="logout-btn">
-        <span class="material-icons">logout</span>
-        <span>Logout</span>
+<div class="investors-wrapper">
+  <!-- Top Header -->
+  <header class="top-header">
+    <h1>Investors</h1>
+    <div class="search-box">
+      <input 
+        type="text" 
+        [(ngModel)]="searchTerm" 
+        (keyup.enter)="search()"
+        placeholder="Search by name or email..."
+        class="search-input" />
+      <button (click)="search()" class="search-btn">
+        <span class="material-icons">search</span>
       </button>
     </div>
-  </aside>
+  </header>
 
-  <!-- Main Content -->
-  <main class="main-content">
-    <!-- Top Header -->
-    <header class="top-header">
-      <h1>Investors</h1>
-      <div class="search-box">
-        <input 
-          type="text" 
-          [(ngModel)]="searchTerm" 
-          (keyup.enter)="search()"
-          placeholder="Search by name or email..."
-          class="search-input" />
-        <button (click)="search()" class="search-btn">
-          <span class="material-icons">search</span>
-        </button>
+  <!-- Error Message -->
+  <div *ngIf="errorMessage" class="alert alert-error">
+    {{ errorMessage }}
+  </div>
+
+   <!-- Loading -->
+   <div *ngIf="isLoading" class="loading">
+     <img src="/assets/organization/logo.gif" alt="Loading..." class="loader-gif" />
+   </div>
+
+  <!-- Members Grid -->
+  <div *ngIf="!isLoading && members.length > 0" class="members-grid">
+    <div *ngFor="let member of members" class="member-card">
+      <div class="member-avatar">
+        {{ getInitials(member.name) }}
       </div>
-    </header>
-
-    <!-- Error Message -->
-    <div *ngIf="errorMessage" class="alert alert-error">
-      {{ errorMessage }}
-    </div>
-
-    <!-- Loading -->
-    <div *ngIf="isLoading" class="loading">
-      <span class="material-icons">sync</span>
-      Loading...
-    </div>
-
-    <!-- Members Grid -->
-    <div *ngIf="!isLoading && members.length > 0" class="members-grid">
-      <div *ngFor="let member of members" class="member-card">
-        <div class="member-avatar">
-          {{ getInitials(member.name) }}
+      <div class="member-info">
+        <h3>{{ member.name }}</h3>
+        <p class="email">{{ member.email }}</p>
+        <p class="phone">{{ member.phone }}</p>
+      </div>
+      <div class="member-stats">
+        <div class="stat">
+          <span class="stat-label">Monthly</span>
+          <span class="stat-value">${{ member.monthlyAmount }}</span>
         </div>
-        <div class="member-info">
-          <h3>{{ member.name }}</h3>
-          <p class="email">{{ member.email }}</p>
-          <p class="phone">{{ member.phone }}</p>
+        <div class="stat">
+          <span class="stat-label">Contributed</span>
+          <span class="stat-value">${{ member.totalContributions | number:'1.2-2' }}</span>
         </div>
-        <div class="member-stats">
-          <div class="stat">
-            <span class="stat-label">Monthly</span>
-            <span class="stat-value">${{ member.monthlyAmount }}</span>
-          </div>
-          <div class="stat">
-            <span class="stat-label">Contributed</span>
-            <span class="stat-value">${{ member.totalContributions | number:'1.2-2' }}</span>
-          </div>
-          <div class="stat">
-            <span class="stat-label">Installments</span>
-            <span class="stat-value">{{ member.totalInstallmentsPaid }}</span>
-          </div>
-          <div class="stat">
-            <span class="stat-label">Share %</span>
-            <span class="stat-value">{{ member.sharePercentage | number:'1.1-1' }}%</span>
-          </div>
+        <div class="stat">
+          <span class="stat-label">Installments</span>
+          <span class="stat-value">{{ member.totalInstallmentsPaid }}</span>
         </div>
-        <div class="member-status">
-          <span class="status-badge" [class.active]="member.isActive">
-            {{ member.isActive ? 'Active' : 'Inactive' }}
-          </span>
-          <span class="join-date">Since {{ member.joinDate | date:'MMM yyyy' }}</span>
+        <div class="stat">
+          <span class="stat-label">Share %</span>
+          <span class="stat-value">{{ member.sharePercentage | number:'1.1-1' }}%</span>
         </div>
       </div>
+      <div class="member-status">
+        <span class="status-badge" [class.active]="member.isActive">
+          {{ member.isActive ? 'Active' : 'Inactive' }}
+        </span>
+        <span class="join-date">Since {{ member.joinDate | date:'MMM yyyy' }}</span>
+      </div>
     </div>
+  </div>
 
-    <!-- Empty State -->
-    <div *ngIf="!isLoading && members.length === 0" class="empty-state">
-      <span class="material-icons">people</span>
-      <h3>No Investors Found</h3>
-      <p>There are no investors in the system yet.</p>
-    </div>
-  </main>
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && members.length === 0" class="empty-state">
+    <span class="material-icons">people</span>
+    <h3>No Investors Found</h3>
+    <p>There are no investors in the system yet.</p>
+  </div>
 </div>

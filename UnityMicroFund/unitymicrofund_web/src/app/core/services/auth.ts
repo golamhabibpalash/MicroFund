@@ -4,9 +4,15 @@ import { Observable, BehaviorSubject, tap } from 'rxjs';
 import { Token } from './token';
 
 export interface AuthResponse {
-  access_token: string;
-  refresh_token?: string;
-  expires_in: number;
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt: number;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
 }
 
 export interface LoginCredentials {
@@ -39,24 +45,24 @@ export class Auth {
   login(credentials: LoginCredentials): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.apiUrl}/login`, credentials).pipe(
       tap((response) => {
-        this.tokenService.saveToken(response.access_token);
-        if (response.refresh_token) {
-          this.tokenService.saveRefreshToken(response.refresh_token);
+        this.tokenService.saveToken(response.accessToken);
+        if (response.refreshToken) {
+          this.tokenService.saveRefreshToken(response.refreshToken);
         }
-        this.tokenService.setTokenExpiry(response.expires_in);
+        this.tokenService.setTokenExpiry(response.expiresAt);
         this.isAuthenticatedSubject.next(true);
       }),
     );
   }
 
   register(data: Record<string, unknown>): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/register`, data).pipe(
+    return this.http.post<AuthResponse>(`${this.apiUrl}/register-with-member`, data).pipe(
       tap((response) => {
-        this.tokenService.saveToken(response.access_token);
-        if (response.refresh_token) {
-          this.tokenService.saveRefreshToken(response.refresh_token);
+        this.tokenService.saveToken(response.accessToken);
+        if (response.refreshToken) {
+          this.tokenService.saveRefreshToken(response.refreshToken);
         }
-        this.tokenService.setTokenExpiry(response.expires_in);
+        this.tokenService.setTokenExpiry(response.expiresAt);
         this.isAuthenticatedSubject.next(true);
       }),
     );
@@ -68,14 +74,14 @@ export class Auth {
       throw new Error('No refresh token available');
     }
     return this.http
-      .post<AuthResponse>(`${this.apiUrl}/refresh`, { refresh_token: refreshToken })
+      .post<AuthResponse>(`${this.apiUrl}/refresh-token`, { refreshToken: refreshToken })
       .pipe(
         tap((response) => {
-          this.tokenService.saveToken(response.access_token);
-          if (response.refresh_token) {
-            this.tokenService.saveRefreshToken(response.refresh_token);
+          this.tokenService.saveToken(response.accessToken);
+          if (response.refreshToken) {
+            this.tokenService.saveRefreshToken(response.refreshToken);
           }
-          this.tokenService.setTokenExpiry(response.expires_in);
+          this.tokenService.setTokenExpiry(response.expiresAt);
         }),
       );
   }

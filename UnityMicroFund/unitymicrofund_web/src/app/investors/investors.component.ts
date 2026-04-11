@@ -1,9 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { HttpClient, HttpClientModule, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Token } from '../core/services/token';
+import { ChangeDetectorRef } from '@angular/core';
 
 interface Member {
   id: string;
@@ -35,7 +36,8 @@ export class InvestorsComponent implements OnInit {
 
   constructor(
     private http: HttpClient,
-    private tokenService: Token
+    private tokenService: Token,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -51,21 +53,19 @@ export class InvestorsComponent implements OnInit {
       return;
     }
 
-    const headers = new HttpHeaders({
-      Authorization: `Bearer ${token}`,
-    });
-
     this.http
-      .get<Member[]>('http://localhost:5000/api/members', { headers })
+      .get<Member[]>('/api/members')
       .subscribe({
         next: (data) => {
           this.members = data;
           this.isLoading = false;
+          this.cdr.detectChanges();
         },
         error: (err) => {
           console.error('Error loading members:', err);
           this.errorMessage = 'Failed to load members';
           this.isLoading = false;
+          this.cdr.detectChanges();
         },
       });
   }
@@ -77,21 +77,19 @@ export class InvestorsComponent implements OnInit {
     }
     
     this.isLoading = true;
-    const token = this.tokenService.getToken();
-    const headers = new HttpHeaders({
-      Authorization: `Bearer ${token}`,
-    });
 
     this.http
-      .get<Member[]>(`http://localhost:5000/api/members?search=${this.searchTerm}`, { headers })
+      .get<Member[]>(`/api/members?search=${this.searchTerm}`)
       .subscribe({
         next: (data) => {
           this.members = data;
           this.isLoading = false;
+          this.cdr.detectChanges();
         },
         error: () => {
           this.errorMessage = 'Failed to search members';
           this.isLoading = false;
+          this.cdr.detectChanges();
         },
       });
   }

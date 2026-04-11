@@ -1,8 +1,11 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth-guard';
-import { UserLayoutComponent } from './layout/user-layout.component';
 import { AdminLayoutComponent } from './layout/admin-layout.component';
+
+import { DashboardComponent } from './dashboard/dashboard.component';
+import { InvestorsComponent } from './investors/investors.component';
+import { ProfileComponent } from './profile/profile.component';
 
 const routes: Routes = [
   {
@@ -16,24 +19,23 @@ const routes: Routes = [
   },
   {
     path: 'dashboard',
-    component: UserLayoutComponent,
+    component: AdminLayoutComponent,
     canActivate: [authGuard],
     children: [
       {
         path: '',
-        loadChildren: () => import('./dashboard/dashboard-module').then((m) => m.DashboardModule),
+        component: DashboardComponent,
       },
     ],
   },
   {
     path: 'investments',
-    component: UserLayoutComponent,
+    component: AdminLayoutComponent,
     canActivate: [authGuard],
     children: [
       {
         path: '',
-        loadChildren: () =>
-          import('./investments/investments-module').then((m) => m.InvestmentsModule),
+        component: DashboardComponent,
       },
     ],
   },
@@ -44,7 +46,7 @@ const routes: Routes = [
     children: [
       {
         path: '',
-        loadChildren: () => import('./investors/investors-module').then((m) => m.InvestorsModule),
+        component: InvestorsComponent,
       },
     ],
   },
@@ -55,7 +57,7 @@ const routes: Routes = [
     children: [
       {
         path: '',
-        loadChildren: () => import('./payments/payments-module').then((m) => m.PaymentsModule),
+        component: DashboardComponent,
       },
     ],
   },
@@ -66,18 +68,18 @@ const routes: Routes = [
     children: [
       {
         path: '',
-        loadChildren: () => import('./reports/reports-module').then((m) => m.ReportsModule),
+        component: DashboardComponent,
       },
     ],
   },
   {
     path: 'profile',
-    component: UserLayoutComponent,
+    component: AdminLayoutComponent,
     canActivate: [authGuard],
     children: [
       {
         path: '',
-        loadChildren: () => import('./profile/profile-module').then((m) => m.ProfileModule),
+        component: ProfileComponent,
       },
     ],
   },

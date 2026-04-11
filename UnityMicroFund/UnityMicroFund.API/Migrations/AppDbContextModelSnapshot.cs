@@ -448,12 +448,17 @@ namespace UnityMicroFund.API.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("char(36)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Email");
 
                     b.HasIndex("Phone")
                         .IsUnique();
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("members");
                 });
@@ -569,6 +574,15 @@ namespace UnityMicroFund.API.Migrations
                         .IsRequired();
 
                     b.Navigation("Member");
+                });
+
+            modelBuilder.Entity("UnityMicroFund.API.Models.Member", b =>
+                {
+                    b.HasOne("UnityMicroFund.API.Areas.Auth.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("UnityMicroFund.API.Models.MemberInvestment", b =>

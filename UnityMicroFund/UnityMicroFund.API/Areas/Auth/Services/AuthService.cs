@@ -73,6 +73,7 @@ public class AuthService : IAuthService
             var member = new UnityMicroFund.API.Models.Member
             {
                 Id = Guid.NewGuid(),
+                UserId = user.Id,
                 Name = dto.Name,
                 DateOfBirth = dto.DateOfBirth,
                 Gender = Enum.TryParse<UnityMicroFund.API.Models.Gender>(dto.Gender, true, out var gender) ? gender : UnityMicroFund.API.Models.Gender.Other,

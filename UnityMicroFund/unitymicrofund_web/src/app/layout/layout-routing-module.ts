@@ -1,9 +1,6 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { UserLayoutComponent } from './user-layout.component';
 import { AdminLayoutComponent } from './admin-layout.component';
-import { UserService } from '../core/services/user';
-import { inject } from '@angular/core';
 
 const routes: Routes = [
   {
@@ -13,7 +10,7 @@ const routes: Routes = [
   },
   {
     path: 'dashboard',
-    component: UserLayoutComponent,
+    component: AdminLayoutComponent,
     children: [
       {
         path: '',
@@ -23,7 +20,7 @@ const routes: Routes = [
   },
   {
     path: 'investments',
-    component: UserLayoutComponent,
+    component: AdminLayoutComponent,
     children: [
       {
         path: '',
@@ -64,7 +61,7 @@ const routes: Routes = [
   },
   {
     path: 'profile',
-    component: UserLayoutComponent,
+    component: AdminLayoutComponent,
     children: [
       {
         path: '',

@@ -1,7 +1,7 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
-import { HttpClient, HttpClientModule, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Token } from '../core/services/token';
 
@@ -91,7 +91,8 @@ export class ProfileComponent implements OnInit {
   constructor(
     private http: HttpClient,
     private tokenService: Token,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   logout() {
@@ -122,11 +123,13 @@ export class ProfileComponent implements OnInit {
           this.profile = data;
           this.populateForm(data);
           this.isLoading = false;
+          this.cdr.detectChanges();
         },
         error: (err) => {
           console.error('Profile load error:', err);
           this.errorMessage = err.message || 'Failed to load profile';
           this.isLoading = false;
+          this.cdr.detectChanges();
         },
       });
   }
@@ -169,26 +172,28 @@ export class ProfileComponent implements OnInit {
     this.errorMessage = '';
   }
 
-  saveProfile() {
-    this.isLoading = true;
-    this.successMessage = '';
-    this.errorMessage = '';
+   saveProfile() {
+     this.isLoading = true;
+     this.successMessage = '';
+     this.errorMessage = '';
 
-    this.http
-      .put<UserProfile>('/api/profile', this.editForm)
-      .subscribe({
-        next: (data) => {
-          this.profile = data;
-          this.isEditing = false;
-          this.isLoading = false;
-          this.successMessage = 'Profile updated successfully';
-        },
-        error: (err) => {
-          this.errorMessage = err.message || 'Failed to update profile';
-          this.isLoading = false;
-        },
-      });
-  }
+     this.http
+       .put<UserProfile>('/api/profile', this.editForm)
+       .subscribe({
+         next: (data) => {
+           this.profile = data;
+           this.isEditing = false;
+           this.isLoading = false;
+           this.successMessage = 'Profile updated successfully';
+           // Reload profile data to ensure we have the latest from backend
+           this.loadProfile();
+         },
+         error: (err) => {
+           this.errorMessage = err.message || 'Failed to update profile';
+           this.isLoading = false;
+         },
+       });
+   }
 
   onImageSelect(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -215,6 +220,8 @@ export class ProfileComponent implements OnInit {
             this.profile.profileImageUrl = imageUrl;
           }
           this.successMessage = 'Profile image updated';
+          // Reload profile to ensure we have the latest
+          this.loadProfile();
         },
         error: (err) => {
           this.errorMessage = err.message || 'Failed to update profile image';

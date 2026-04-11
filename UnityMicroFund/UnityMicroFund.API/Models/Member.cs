@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using UnityMicroFund.API.Areas.Auth.Models;
 
 namespace UnityMicroFund.API.Models;
 
@@ -15,6 +16,11 @@ public class Member
 {
     [Key]
     public Guid Id { get; set; }
+
+    public Guid? UserId { get; set; }
+
+    [ForeignKey(nameof(UserId))]
+    public virtual User? User { get; set; }
 
     [Required]
     [MaxLength(100)]
