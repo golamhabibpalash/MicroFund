@@ -22,6 +22,8 @@ public class AppDbContext : DbContext
     public DbSet<UserClaim> UserClaims { get; set; }
     public DbSet<Account> Accounts { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<RegistrationRequest> RegistrationRequests { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -1,0 +1,131 @@
+# ===========================================
+# UnityMicroFund - Complete .gitignore
+# ===========================================
+
+# ----------------------
+# Common
+# ----------------------
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthubs.db
+Desktop.ini
+
+# Editor directories and files
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/
+*.swp
+*.swo
+*~
+.idea/
+
+# ----------------------
+# Backend - .NET
+# ----------------------
+
+# Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+publish/
+publish-output/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+*.userprefs
+*.mdmp
+
+# NuGet
+*.nupkg
+packages/
+!packages/build/
+
+# .NET Core
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ASP.NET Core
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+
+# IDE
+*.sln.iml
+_ReSharper*/
+*.ReSharper.user
+*.ReSharper.user.cache
+
+# MSBuild
+*.log
+*.bin
+*.dll
+*.pdb
+
+# ----------------------
+# Frontend - Angular
+# ----------------------
+
+# Compiled output
+dist/
+tmp/
+out-tsc/
+bazel-out/
+
+# Angular cache
+.angular/
+
+# Node modules
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn.lock
+package-lock.json
+
+# Misc
+coverage/
+libpeerconnection.log
+testem.log
+typings/
+__screenshots__/
+.sass-cache/
+connect.lock/
+
+# ----------------------
+# Database / Data
+# ----------------------
+
+*.mdf
+*.ldf
+*.sqlite
+*.db
+*.db-shm
+*.db-wal
+
+# ----------------------
+# Secrets & Credentials
+# ----------------------
+
+*.pfx
+*.key
+*.pem
+*.cert
+*.credentials
+
+# ----------------------
+# Logs
+# ----------------------
+
+*.log
+logs/
