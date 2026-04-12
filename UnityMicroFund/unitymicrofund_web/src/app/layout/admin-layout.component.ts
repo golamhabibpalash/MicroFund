@@ -1,11 +1,12 @@
 import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { NotificationBellComponent } from '../shared/notification-bell/notification-bell.component';
 
 @Component({
   selector: 'app-admin-layout',
   standalone: true,
-  imports: [RouterModule, CommonModule],
+  imports: [RouterModule, CommonModule, NotificationBellComponent],
   template: `
     <div class="layout-container">
       <aside class="sidebar">
@@ -13,32 +14,43 @@ import { CommonModule } from '@angular/common';
           <img src="assets/organization/logo.png" alt="UnityMicroFund Logo" class="logo-img" />
           <span class="logo-text">UnityMicroFund</span>
         </div>
-        <nav class="nav-menu">
-          <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
-            <span class="material-icons">dashboard</span>
-            <span>Dashboard</span>
-          </a>
-          <a routerLink="/investments" routerLinkActive="active" class="nav-item">
-            <span class="material-icons">trending_up</span>
-            <span>Investments</span>
-          </a>
-          <a routerLink="/investors" routerLinkActive="active" class="nav-item">
-            <span class="material-icons">people</span>
-            <span>Investors</span>
-          </a>
-          <a routerLink="/payments" routerLinkActive="active" class="nav-item">
-            <span class="material-icons">payments</span>
-            <span>Payments</span>
-          </a>
-          <a routerLink="/reports" routerLinkActive="active" class="nav-item">
-            <span class="material-icons">assessment</span>
-            <span>Reports</span>
-          </a>
-          <a routerLink="/profile" routerLinkActive="active" class="nav-item">
-            <span class="material-icons">person</span>
-            <span>Profile</span>
-          </a>
-        </nav>
+<nav class="nav-menu">
+           <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
+             <span class="material-icons">dashboard</span>
+             <span>Dashboard</span>
+           </a>
+           <a routerLink="/investments" routerLinkActive="active" class="nav-item">
+             <span class="material-icons">trending_up</span>
+             <span>Investments</span>
+           </a>
+           <a routerLink="/investors" routerLinkActive="active" class="nav-item">
+             <span class="material-icons">people</span>
+             <span>Investors</span>
+           </a>
+           <a routerLink="/payments" routerLinkActive="active" class="nav-item">
+             <span class="material-icons">payments</span>
+             <span>Payments</span>
+           </a>
+           <a routerLink="/reports" routerLinkActive="active" class="nav-item">
+             <span class="material-icons">assessment</span>
+             <span>Reports</span>
+           </a>
+           <div class="nav-section">
+             <span class="nav-section-title">Logs</span>
+             <a routerLink="/logs/activity" routerLinkActive="active" class="nav-item">
+               <span class="material-icons">list_alt</span>
+               <span>Activity Logs</span>
+             </a>
+<a routerLink="/logs/audit" routerLinkActive="active" class="nav-item">
+                <span class="material-icons">verified_user</span>
+                <span>Audit Logs</span>
+              </a>
+           </div>
+           <a routerLink="/profile" routerLinkActive="active" class="nav-item">
+             <span class="material-icons">person</span>
+             <span>Profile</span>
+           </a>
+         </nav>
         <div class="sidebar-footer">
           <button (click)="logout()" class="logout-btn">
             <span class="material-icons">logout</span>
@@ -48,6 +60,9 @@ import { CommonModule } from '@angular/common';
       </aside>
 
       <main class="main-content">
+        <header class="top-header">
+          <app-notification-bell></app-notification-bell>
+        </header>
         <router-outlet></router-outlet>
       </main>
     </div>
@@ -89,10 +104,56 @@ import { CommonModule } from '@angular/common';
       }
     }
 
-    .nav-menu {
-      flex: 1;
-      padding: 20px 0;
-    }
+.nav-menu {
+       flex: 1;
+       padding: 20px 0;
+     }
+     
+.nav-section {
+        display: flex;
+        flex-direction: column;
+        margin-top: 24px;
+        margin-bottom: 8px;
+        
+        .nav-section-title {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          opacity: 0.6;
+          padding: 8px 24px 12px 24px;
+        }
+        
+        .nav-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 24px;
+          color: rgba(255, 255, 255, 0.8);
+          text-decoration: none;
+          transition: all 0.3s ease;
+          font-size: 14px;
+          
+          .material-icons {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+          }
+          
+          &:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+          }
+          
+          &.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border-left: 4px solid white;
+          }
+        }
+      }
 
     .nav-item {
       display: flex;
@@ -150,6 +211,12 @@ import { CommonModule } from '@angular/common';
       flex: 1;
       margin-left: 260px;
       padding: 24px;
+    }
+    
+    .top-header {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 16px;
     }
   `]
 })

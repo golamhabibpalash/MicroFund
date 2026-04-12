@@ -20,6 +20,8 @@ public class AppDbContext : DbContext
     public DbSet<ActivityLog> ActivityLogs { get; set; }
     public DbSet<RoleClaim> RoleClaims { get; set; }
     public DbSet<UserClaim> UserClaims { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<RegistrationRequest> RegistrationRequests { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

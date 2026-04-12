@@ -59,17 +59,31 @@ const routes: Routes = [
       },
     ],
   },
-  {
-    path: 'profile',
-    component: AdminLayoutComponent,
-    children: [
-      {
-        path: '',
-        loadChildren: () => import('../profile/profile-module').then((m) => m.ProfileModule),
-      },
-    ],
-  },
-];
+{
+     path: 'profile',
+     component: AdminLayoutComponent,
+     children: [
+       {
+         path: '',
+         loadChildren: () => import('../profile/profile-module').then((m) => m.ProfileModule),
+       },
+     ],
+   },
+   {
+     path: 'logs',
+     component: AdminLayoutComponent,
+     children: [
+       {
+         path: 'activity',
+         loadChildren: () => import('../logs/activity/logs-activity.module').then((m) => m.LogsActivityModule),
+       },
+       {
+         path: 'audit',
+         loadChildren: () => import('../logs/audit/logs-audit.module').then((m) => m.LogsAuditModule),
+       },
+     ],
+   },
+ ];
 
 @NgModule({
   imports: [RouterModule.forChild(routes)],

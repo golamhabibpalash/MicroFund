@@ -18,19 +18,21 @@ export class AuthGuard implements CanActivate {
     route: ActivatedRouteSnapshot,
     state: RouterStateSnapshot
   ): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree {
-    if (this.isAuthenticated()) {
+    console.log('[AuthGuard] Checking auth for:', state.url);
+    const token = this.tokenService.getToken();
+    console.log('[AuthGuard] Token exists:', !!token);
+    console.log('[AuthGuard] Expired:', this.tokenService.isTokenExpired());
+    
+    if (token && !this.tokenService.isTokenExpired()) {
+      console.log('[AuthGuard] Allowing access');
       return true;
     }
 
+    console.log('[AuthGuard] Redirecting to login');
     this.router.navigate(['/auth/login'], {
       queryParams: { returnUrl: state.url },
     });
     return false;
-  }
-
-  private isAuthenticated(): boolean {
-    const token = this.tokenService.getToken();
-    return !!token && !this.tokenService.isTokenExpired();
   }
 }
 
@@ -39,11 +41,17 @@ export const authGuard: CanActivateFn = (route, state) => {
   const tokenService = inject(Token);
   const router = inject(Router);
 
+  console.log('[authGuard] Checking auth for:', state.url);
   const token = tokenService.getToken();
+  console.log('[authGuard] Token exists:', !!token);
+  console.log('[authGuard] Token expired:', tokenService.isTokenExpired());
+  
   if (token && !tokenService.isTokenExpired()) {
+    console.log('[authGuard] Allowing access');
     return true;
   }
 
+  console.log('[authGuard] Redirecting to login');
   router.navigate(['/auth/login'], {
     queryParams: { returnUrl: state.url },
   });

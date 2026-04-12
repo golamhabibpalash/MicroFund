@@ -9,6 +9,7 @@ using UnityMicroFund.API.Areas.Dashboard.Services;
 using UnityMicroFund.API.Areas.Investments.Services;
 using UnityMicroFund.API.Areas.Members.Services;
 using UnityMicroFund.API.Areas.Settings.Services;
+using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Infrastructure.ExceptionHandling;
 using UnityMicroFund.API.Infrastructure.Logging;
@@ -109,6 +110,7 @@ builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IRolesService, RolesService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 var app = builder.Build();
 

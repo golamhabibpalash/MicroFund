@@ -6,7 +6,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using UnityMicroFund.API.Areas.Auth.DTOs;
 using UnityMicroFund.API.Areas.Auth.Models;
+using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Data;
+using UnityMicroFund.API.Models;
 
 namespace UnityMicroFund.API.Areas.Auth.Services;
 
@@ -15,12 +17,14 @@ public class AuthService : IAuthService
     private readonly Data.AppDbContext _context;
     private readonly IJwtService _jwtService;
     private readonly IConfiguration _configuration;
+    private readonly INotificationService _notificationService;
 
-    public AuthService(Data.AppDbContext context, IJwtService jwtService, IConfiguration configuration)
+    public AuthService(Data.AppDbContext context, IJwtService jwtService, IConfiguration configuration, INotificationService notificationService)
     {
         _context = context;
         _jwtService = jwtService;
         _configuration = configuration;
+        _notificationService = notificationService;
     }
 
     public async Task<AuthResponseDto?> RegisterAsync(RegisterDto dto)
@@ -37,6 +41,7 @@ public class AuthService : IAuthService
             Email = dto.Email,
             PasswordHash = HashPassword(dto.Password),
             Role = Enum.TryParse<UnityMicroFund.API.Models.UserRole>(dto.Role, true, out var role) ? role : UnityMicroFund.API.Models.UserRole.Member,
+            IsActive = false,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -44,7 +49,25 @@ public class AuthService : IAuthService
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        return await GenerateAuthResponseAsync(user);
+        await _notificationService.CreateRegistrationRequestAsync(user.Id, user.Email, user.Name);
+
+        var admins = await _context.Users.Where(u => u.Role == UnityMicroFund.API.Models.UserRole.Admin && u.IsActive).ToListAsync();
+        foreach (var admin in admins)
+        {
+            await _notificationService.CreateNotificationAsync(
+                "New Registration Request",
+                $"User {user.Name} ({user.Email}) has registered and is waiting for approval.",
+                NotificationType.RegistrationApproval,
+                admin.Id,
+                user.Id,
+                user.Id
+            );
+        }
+
+        return new AuthResponseDto
+        {
+            Message = "Registration pending approval"
+        };
     }
 
     public async Task<AuthResponseDto?> RegisterWithMemberAsync(RegisterWithMemberDto dto)

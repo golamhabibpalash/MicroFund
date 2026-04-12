@@ -53,7 +53,7 @@
               "RelativeDocumentMoniker": "Areas\\Auth\\Services\\ProfileService.cs",
               "ToolTip": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Auth\\Services\\ProfileService.cs",
               "RelativeToolTip": "Areas\\Auth\\Services\\ProfileService.cs",
-              "ViewState": "AgIAAIMAAAAAAAAAAAApwKYAAAAIAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABEAAAAEAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-11T12:52:35.291Z",
               "EditorCaption": ""
@@ -81,8 +81,7 @@
               "RelativeToolTip": "Areas\\Auth\\Controllers\\AuthController.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAB8AAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-11T06:22:23.606Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-11T06:22:23.606Z"
             },
             {
               "$type": "Document",
@@ -92,7 +91,7 @@
               "RelativeDocumentMoniker": "Areas\\Profile\\Controllers\\ProfileController.cs",
               "ToolTip": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Profile\\Controllers\\ProfileController.cs",
               "RelativeToolTip": "Areas\\Profile\\Controllers\\ProfileController.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAACcAAAAEAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABYAAAAEAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-04-11T06:13:44.836Z",
               "EditorCaption": ""

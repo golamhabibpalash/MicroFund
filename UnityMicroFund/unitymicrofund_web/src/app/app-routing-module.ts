@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { authGuard } from './core/guards/auth-guard';
+import { authGuard, AuthGuard } from './core/guards/auth-guard';
 import { AdminLayoutComponent } from './layout/admin-layout.component';
 
 import { DashboardComponent } from './dashboard/dashboard.component';
@@ -20,7 +20,7 @@ const routes: Routes = [
   {
     path: 'dashboard',
     component: AdminLayoutComponent,
-    canActivate: [authGuard],
+    canActivate: [AuthGuard],
     children: [
       {
         path: '',
@@ -31,7 +31,7 @@ const routes: Routes = [
   {
     path: 'investments',
     component: AdminLayoutComponent,
-    canActivate: [authGuard],
+    canActivate: [AuthGuard],
     children: [
       {
         path: '',
@@ -42,7 +42,7 @@ const routes: Routes = [
   {
     path: 'investors',
     component: AdminLayoutComponent,
-    canActivate: [authGuard],
+    canActivate: [AuthGuard],
     children: [
       {
         path: '',
@@ -53,7 +53,7 @@ const routes: Routes = [
   {
     path: 'payments',
     component: AdminLayoutComponent,
-    canActivate: [authGuard],
+    canActivate: [AuthGuard],
     children: [
       {
         path: '',
@@ -64,7 +64,7 @@ const routes: Routes = [
   {
     path: 'reports',
     component: AdminLayoutComponent,
-    canActivate: [authGuard],
+    canActivate: [AuthGuard],
     children: [
       {
         path: '',
@@ -75,11 +75,26 @@ const routes: Routes = [
   {
     path: 'profile',
     component: AdminLayoutComponent,
-    canActivate: [authGuard],
+    canActivate: [AuthGuard],
     children: [
       {
         path: '',
         component: ProfileComponent,
+      },
+    ],
+  },
+  {
+    path: 'logs',
+    component: AdminLayoutComponent,
+    canActivate: [AuthGuard],
+    children: [
+      {
+        path: 'activity',
+        loadChildren: () => import('./logs/activity/logs-activity.module').then((m) => m.LogsActivityModule),
+      },
+      {
+        path: 'audit',
+        loadChildren: () => import('./logs/audit/logs-audit.module').then((m) => m.LogsAuditModule),
       },
     ],
   },

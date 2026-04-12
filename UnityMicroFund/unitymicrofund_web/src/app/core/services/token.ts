@@ -9,15 +9,22 @@ export class Token {
   private readonly tokenExpiryKey = 'token_expiry';
 
   saveToken(token: string): void {
+    console.log('Token.saveToken() - Saving token, length:', token.length);
     localStorage.setItem(this.tokenKey, token);
+    console.log('Token.saveToken() - Saved. All keys now:', Object.keys(localStorage));
   }
 
   getToken(): string | null {
-    return localStorage.getItem(this.tokenKey);
+    const token = localStorage.getItem(this.tokenKey);
+    console.log('[Token.getToken] key:', this.tokenKey, 'token exists:', !!token, 'all keys:', Object.keys(localStorage));
+    return token;
   }
 
   removeToken(): void {
+    console.log('[Token] Removing access_token. Before:', Object.keys(localStorage));
     localStorage.removeItem(this.tokenKey);
+    localStorage.removeItem(this.tokenExpiryKey);
+    console.log('[Token] After:', Object.keys(localStorage));
   }
 
   saveRefreshToken(token: string): void {
@@ -32,8 +39,13 @@ export class Token {
     localStorage.removeItem(this.refreshTokenKey);
   }
 
-  setTokenExpiry(expiresIn: number): void {
-    const expiryTime = new Date().getTime() + expiresIn * 1000;
+  setTokenExpiry(expiresAt: number | Date): void {
+    let expiryTime: number;
+    if (expiresAt instanceof Date) {
+      expiryTime = expiresAt.getTime();
+    } else {
+      expiryTime = expiresAt;
+    }
     localStorage.setItem(this.tokenExpiryKey, expiryTime.toString());
   }
 
@@ -42,7 +54,11 @@ export class Token {
     if (!expiryTime) {
       return true;
     }
-    return new Date().getTime() > parseInt(expiryTime, 10);
+    const expiryDate = new Date(parseInt(expiryTime, 10));
+    const now = new Date();
+    const isExpired = now.getTime() > expiryDate.getTime();
+    console.log('Token expiry check - Now:', now.toISOString(), 'Expiry:', expiryDate.toISOString(), 'Expired:', isExpired);
+    return isExpired;
   }
 
   getTokenExpiryTime(): number | null {
