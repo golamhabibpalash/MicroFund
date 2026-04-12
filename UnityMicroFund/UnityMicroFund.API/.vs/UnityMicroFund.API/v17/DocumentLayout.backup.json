@@ -3,16 +3,16 @@
   "WorkspaceRootPath": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|d:\\projects\\microfund\\unitymicrofund\\unitymicrofund.api\\areas\\auth\\services\\profileservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|solutionrelative:areas\\auth\\services\\profileservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|d:\\projects\\microfund\\unitymicrofund\\unitymicrofund.api\\areas\\profile\\controllers\\profilecontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|solutionrelative:areas\\profile\\controllers\\profilecontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|d:\\projects\\microfund\\unitymicrofund\\unitymicrofund.api\\areas\\members\\controllers\\memberscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|solutionrelative:areas\\members\\controllers\\memberscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|d:\\projects\\microfund\\unitymicrofund\\unitymicrofund.api\\areas\\auth\\services\\profileservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|solutionrelative:areas\\auth\\services\\profileservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|d:\\projects\\microfund\\unitymicrofund\\unitymicrofund.api\\areas\\auth\\services\\authservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -30,11 +30,11 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 4,
+          "SelectedChildIndex": 1,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 2,
               "Title": "MembersController.cs",
               "DocumentMoniker": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Members\\Controllers\\MembersController.cs",
               "RelativeDocumentMoniker": "Areas\\Members\\Controllers\\MembersController.cs",
@@ -42,12 +42,11 @@
               "RelativeToolTip": "Areas\\Members\\Controllers\\MembersController.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABcAAAAEAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-11T13:50:24.659Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-11T13:50:24.659Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 0,
               "Title": "ProfileService.cs",
               "DocumentMoniker": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Auth\\Services\\ProfileService.cs",
               "RelativeDocumentMoniker": "Areas\\Auth\\Services\\ProfileService.cs",
@@ -85,7 +84,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "ProfileController.cs",
               "DocumentMoniker": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Profile\\Controllers\\ProfileController.cs",
               "RelativeDocumentMoniker": "Areas\\Profile\\Controllers\\ProfileController.cs",
@@ -93,8 +92,7 @@
               "RelativeToolTip": "Areas\\Profile\\Controllers\\ProfileController.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABYAAAAEAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-11T06:13:44.836Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-04-11T06:13:44.836Z"
             }
           ]
         }
