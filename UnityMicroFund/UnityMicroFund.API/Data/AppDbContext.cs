@@ -20,6 +20,8 @@ public class AppDbContext : DbContext
     public DbSet<ActivityLog> ActivityLogs { get; set; }
     public DbSet<RoleClaim> RoleClaims { get; set; }
     public DbSet<UserClaim> UserClaims { get; set; }
+    public DbSet<Account> Accounts { get; set; }
+    public DbSet<Transaction> Transactions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -75,6 +77,21 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<UserClaim>(entity =>
         {
             entity.HasIndex(e => new { e.UserId, e.ClaimType }).IsUnique();
+        });
+
+        modelBuilder.Entity<Account>(entity =>
+        {
+            entity.Property(e => e.Balance).HasPrecision(18, 2);
+            entity.Property(e => e.AccountType).HasConversion<string>();
+            entity.HasIndex(e => e.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<Transaction>(entity =>
+        {
+            entity.Property(e => e.Amount).HasPrecision(18, 2);
+            entity.Property(e => e.Status).HasConversion<string>();
+            entity.Property(e => e.ApprovalStatus).HasConversion<string>();
+            entity.HasIndex(e => e.RefNo).IsUnique();
         });
 
         SeedData(modelBuilder);

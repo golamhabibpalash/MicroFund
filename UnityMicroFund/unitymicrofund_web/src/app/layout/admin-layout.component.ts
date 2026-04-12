@@ -30,6 +30,10 @@ import { CommonModule } from '@angular/common';
             <span class="material-icons">payments</span>
             <span>Payments</span>
           </a>
+          <a routerLink="/accounts" routerLinkActive="active" class="nav-item">
+            <span class="material-icons">account_balance</span>
+            <span>Accounts</span>
+          </a>
           <a routerLink="/reports" routerLinkActive="active" class="nav-item">
             <span class="material-icons">assessment</span>
             <span>Reports</span>

@@ -2,9 +2,15 @@
   <!-- Top Header -->
   <header class="top-header">
     <h1>Dashboard</h1>
-    <div class="user-info">
-      <span class="user-name">{{ userEmail }}</span>
-      <span class="material-icons">account_circle</span>
+    <div class="header-actions">
+      <button class="btn-create-transaction" routerLink="/payments">
+        <span class="material-icons">add_circle</span>
+        Create Transaction
+      </button>
+      <div class="user-info">
+        <span class="user-name">{{ userEmail }}</span>
+        <span class="material-icons">account_circle</span>
+      </div>
     </div>
   </header>
 
