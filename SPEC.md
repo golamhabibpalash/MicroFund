@@ -138,6 +138,58 @@
 - Total returns
 - Quick stats cards
 
+#### 3.6 Transaction Management (Priority: High)
+- Approved members can create transactions
+- Transaction types: Fund, Refund
+- Transaction fields:
+  - TransferFor (purpose of transfer)
+  - Amount (transaction amount)
+  - TransferBy (user who initiated)
+  - CreatedBy (creator)
+  - CreatedAt (creation timestamp)
+  - IsApproved (approval status)
+  - RefNo (unique reference number)
+  - Remarks (optional notes)
+  - Status (Fund/Refund)
+- Admin approval workflow:
+  - Transactions start as Pending
+  - Admin/Manager can approve or reject
+  - Approved Fund transactions add to account balance
+  - Approved Refund transactions subtract from account balance
+- Reference number auto-generation (TXN-YYYY-NNNNNN)
+
+#### 3.7 Account Management (Priority: High)
+- Various account types supported:
+  - MasterAccount (main fund)
+  - OperatingFund (day-to-day operations)
+  - ReserveFund (emergency reserves)
+  - InvestmentFund (investment pool)
+  - EmergencyFund (contingency)
+  - Other (custom accounts)
+- Account fields:
+  - Name
+  - Description
+  - AccountType
+  - Balance (current balance)
+  - Banking Information:
+    - BankName
+    - AccountHolderName
+    - AccountNumber
+    - RoutingNumber
+    - SwiftCode
+    - IBAN
+    - BranchName
+    - BranchAddress
+    - BankPhone
+    - BankEmail
+  - IsActive
+- Track total funded and refunded per account
+- CRUD operations for admin:
+  - Create new accounts with banking details
+  - View all accounts in card layout
+  - Edit account information
+  - Delete accounts (with validation)
+
 ### User Interactions
 - Pull to refresh on lists
 - Swipe to delete (with confirmation)
@@ -148,7 +200,7 @@
 ### Data Handling
 - **Local Storage**: SQLite via sqflite package
 - **State Management**: Provider pattern
-- **Data Models**: Member, Investment, Contribution
+- **Data Models**: Member, Investment, Contribution, Account, Transaction
 
 ### Edge Cases & Error Handling
 - Empty states with illustrations
@@ -263,3 +315,44 @@ lib/
 | memberId | TEXT | FOREIGN KEY |
 | investmentId | TEXT | FOREIGN KEY |
 | sharePercentage | REAL | NOT NULL |
+
+### Accounts Table
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | GUID | PRIMARY KEY |
+| name | TEXT | NOT NULL, UNIQUE |
+| description | TEXT | |
+| accountType | TEXT | NOT NULL |
+| balance | DECIMAL(18,2) | NOT NULL |
+| bankName | TEXT | |
+| accountHolderName | TEXT | |
+| accountNumber | TEXT | |
+| routingNumber | TEXT | |
+| swiftCode | TEXT | |
+| branchName | TEXT | |
+| branchAddress | TEXT | |
+| bankPhone | TEXT | |
+| bankEmail | TEXT | |
+| iban | TEXT | |
+| isActive | BOOLEAN | DEFAULT TRUE |
+| createdBy | TEXT | |
+| createdAt | DATETIME | NOT NULL |
+| updatedAt | DATETIME | NOT NULL |
+
+### Transactions Table
+| Column | Type | Constraints |
+|--------|------|-------------|
+| id | GUID | PRIMARY KEY |
+| refNo | TEXT | NOT NULL, UNIQUE |
+| transferFor | TEXT | NOT NULL |
+| amount | DECIMAL(18,2) | NOT NULL |
+| status | TEXT | NOT NULL (Fund/Refund) |
+| approvalStatus | TEXT | NOT NULL (Pending/Approved/Rejected) |
+| remarks | TEXT | |
+| approvedBy | GUID | FOREIGN KEY |
+| approvedAt | DATETIME | |
+| transferById | GUID | FOREIGN KEY |
+| createdById | GUID | FOREIGN KEY |
+| accountId | GUID | FOREIGN KEY |
+| createdAt | DATETIME | NOT NULL |
+| updatedAt | DATETIME | NOT NULL |

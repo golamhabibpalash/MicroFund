@@ -69,6 +69,90 @@ namespace UnityMicroFund.API.Migrations
                     b.ToTable("users");
                 });
 
+            modelBuilder.Entity("UnityMicroFund.API.Models.Account", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("AccountHolderName")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("AccountNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("AccountType")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<decimal>("Balance")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("BankEmail")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("BankName")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("BankPhone")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("BranchAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("BranchName")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Iban")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("RoutingNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("SwiftCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("accounts");
+                });
+
             modelBuilder.Entity("UnityMicroFund.API.Models.ActivityLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -531,6 +615,75 @@ namespace UnityMicroFund.API.Migrations
                     b.ToTable("role_claims");
                 });
 
+            modelBuilder.Entity("UnityMicroFund.API.Models.Transaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ApprovalStatus")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("ApprovedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("RefNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<Guid>("TransferById")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("TransferFor")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("ApprovedBy");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("RefNo")
+                        .IsUnique();
+
+                    b.HasIndex("TransferById");
+
+                    b.ToTable("transactions");
+                });
+
             modelBuilder.Entity("UnityMicroFund.API.Models.UserClaim", b =>
                 {
                     b.Property<Guid>("Id")
@@ -604,6 +757,39 @@ namespace UnityMicroFund.API.Migrations
                     b.Navigation("Member");
                 });
 
+            modelBuilder.Entity("UnityMicroFund.API.Models.Transaction", b =>
+                {
+                    b.HasOne("UnityMicroFund.API.Models.Account", "Account")
+                        .WithMany("Transactions")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("UnityMicroFund.API.Areas.Auth.Models.User", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedBy");
+
+                    b.HasOne("UnityMicroFund.API.Areas.Auth.Models.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("UnityMicroFund.API.Areas.Auth.Models.User", "TransferBy")
+                        .WithMany()
+                        .HasForeignKey("TransferById")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("TransferBy");
+                });
+
             modelBuilder.Entity("UnityMicroFund.API.Models.UserClaim", b =>
                 {
                     b.HasOne("UnityMicroFund.API.Areas.Auth.Models.User", "User")
@@ -613,6 +799,11 @@ namespace UnityMicroFund.API.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("UnityMicroFund.API.Models.Account", b =>
+                {
+                    b.Navigation("Transactions");
                 });
 
             modelBuilder.Entity("UnityMicroFund.API.Models.Investment", b =>
