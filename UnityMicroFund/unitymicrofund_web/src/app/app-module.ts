@@ -5,6 +5,7 @@ import { HttpClientModule } from '@angular/common/http';
 import { AppRoutingModule } from './app-routing-module';
 import { CoreModule } from './core/core-module';
 import { App } from './app';
+import { provideCharts, withDefaultRegisterables } from 'ng2-charts';
 
 @NgModule({
   declarations: [
@@ -15,6 +16,9 @@ import { App } from './app';
     HttpClientModule,
     AppRoutingModule,
     CoreModule
+  ],
+  providers: [
+    provideCharts(withDefaultRegisterables())
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   bootstrap: [App]

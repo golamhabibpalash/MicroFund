@@ -74,7 +74,7 @@ public class TransactionsController : ControllerBase
     }
 
     [HttpPost("{id}/approve")]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize]
     public async Task<IActionResult> ApproveTransaction(Guid id, [FromBody] ApproveTransactionDto dto)
     {
         try

@@ -74,7 +74,13 @@ export class Token {
 
     try {
       const payload = token.split('.')[1];
-      const decoded = JSON.parse(atob(payload));
+      let base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+      while (base64.length % 4) {
+        base64 += '=';
+      }
+      const decoded = JSON.parse(atob(base64));
+      console.log('[Token] Decoded token payload:', decoded);
+      console.log('[Token] Role in token:', decoded.role, decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']);
       return decoded;
     } catch (error) {
       console.error('Error decoding token:', error);
@@ -94,6 +100,13 @@ export class Token {
 
   getUserName(): string | null {
     const decoded = this.decodeToken();
-    return decoded?.name || null;
+    if (!decoded) return null;
+    
+    return decoded.name || 
+           decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] ||
+           decoded.unique_name ||
+           decoded['unique_name'] ||
+           decoded.userName ||
+           null;
   }
 }

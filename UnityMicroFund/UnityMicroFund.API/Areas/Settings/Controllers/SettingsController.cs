@@ -40,12 +40,65 @@ public class SettingsController : ControllerBase
         return Ok(result);
     }
 
+    #region User Management
+
     [HttpGet("users")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> GetAllUsers()
     {
         var users = await _rolesService.GetAllUsersAsync();
         return Ok(users);
+    }
+
+    [HttpGet("users/{userId}")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> GetUserById(Guid userId)
+    {
+        var user = await _rolesService.GetUserByIdAsync(userId);
+        if (user == null)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+        return Ok(user);
+    }
+
+    [HttpPost("users")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateUser([FromBody] CreateUserDto dto)
+    {
+        try
+        {
+            var user = await _rolesService.CreateUserAsync(dto);
+            return CreatedAtAction(nameof(GetUserById), new { userId = user.Id }, user);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("users/{userId}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateUser(Guid userId, [FromBody] UpdateUserDto dto)
+    {
+        var user = await _rolesService.UpdateUserAsync(userId, dto);
+        if (user == null)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+        return Ok(user);
+    }
+
+    [HttpDelete("users/{userId}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteUser(Guid userId)
+    {
+        var result = await _rolesService.DeleteUserAsync(userId);
+        if (!result)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+        return NoContent();
     }
 
     [HttpPut("users/{userId}/role")]
@@ -58,6 +111,14 @@ public class SettingsController : ControllerBase
             return NotFound(new { message = "User not found" });
         }
         return Ok(new { message = "Role updated successfully" });
+    }
+
+    [HttpPut("users/bulk-role")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> BulkUpdateUserRole([FromBody] BulkAssignRoleDto dto)
+    {
+        var count = await _rolesService.BulkUpdateUserRoleAsync(dto);
+        return Ok(new { message = $"{count} users updated successfully" });
     }
 
     [HttpGet("users/{userId}/claims")]
@@ -89,6 +150,80 @@ public class SettingsController : ControllerBase
         return NoContent();
     }
 
+    #endregion
+
+    #region Role Management
+
+    [HttpGet("roles")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> GetAllRoles()
+    {
+        var roles = await _rolesService.GetAllRolesAsync();
+        return Ok(roles);
+    }
+
+    [HttpGet("roles/{roleName}")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> GetRoleByName(string roleName)
+    {
+        var role = await _rolesService.GetRoleByNameAsync(roleName);
+        if (role == null)
+        {
+            return NotFound(new { message = "Role not found" });
+        }
+        return Ok(role);
+    }
+
+    [HttpPost("roles")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateRole([FromBody] CreateRoleDto dto)
+    {
+        try
+        {
+            var role = await _rolesService.CreateRoleAsync(dto);
+            return CreatedAtAction(nameof(GetRoleByName), new { roleName = role.Name }, role);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("roles/{roleName}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateRole(string roleName, [FromBody] UpdateRoleDto dto)
+    {
+        var role = await _rolesService.UpdateRoleAsync(roleName, dto);
+        if (role == null)
+        {
+            return NotFound(new { message = "Role not found" });
+        }
+        return Ok(role);
+    }
+
+    [HttpDelete("roles/{roleName}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteRole(string roleName)
+    {
+        try
+        {
+            var result = await _rolesService.DeleteRoleAsync(roleName);
+            if (!result)
+            {
+                return NotFound(new { message = "Role not found" });
+            }
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    #endregion
+
+    #region Role Claims / Permissions
+
     [HttpGet("role-claims")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> GetAllRoleClaims()
@@ -109,8 +244,30 @@ public class SettingsController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> AddRoleClaim([FromBody] CreateRoleClaimDto dto)
     {
-        var claim = await _rolesService.AddRoleClaimAsync(dto);
-        return CreatedAtAction(nameof(GetRoleClaims), new { role = dto.Role }, claim);
+        try
+        {
+            var claim = await _rolesService.AddRoleClaimAsync(dto);
+            return CreatedAtAction(nameof(GetRoleClaims), new { role = dto.Role }, claim);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpPost("role-claims/{role}/bulk")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> AddRoleClaims(string role, [FromBody] List<string> permissions)
+    {
+        try
+        {
+            await _rolesService.AddRoleClaimsAsync(role, permissions);
+            return Ok(new { message = $"{permissions.Count} permissions added to {role}" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpDelete("role-claims/{claimId}")]
@@ -125,6 +282,14 @@ public class SettingsController : ControllerBase
         return NoContent();
     }
 
+    [HttpDelete("role-claims/role/{role}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> RemoveAllRoleClaims(string role)
+    {
+        await _rolesService.RemoveAllRoleClaimsAsync(role);
+        return Ok(new { message = $"All claims removed from {role}" });
+    }
+
     [HttpGet("permissions/{role}")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> GetRolePermissions(string role)
@@ -132,4 +297,22 @@ public class SettingsController : ControllerBase
         var permissions = await _rolesService.GetRolePermissionsAsync(role);
         return Ok(permissions);
     }
+
+    [HttpGet("permissions-matrix")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> GetPermissionsMatrix()
+    {
+        var matrix = await _rolesService.GetPermissionsMatrixAsync();
+        return Ok(matrix);
+    }
+
+    [HttpGet("permission-categories")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> GetPermissionCategories()
+    {
+        var categories = await _rolesService.GetPermissionCategoriesAsync();
+        return Ok(categories);
+    }
+
+    #endregion
 }

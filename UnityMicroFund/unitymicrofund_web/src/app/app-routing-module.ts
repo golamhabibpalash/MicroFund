@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { authGuard, AuthGuard } from './core/guards/auth-guard';
+import { AuthGuard, AdminGuard } from './core/guards';
 import { AdminLayoutComponent } from './layout/admin-layout.component';
 
 import { DashboardComponent } from './dashboard/dashboard.component';
@@ -8,6 +8,9 @@ import { InvestorsComponent } from './investors/investors.component';
 import { ProfileComponent } from './profile/profile.component';
 import { PaymentsComponent } from './payments/payments.component';
 import { AccountsComponent } from './accounts/accounts.component';
+import { ReportsComponent } from './reports/reports.component';
+import { InvestmentsComponent } from './investments/investments.component';
+import { UserManagementComponent } from './user-management/user-management.component';
 import { LoginComponent } from './auth/login/login.component';
 import { RegisterComponent } from './auth/register/register.component';
 import { ForgotPasswordComponent } from './auth/forgot-password/forgot-password.component';
@@ -29,7 +32,7 @@ const routes: Routes = [
     path: 'investments',
     component: AdminLayoutComponent,
     canActivate: [AuthGuard],
-    children: [{ path: '', component: DashboardComponent }],
+    children: [{ path: '', component: InvestmentsComponent }],
   },
   {
     path: 'investors',
@@ -46,14 +49,14 @@ const routes: Routes = [
   {
     path: 'accounts',
     component: AdminLayoutComponent,
-    canActivate: [authGuard],
+    canActivate: [AuthGuard],
     children: [{ path: '', component: AccountsComponent }],
   },
   {
     path: 'reports',
     component: AdminLayoutComponent,
     canActivate: [AuthGuard],
-    children: [{ path: '', component: DashboardComponent }],
+    children: [{ path: '', component: ReportsComponent }],
   },
   {
     path: 'profile',
@@ -70,11 +73,17 @@ const routes: Routes = [
       { path: 'audit', component: LogsAuditComponent },
     ],
   },
+  {
+    path: 'users',
+    component: AdminLayoutComponent,
+    canActivate: [AuthGuard, AdminGuard],
+    children: [{ path: '', component: UserManagementComponent }],
+  },
   { path: '**', redirectTo: '/auth/login' },
 ];
 
 @NgModule({
-  imports: [RouterModule.forRoot(routes)],
+  imports: [RouterModule.forRoot(routes, { onSameUrlNavigation: 'reload' })],
   exports: [RouterModule],
 })
 export class AppRoutingModule {}

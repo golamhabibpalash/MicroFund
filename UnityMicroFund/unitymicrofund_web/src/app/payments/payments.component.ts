@@ -1,7 +1,9 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router, NavigationEnd } from '@angular/router';
 import { TransactionService, Account, Transaction, CreateTransactionRequest } from '../core/services/transaction';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-payments',
@@ -753,10 +755,23 @@ export class PaymentsComponent implements OnInit {
 
   constructor(
     private transactionService: TransactionService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private router: Router
   ) {}
 
   ngOnInit() {
+    this.loadData();
+    
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe((event: NavigationEnd) => {
+      if (event.url.includes('/payments')) {
+        this.loadData();
+      }
+    });
+  }
+
+  loadData() {
     this.loadAccounts();
     this.loadTransactions();
   }
@@ -863,13 +878,14 @@ export class PaymentsComponent implements OnInit {
     if (!this.selectedTransaction) return;
 
     this.isSubmitting = true;
+    console.log('Approving transaction:', this.selectedTransaction.id);
     this.transactionService.approveTransaction(
       this.selectedTransaction.id,
       true,
       this.approvalRemarks || undefined
     ).subscribe({
-      next: () => {
-        console.log('Transaction approved');
+      next: (result) => {
+        console.log('Transaction approved:', result);
         this.isSubmitting = false;
         alert('Transaction approved successfully!');
         this.closeApproveModal();
@@ -877,8 +893,11 @@ export class PaymentsComponent implements OnInit {
       },
       error: (err) => {
         console.error('Failed to approve transaction:', err);
+        console.error('Error status:', err.status);
+        console.error('Error message:', err.error);
         this.isSubmitting = false;
-        alert('Failed to approve transaction. Please try again.');
+        const errorMsg = err.error?.message || (err.status === 403 ? 'You do not have permission to approve transactions. Admin/Manager role required.' : 'Failed to approve transaction. Please try again.');
+        alert(errorMsg);
       }
     });
   }
@@ -887,13 +906,14 @@ export class PaymentsComponent implements OnInit {
     if (!this.selectedTransaction) return;
 
     this.isSubmitting = true;
+    console.log('Rejecting transaction:', this.selectedTransaction.id);
     this.transactionService.approveTransaction(
       this.selectedTransaction.id,
       false,
       this.approvalRemarks || undefined
     ).subscribe({
-      next: () => {
-        console.log('Transaction rejected');
+      next: (result) => {
+        console.log('Transaction rejected:', result);
         this.isSubmitting = false;
         alert('Transaction rejected.');
         this.closeApproveModal();
@@ -901,8 +921,11 @@ export class PaymentsComponent implements OnInit {
       },
       error: (err) => {
         console.error('Failed to reject transaction:', err);
+        console.error('Error status:', err.status);
+        console.error('Error message:', err.error);
         this.isSubmitting = false;
-        alert('Failed to reject transaction. Please try again.');
+        const errorMsg = err.error?.message || (err.status === 403 ? 'You do not have permission to reject transactions. Admin/Manager role required.' : 'Failed to reject transaction. Please try again.');
+        alert(errorMsg);
       }
     });
   }
