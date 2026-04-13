@@ -8,113 +8,69 @@ import { InvestorsComponent } from './investors/investors.component';
 import { ProfileComponent } from './profile/profile.component';
 import { PaymentsComponent } from './payments/payments.component';
 import { AccountsComponent } from './accounts/accounts.component';
+import { LoginComponent } from './auth/login/login.component';
+import { RegisterComponent } from './auth/register/register.component';
+import { ForgotPasswordComponent } from './auth/forgot-password/forgot-password.component';
+import { LogsActivityComponent } from './logs/activity/logs-activity.component';
+import { LogsAuditComponent } from './logs/audit/logs-audit.component';
 
 const routes: Routes = [
-  {
-    path: '',
-    redirectTo: '/auth/login',
-    pathMatch: 'full',
-  },
-  {
-    path: 'auth',
-    loadChildren: () => import('./auth/auth-module').then((m) => m.AuthModule),
-  },
+  { path: '', redirectTo: '/auth/login', pathMatch: 'full' },
+  { path: 'auth/login', component: LoginComponent },
+  { path: 'auth/register', component: RegisterComponent },
+  { path: 'auth/forgot-password', component: ForgotPasswordComponent },
   {
     path: 'dashboard',
     component: AdminLayoutComponent,
     canActivate: [AuthGuard],
-    children: [
-      {
-        path: '',
-        component: DashboardComponent,
-      },
-    ],
+    children: [{ path: '', component: DashboardComponent }],
   },
   {
     path: 'investments',
     component: AdminLayoutComponent,
     canActivate: [AuthGuard],
-    children: [
-      {
-        path: '',
-        component: DashboardComponent,
-      },
-    ],
+    children: [{ path: '', component: DashboardComponent }],
   },
   {
     path: 'investors',
     component: AdminLayoutComponent,
     canActivate: [AuthGuard],
-    children: [
-      {
-        path: '',
-        component: InvestorsComponent,
-      },
-    ],
+    children: [{ path: '', component: InvestorsComponent }],
   },
   {
     path: 'payments',
     component: AdminLayoutComponent,
     canActivate: [AuthGuard],
-    children: [
-      {
-        path: '',
-        component: PaymentsComponent,
-      },
-    ],
+    children: [{ path: '', component: PaymentsComponent }],
   },
   {
     path: 'accounts',
     component: AdminLayoutComponent,
     canActivate: [authGuard],
-    children: [
-      {
-        path: '',
-        component: AccountsComponent,
-      },
-    ],
+    children: [{ path: '', component: AccountsComponent }],
   },
   {
     path: 'reports',
     component: AdminLayoutComponent,
     canActivate: [AuthGuard],
-    children: [
-      {
-        path: '',
-        component: DashboardComponent,
-      },
-    ],
+    children: [{ path: '', component: DashboardComponent }],
   },
   {
     path: 'profile',
     component: AdminLayoutComponent,
     canActivate: [AuthGuard],
-    children: [
-      {
-        path: '',
-        component: ProfileComponent,
-      },
-    ],
+    children: [{ path: '', component: ProfileComponent }],
   },
   {
     path: 'logs',
     component: AdminLayoutComponent,
     canActivate: [AuthGuard],
     children: [
-      {
-        path: 'activity',
-        loadChildren: () => import('./logs/activity/logs-activity.module').then((m) => m.LogsActivityModule),
-      },
-      {
-        path: 'audit',
-        loadChildren: () => import('./logs/audit/logs-audit.module').then((m) => m.LogsAuditModule),
-      },
+      { path: 'activity', component: LogsActivityComponent },
+      { path: 'audit', component: LogsAuditComponent },
     ],
   },
-  {
-    path: '**',
-    redirectTo: '/auth/login',
-  },
+  { path: '**', redirectTo: '/auth/login' },
 ];
 
 @NgModule({
