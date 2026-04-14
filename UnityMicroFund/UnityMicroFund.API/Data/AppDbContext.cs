@@ -1,4 +1,8 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
+using UnityMicroFund.API.Models;
+using UnityMicroFund.API.Areas.Auth.Models;
 using UnityMicroFund.API.Models;
 using UnityMicroFund.API.Areas.Auth.Models;
 
@@ -103,6 +107,29 @@ public class AppDbContext : DbContext
     {
         var now = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         
+        var passwordHash = HashPassword("admin123");
+
+        static string HashPassword(string password)
+        {
+            using var sha256 = SHA256.Create();
+            var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+            return Convert.ToBase64String(hashedBytes);
+        }
+
+        modelBuilder.Entity<User>().HasData(
+            new User
+            {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                Name = "System Admin",
+                Email = "admin@unitymicrofund.com",
+                PasswordHash = passwordHash,
+                Role = UserRole.Admin,
+                IsActive = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            }
+        );
+
         modelBuilder.Entity<GroupSetting>().HasData(
             new GroupSetting
             {

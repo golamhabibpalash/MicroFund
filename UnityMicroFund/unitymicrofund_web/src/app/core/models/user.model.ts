@@ -6,8 +6,9 @@ export interface User {
   email: string;
   role: UserRole;
   isActive: boolean;
-  createdAt: string;
-  claims: string[];
+  createdAt?: string;
+  updatedAt?: string;
+  claims?: string[];
 }
 
 export interface UserDetail extends User {

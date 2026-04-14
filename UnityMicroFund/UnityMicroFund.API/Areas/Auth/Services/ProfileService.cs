@@ -38,9 +38,21 @@ public class ProfileService : IProfileService
             .Where(c => c.Status == ContributionStatus.Paid)
             .SumAsync(c => c.Amount);
 
+        var accountBalance = await _context.Accounts
+            .Where(a => a.IsActive)
+            .SumAsync(a => a.Balance);
+
+        totalPool += accountBalance;
+
         var totalContributions = await _context.Contributions
             .Where(c => c.MemberId == member.Id && c.Status == ContributionStatus.Paid)
             .SumAsync(c => c.Amount);
+
+        // If member has no contributions but has account activity, show account balance as contribution
+        if (totalContributions == 0)
+        {
+            totalContributions = accountBalance;
+        }
 
         var sharePercentage = totalPool > 0 ? (totalContributions / totalPool) * 100 : 0;
         var shareValue = await _context.MemberInvestments

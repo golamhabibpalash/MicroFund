@@ -5,6 +5,7 @@ import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { AccountService, Account, CreateAccountRequest, UpdateAccountRequest } from '../core/services/account';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
+import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 
 const MOCK_ACCOUNTS: Account[] = [
   {
@@ -132,7 +133,7 @@ const MOCK_ACCOUNTS: Account[] = [
 @Component({
   selector: 'app-accounts',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, BdtCurrencyPipe],
   template: `
     <div class="accounts-wrapper">
       <header class="top-header">
@@ -171,7 +172,7 @@ const MOCK_ACCOUNTS: Account[] = [
             <span class="material-icons">account_balance_wallet</span>
           </div>
           <div class="stat-info">
-            <span class="stat-value">{{ totalBalance | currency }}</span>
+            <span class="stat-value">{{ totalBalance | bdtCurrency }}</span>
             <span class="stat-label">Total Balance</span>
           </div>
         </div>
@@ -226,9 +227,9 @@ const MOCK_ACCOUNTS: Account[] = [
                 </td>
                 <td>{{ account.bankName || '-' }}</td>
                 <td class="mono">{{ account.accountNumber || '-' }}</td>
-                <td class="balance">{{ account.balance | currency }}</td>
-                <td class="funded">{{ account.totalFunded | currency }}</td>
-                <td class="refunded">{{ account.totalRefunded | currency }}</td>
+                <td class="balance">{{ account.balance | bdtCurrency }}</td>
+                <td class="funded">{{ account.totalFunded | bdtCurrency }}</td>
+                <td class="refunded">{{ account.totalRefunded | bdtCurrency }}</td>
                 <td class="transactions">{{ account.transactionCount }}</td>
                 <td>
                   <span class="status-badge" [class.active]="account.isActive" [class.inactive]="!account.isActive">
@@ -267,7 +268,7 @@ const MOCK_ACCOUNTS: Account[] = [
               </span>
             </div>
             <h3 class="account-name">{{ account.name }}</h3>
-            <p class="account-balance">{{ account.balance | currency }}</p>
+            <p class="account-balance">{{ account.balance | bdtCurrency }}</p>
             
             <div class="banking-details" *ngIf="account.bankName">
               <div class="detail-row">
@@ -287,11 +288,11 @@ const MOCK_ACCOUNTS: Account[] = [
             <div class="card-stats">
               <div class="mini-stat">
                 <span class="label">Funded</span>
-                <span class="value funded">{{ account.totalFunded | currency }}</span>
+                <span class="value funded">{{ account.totalFunded | bdtCurrency }}</span>
               </div>
               <div class="mini-stat">
                 <span class="label">Refunded</span>
-                <span class="value refunded">{{ account.totalRefunded | currency }}</span>
+                <span class="value refunded">{{ account.totalRefunded | bdtCurrency }}</span>
               </div>
               <div class="mini-stat">
                 <span class="label">Txns</span>
@@ -549,6 +550,35 @@ const MOCK_ACCOUNTS: Account[] = [
     .modal-body p { margin: 0 0 12px 0; color: #333; }
     .warning-text { color: #e74c3c; font-size: 13px; }
     .material-icons { font-size: 20px; }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .accounts-table { font-size: 13px; }
+      .accounts-table th, .accounts-table td { padding: 12px 8px; }
+    }
+    @media (max-width: 992px) {
+      .page-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .header-actions { width: 100%; justify-content: flex-start; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .accounts-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .top-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .search-box { width: 100%; }
+      .header-actions { width: 100%; flex-wrap: wrap; }
+      .btn { padding: 8px 16px; font-size: 13px; }
+      .table-container { overflow-x: auto; }
+      .accounts-table { min-width: 600px; }
+      .view-toggle { display: none; }
+    }
+    @media (max-width: 576px) {
+      .page-header h1 { font-size: 20px; }
+      .stat-card { padding: 16px; }
+      .stat-card .stat-value { font-size: 20px; }
+      .modal-content { margin: 12px; padding: 16px; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
   `]
 })
 export class AccountsComponent implements OnInit, OnDestroy {
@@ -558,6 +588,7 @@ export class AccountsComponent implements OnInit, OnDestroy {
   showDeleteModal = false;
   isEditMode = false;
   isSubmitting = false;
+  isLoading = false;
   selectedAccountId: string | null = null;
   accountToDelete: Account | null = null;
   viewMode: 'table' | 'card' = 'table';
@@ -639,32 +670,24 @@ export class AccountsComponent implements OnInit, OnDestroy {
   }
 
   loadAccounts() {
-    console.log('Loading accounts...');
+    this.isLoading = true;
     this.accountService.getAccounts().subscribe({
       next: (accounts) => {
-        console.log('API Response - Accounts:', accounts);
-        console.log('Accounts count:', accounts?.length);
         this.accounts = Array.isArray(accounts) ? accounts : [];
         this.filteredAccounts = [...this.accounts];
-        console.log('Accounts after assignment:', this.accounts);
         
         if (this.accounts.length === 0) {
-          console.log('No accounts from API, using mock data for demo');
           this.accounts = [...MOCK_ACCOUNTS];
           this.filteredAccounts = [...this.accounts];
         }
+        this.isLoading = false;
+        this.cdr.detectChanges();
       },
-      error: (err) => {
-        console.error('Failed to load accounts:', err);
-        console.error('Error status:', err.status);
-        console.error('Error message:', err.message);
-        
-        console.log('API error, using mock data for demo');
+      error: () => {
         this.accounts = [...MOCK_ACCOUNTS];
         this.filteredAccounts = [...this.accounts];
-      },
-      complete: () => {
-        console.log('Account loading complete. Total accounts:', this.accounts.length);
+        this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }

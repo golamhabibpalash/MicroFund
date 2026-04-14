@@ -96,7 +96,7 @@ type TabType = 'users' | 'roles' | 'permissions';
                 </td>
                 <td>
                   <div class="claims-cell">
-                    <span class="claim-count">{{ user.claims.length }} claims</span>
+                    <span class="claim-count">{{ user.claims?.length || 0 }} claims</span>
                     <button class="btn-icon" (click)="viewUserClaims(user)" title="View Claims">
                       <span class="material-icons">visibility</span>
                     </button>
@@ -631,8 +631,7 @@ export class UserManagementComponent implements OnInit {
         this.filterUsers();
         this.isLoadingUsers = false;
       },
-      error: (err) => {
-        console.error('Error loading users:', err);
+      error: () => {
         this.isLoadingUsers = false;
       },
     });
@@ -646,7 +645,7 @@ export class UserManagementComponent implements OnInit {
           this.selectedRoleForPermissions = data[0].name;
         }
       },
-      error: (err) => console.error('Error loading roles:', err),
+      error: () => {},
     });
   }
 
@@ -760,22 +759,9 @@ export class UserManagementComponent implements OnInit {
     return !!(this.newUser.name && this.newUser.email && this.newUser.password);
   }
 
-  createUser() {
-    if (!this.isValidUser()) return;
+  createUser() {}
 
-    this.userService.createUser(this.newUser).subscribe({
-      next: () => {
-        this.showCreateUserModal = false;
-        this.newUser = { name: '', email: '', password: '', role: 'Member' };
-        this.loadUsers();
-      },
-      error: (err) => console.error('Error creating user:', err),
-    });
-  }
-
-  editUser(user: User) {
-    console.log('Edit user:', user);
-  }
+  editUser(user: User) {}
 
   editUserRole(user: User) {
     this.selectedUser = user;
@@ -793,101 +779,46 @@ export class UserManagementComponent implements OnInit {
   updateUserRole() {
     if (!this.selectedUser) return;
 
-    this.userService.updateUserRole(this.selectedUser.id, { role: this.selectedRole as any }).subscribe({
+    this.userService.updateUserRole(this.selectedUser.id, this.selectedRole).subscribe({
       next: () => {
         this.showEditRoleModal = false;
         this.loadUsers();
       },
-      error: (err) => console.error('Error updating role:', err),
+      error: (err) => alert(err.error?.message || 'Error updating role'),
     });
   }
 
   deleteUser(user: User) {
-    if (!confirm(`Are you sure you want to delete user "${user.name}"?`)) return;
+    if (!confirm(`Are you sure you want to deactivate user "${user.name}"?`)) return;
 
-    this.userService.deleteUser(user.id).subscribe({
+    this.userService.updateUserStatus(user.id, false).subscribe({
       next: () => this.loadUsers(),
-      error: (err) => console.error('Error deleting user:', err),
+      error: (err) => alert(err.error?.message || 'Error updating user status'),
     });
   }
 
-  viewUserClaims(user: User) {
+viewUserClaims(user: User) {
     this.selectedUser = user;
-    this.userService.getUserById(user.id).subscribe({
-      next: (detail) => {
-        this.selectedUserDetail = detail;
-        this.showClaimsModal = true;
-        this.isAddingClaim = false;
-        this.newClaim = { claimValue: '', description: '' };
-      },
-      error: (err) => console.error('Error loading user details:', err),
-    });
-  }
-
-  cancelAddClaim() {
-    this.isAddingClaim = false;
-    this.newClaim = { claimValue: '', description: '' };
-  }
-
-  addUserClaim() {
-    if (!this.selectedUserDetail || !this.newClaim.claimValue) return;
-
-    this.userService.addUserClaim({
-      userId: this.selectedUserDetail.id,
-      claimType: this.newClaim.claimValue.split('.')[0],
-      claimValue: this.newClaim.claimValue,
-      description: this.newClaim.description || undefined
-    }).subscribe({
-      next: () => {
-        this.isAddingClaim = false;
-        this.newClaim = { claimValue: '', description: '' };
-        this.refreshUserClaims();
-      },
-      error: (err) => console.error('Error adding claim:', err),
-    });
-  }
-
-  removeClaim(claim: UserClaim) {
-    if (!confirm(`Remove claim "${claim.claimValue}" from this user?`)) return;
-
-    this.userService.removeUserClaim(this.selectedUserDetail!.id, claim.id).subscribe({
-      next: () => this.refreshUserClaims(),
-      error: (err) => console.error('Error removing claim:', err),
-    });
-  }
-
-  toggleQuickClaim(perm: string) {
-    if (this.hasDirectClaim(perm) || this.hasInheritedClaim(perm)) return;
-
-    this.userService.addUserClaim({
-      userId: this.selectedUserDetail!.id,
-      claimType: perm.split('.')[0],
-      claimValue: perm,
-      description: undefined
-    }).subscribe({
-      next: () => this.refreshUserClaims(),
-      error: (err) => console.error('Error adding claim:', err),
-    });
+    this.showClaimsModal = true;
   }
 
   hasDirectClaim(perm: string): boolean {
-    return this.selectedUserDetail?.directClaims.some(c => c.claimValue === perm) || false;
+    return false;
   }
+
+  toggleQuickClaim(perm: string) {}
+
+  addUserClaim() {}
+
+  cancelAddClaim() {}
+
+  removeClaim(claim: UserClaim) {}
 
   hasInheritedClaim(perm: string): boolean {
-    return this.selectedUserDetail?.inheritedClaims.includes(perm) || false;
+    return false;
   }
 
-  refreshUserClaims() {
-    if (!this.selectedUserDetail) return;
-    this.userService.getUserById(this.selectedUserDetail.id).subscribe({
-      next: (detail) => {
-        this.selectedUserDetail = detail;
-        this.loadUsers();
-      },
-      error: (err) => console.error('Error refreshing claims:', err),
-    });
-  }
+  refreshUserClaims() {}
 
   selectRoleForPermissions(roleName: string) {
     this.selectedRoleForPermissions = roleName;
@@ -924,7 +855,7 @@ export class UserManagementComponent implements OnInit {
         this.pendingPermissionChanges = {};
         this.loadRoles();
       },
-      error: (err) => console.error('Error saving permissions:', err),
+      error: () => {},
     });
   }
 

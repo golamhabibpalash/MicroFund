@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
 import { TransactionService, Account, Transaction, CreateTransactionRequest } from '../core/services/transaction';
 import { filter } from 'rxjs/operators';
+import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 
 @Component({
   selector: 'app-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, BdtCurrencyPipe],
   template: `
     <div class="payments-wrapper">
       <!-- Header -->
@@ -27,7 +28,7 @@ import { filter } from 'rxjs/operators';
             <span class="material-icons">account_balance_wallet</span>
           </div>
           <div class="stat-info">
-            <span class="stat-value">{{ totalFunded | currency }}</span>
+            <span class="stat-value">{{ totalFunded | bdtCurrency }}</span>
             <span class="stat-label">Total Funded</span>
           </div>
         </div>
@@ -36,7 +37,7 @@ import { filter } from 'rxjs/operators';
             <span class="material-icons">money_off</span>
           </div>
           <div class="stat-info">
-            <span class="stat-value">{{ totalRefunded | currency }}</span>
+            <span class="stat-value">{{ totalRefunded | bdtCurrency }}</span>
             <span class="stat-label">Total Refunded</span>
           </div>
         </div>
@@ -73,7 +74,7 @@ import { filter } from 'rxjs/operators';
               <tr *ngFor="let tx of transactions">
                 <td class="ref-no">{{ tx.refNo }}</td>
                 <td>{{ tx.transferFor }}</td>
-                <td class="amount">{{ tx.amount | currency }}</td>
+                <td class="amount">{{ tx.amount | bdtCurrency }}</td>
                 <td>{{ tx.accountName }}</td>
                 <td>
                   <span class="tx-type" [class.fund]="tx.status === 'Fund'" [class.refund]="tx.status === 'Refund'">
@@ -184,7 +185,7 @@ import { filter } from 'rxjs/operators';
             </div>
             <div class="detail-row">
               <span class="label">Amount:</span>
-              <span class="value amount">{{ selectedTransaction.amount | currency }}</span>
+              <span class="value amount">{{ selectedTransaction.amount | bdtCurrency }}</span>
             </div>
             <div class="detail-row">
               <span class="label">Status:</span>
@@ -243,7 +244,7 @@ import { filter } from 'rxjs/operators';
             </div>
             <div class="detail-row">
               <span class="label">Amount:</span>
-              <span class="value amount">{{ selectedTransaction.amount | currency }}</span>
+              <span class="value amount">{{ selectedTransaction.amount | bdtCurrency }}</span>
             </div>
             <div class="detail-row">
               <span class="label">Type:</span>
@@ -729,6 +730,32 @@ import { filter } from 'rxjs/operators';
       color: #667eea;
       font-size: 16px;
     }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 992px) {
+      .top-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .header-actions { width: 100%; }
+      .stats-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .top-header h1 { font-size: 20px; }
+      .search-box { width: 100%; margin-bottom: 12px; }
+      .header-actions { flex-wrap: wrap; gap: 8px; }
+      .btn { padding: 8px 12px; font-size: 13px; }
+      .table-container { overflow-x: auto; }
+      .transactions-table { min-width: 600px; }
+      .modal-content { margin: 12px; max-width: calc(100% - 24px); }
+    }
+    @media (max-width: 576px) {
+      .stats-card { padding: 16px; }
+      .stats-card .stat-value { font-size: 20px; }
+      .stat-label { font-size: 12px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .detail-grid { grid-template-columns: 1fr; }
+    }
   `]
 })
 export class PaymentsComponent implements OnInit {
@@ -738,6 +765,7 @@ export class PaymentsComponent implements OnInit {
   showApproveModal = false;
   showViewModal = false;
   isSubmitting = false;
+  isLoading = false;
   selectedTransaction: Transaction | null = null;
   approvalRemarks = '';
   
@@ -772,14 +800,22 @@ export class PaymentsComponent implements OnInit {
   }
 
   loadData() {
+    this.isLoading = true;
     this.loadAccounts();
     this.loadTransactions();
   }
 
   loadAccounts() {
     this.transactionService.getAccounts().subscribe({
-      next: (accounts) => this.accounts = accounts.filter(a => a.isActive),
-      error: (err) => console.error('Failed to load accounts:', err)
+      next: (accounts) => {
+        this.accounts = accounts.filter(a => a.isActive);
+        this.isLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.isLoading = false;
+        this.cdr.detectChanges();
+      }
     });
   }
 
@@ -788,8 +824,11 @@ export class PaymentsComponent implements OnInit {
       next: (transactions) => {
         this.transactions = transactions;
         this.calculateStats();
+        this.cdr.detectChanges();
       },
-      error: (err) => console.error('Failed to load transactions:', err)
+      error: () => {
+        this.cdr.detectChanges();
+      }
     });
   }
 
@@ -831,11 +870,9 @@ export class PaymentsComponent implements OnInit {
     }
 
     this.isSubmitting = true;
-    console.log('Creating transaction with data:', this.newTransaction);
     
     this.transactionService.createTransaction(this.newTransaction).subscribe({
-      next: (result) => {
-        console.log('Transaction created successfully:', result);
+      next: () => {
         this.isSubmitting = false;
         alert('Transaction created successfully! It will be reviewed by an admin.');
         this.showModal = false;
@@ -843,8 +880,7 @@ export class PaymentsComponent implements OnInit {
         this.cdr.detectChanges();
         this.loadTransactions();
       },
-      error: (err) => {
-        console.error('Failed to create transaction:', err);
+      error: () => {
         this.isSubmitting = false;
         alert('Failed to create transaction. Please try again.');
         this.cdr.detectChanges();
@@ -878,23 +914,18 @@ export class PaymentsComponent implements OnInit {
     if (!this.selectedTransaction) return;
 
     this.isSubmitting = true;
-    console.log('Approving transaction:', this.selectedTransaction.id);
     this.transactionService.approveTransaction(
       this.selectedTransaction.id,
       true,
       this.approvalRemarks || undefined
     ).subscribe({
-      next: (result) => {
-        console.log('Transaction approved:', result);
+      next: () => {
         this.isSubmitting = false;
         alert('Transaction approved successfully!');
         this.closeApproveModal();
         this.loadTransactions();
       },
       error: (err) => {
-        console.error('Failed to approve transaction:', err);
-        console.error('Error status:', err.status);
-        console.error('Error message:', err.error);
         this.isSubmitting = false;
         const errorMsg = err.error?.message || (err.status === 403 ? 'You do not have permission to approve transactions. Admin/Manager role required.' : 'Failed to approve transaction. Please try again.');
         alert(errorMsg);
@@ -906,23 +937,18 @@ export class PaymentsComponent implements OnInit {
     if (!this.selectedTransaction) return;
 
     this.isSubmitting = true;
-    console.log('Rejecting transaction:', this.selectedTransaction.id);
     this.transactionService.approveTransaction(
       this.selectedTransaction.id,
       false,
       this.approvalRemarks || undefined
     ).subscribe({
-      next: (result) => {
-        console.log('Transaction rejected:', result);
+      next: () => {
         this.isSubmitting = false;
         alert('Transaction rejected.');
         this.closeApproveModal();
         this.loadTransactions();
       },
       error: (err) => {
-        console.error('Failed to reject transaction:', err);
-        console.error('Error status:', err.status);
-        console.error('Error message:', err.error);
         this.isSubmitting = false;
         const errorMsg = err.error?.message || (err.status === 403 ? 'You do not have permission to reject transactions. Admin/Manager role required.' : 'Failed to reject transaction. Please try again.');
         alert(errorMsg);

@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -132,6 +133,24 @@ app.UseSwaggerUI(c =>
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseActivityLogging();
+
+var contentTypeProvider = new FileExtensionContentTypeProvider();
+contentTypeProvider.Mappings[".jpeg"] = "image/jpeg";
+contentTypeProvider.Mappings[".jpg"] = "image/jpeg";
+contentTypeProvider.Mappings[".png"] = "image/png";
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
+        "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/unitymicrofund_web/dist/unitymicrofund_web/browser/assets"),
+    RequestPath = "/assets",
+    ContentTypeProvider = contentTypeProvider,
+    ServeUnknownFileTypes = false,
+    DefaultContentType = "application/octet-stream"
+});
+
+app.UseDefaultFiles();
+
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())

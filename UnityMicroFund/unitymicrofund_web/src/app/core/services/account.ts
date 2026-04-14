@@ -78,7 +78,6 @@ export class AccountService {
   }
 
   createAccount(account: CreateAccountRequest): Observable<Account> {
-    console.log('Creating account with data:', JSON.stringify(account, null, 2));
     return this.http.post<Account>(this.apiUrl, account);
   }
 

@@ -9,22 +9,16 @@ export class Token {
   private readonly tokenExpiryKey = 'token_expiry';
 
   saveToken(token: string): void {
-    console.log('Token.saveToken() - Saving token, length:', token.length);
     localStorage.setItem(this.tokenKey, token);
-    console.log('Token.saveToken() - Saved. All keys now:', Object.keys(localStorage));
   }
 
   getToken(): string | null {
-    const token = localStorage.getItem(this.tokenKey);
-    console.log('[Token.getToken] key:', this.tokenKey, 'token exists:', !!token, 'all keys:', Object.keys(localStorage));
-    return token;
+    return localStorage.getItem(this.tokenKey);
   }
 
   removeToken(): void {
-    console.log('[Token] Removing access_token. Before:', Object.keys(localStorage));
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.tokenExpiryKey);
-    console.log('[Token] After:', Object.keys(localStorage));
   }
 
   saveRefreshToken(token: string): void {
@@ -56,9 +50,7 @@ export class Token {
     }
     const expiryDate = new Date(parseInt(expiryTime, 10));
     const now = new Date();
-    const isExpired = now.getTime() > expiryDate.getTime();
-    console.log('Token expiry check - Now:', now.toISOString(), 'Expiry:', expiryDate.toISOString(), 'Expired:', isExpired);
-    return isExpired;
+    return now.getTime() > expiryDate.getTime();
   }
 
   getTokenExpiryTime(): number | null {
@@ -78,12 +70,8 @@ export class Token {
       while (base64.length % 4) {
         base64 += '=';
       }
-      const decoded = JSON.parse(atob(base64));
-      console.log('[Token] Decoded token payload:', decoded);
-      console.log('[Token] Role in token:', decoded.role, decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/role']);
-      return decoded;
+      return JSON.parse(atob(base64));
     } catch (error) {
-      console.error('Error decoding token:', error);
       return null;
     }
   }

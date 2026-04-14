@@ -38,7 +38,7 @@
           </div>
           <label class="avatar-edit">
             <span class="material-icons">camera_alt</span>
-            <input type="file" accept="image/*" (change)="onImageSelect($event)" hidden />
+            <input type="file" accept="image/jpeg,image/jpg,image/png" (change)="onImageSelect($event)" hidden />
           </label>
         </div>
         <div class="profile-info">
@@ -51,7 +51,7 @@
         <!-- Stats -->
         <div class="profile-stats">
           <div class="stat-item">
-            <span class="stat-value">${{ profile.totalContributions | number:'1.2-2' }}</span>
+            <span class="stat-value">{{ profile.totalContributions | bdtCurrency }}</span>
             <span class="stat-label">Total Contributions</span>
           </div>
           <div class="stat-item">
@@ -59,7 +59,7 @@
             <span class="stat-label">Installments Paid</span>
           </div>
           <div class="stat-item">
-            <span class="stat-value">${{ profile.currentShareValue | number:'1.2-2' }}</span>
+            <span class="stat-value">{{ profile.currentShareValue | bdtCurrency }}</span>
             <span class="stat-label">Share Value</span>
           </div>
           <div class="stat-item">
@@ -240,7 +240,7 @@
             </div>
             <div class="detail-item">
               <span class="label">Monthly Contribution</span>
-              <span class="value">${{ profile.monthlyAmount | number:'1.2-2' }}</span>
+              <span class="value">{{ profile.monthlyAmount | bdtCurrency }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Join Date</span>

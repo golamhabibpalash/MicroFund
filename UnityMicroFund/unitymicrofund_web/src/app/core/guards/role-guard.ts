@@ -135,15 +135,10 @@ export class AdminGuard implements CanActivate {
 export const adminGuard: CanActivateFn = () => {
   const userService = inject(UserService);
   const router = inject(Router);
-
-  const role = userService.getRole();
-  console.log('[AdminGuard] User role:', role);
   
   if (userService.isAdmin()) {
-    console.log('[AdminGuard] User is admin, allowing access');
     return true;
   }
-  console.log('[AdminGuard] User is NOT admin, redirecting');
   router.navigate(['/dashboard']);
   return false;
 };

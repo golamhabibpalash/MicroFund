@@ -8,6 +8,7 @@ import { ChartConfiguration, ChartData } from 'chart.js';
 import { Subscription } from 'rxjs';
 import { NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
+import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 
 interface DashboardStats {
   totalPoolAmount: number;
@@ -79,7 +80,7 @@ interface MonthlyTrend {
         <!-- Stats Cards -->
         <section class="stats-section">
           <div class="stats-grid">
-            <div class="stat-card stat-card-primary" [@fadeInUp]>
+            <div class="stat-card stat-card-primary">
               <div class="stat-icon-wrapper">
                 <div class="stat-icon">
                   <span class="material-icons">account_balance_wallet</span>
@@ -88,7 +89,7 @@ interface MonthlyTrend {
               </div>
               <div class="stat-content">
                 <span class="stat-label">Total Pool Amount</span>
-                <span class="stat-value">{{ stats.totalPoolAmount | currency }}</span>
+                <span class="stat-value">{{ stats.totalPoolAmount | bdtCurrency }}</span>
                 <div class="stat-trend positive">
                   <span class="material-icons">trending_up</span>
                   <span>+12.5% from last month</span>
@@ -96,7 +97,7 @@ interface MonthlyTrend {
               </div>
             </div>
 
-            <div class="stat-card" [@fadeInUp]>
+            <div class="stat-card">
               <div class="stat-icon-wrapper">
                 <div class="stat-icon" style="background: linear-gradient(135deg, #27ae60, #2ecc71);">
                   <span class="material-icons">people</span>
@@ -109,7 +110,7 @@ interface MonthlyTrend {
               </div>
             </div>
 
-            <div class="stat-card" [@fadeInUp]>
+            <div class="stat-card">
               <div class="stat-icon-wrapper">
                 <div class="stat-icon" style="background: linear-gradient(135deg, #3498db, #2980b9);">
                   <span class="material-icons">payments</span>
@@ -117,12 +118,12 @@ interface MonthlyTrend {
               </div>
               <div class="stat-content">
                 <span class="stat-label">Monthly Contribution</span>
-                <span class="stat-value">{{ stats.monthlyContributionTotal | currency }}</span>
-                <div class="stat-detail">Avg: {{ stats.averageContribution | currency }} per investor</div>
+                <span class="stat-value">{{ stats.monthlyContributionTotal | bdtCurrency }}</span>
+                <div class="stat-detail">Avg: {{ stats.averageContribution | bdtCurrency }} per investor</div>
               </div>
             </div>
 
-            <div class="stat-card" [@fadeInUp]>
+            <div class="stat-card">
               <div class="stat-icon-wrapper">
                 <div class="stat-icon" style="background: linear-gradient(135deg, #9b59b6, #8e44ad);">
                   <span class="material-icons">trending_up</span>
@@ -130,7 +131,7 @@ interface MonthlyTrend {
               </div>
               <div class="stat-content">
                 <span class="stat-label">Total Returns</span>
-                <span class="stat-value">{{ stats.totalReturns | currency }}</span>
+                <span class="stat-value">{{ stats.totalReturns | bdtCurrency }}</span>
                 <div class="stat-trend" [class.positive]="stats.returnPercentage >= 0" [class.negative]="stats.returnPercentage < 0">
                   <span class="material-icons">{{ stats.returnPercentage >= 0 ? 'trending_up' : 'trending_down' }}</span>
                   <span>{{ stats.returnPercentage | number:'1.1-1' }}% ROI</span>
@@ -177,17 +178,17 @@ interface MonthlyTrend {
                 <div class="legend-row">
                   <span class="legend-color" style="background: #667eea;"></span>
                   <span class="legend-label">Investments</span>
-                  <span class="legend-value">{{ stats.totalInvested | currency }}</span>
+                  <span class="legend-value">{{ stats.totalInvested | bdtCurrency }}</span>
                 </div>
                 <div class="legend-row">
                   <span class="legend-color" style="background: #27ae60;"></span>
                   <span class="legend-label">Pool</span>
-                  <span class="legend-value">{{ stats.totalPoolAmount - stats.totalInvested | currency }}</span>
+                  <span class="legend-value">{{ stats.totalPoolAmount - stats.totalInvested | bdtCurrency }}</span>
                 </div>
                 <div class="legend-row">
                   <span class="legend-color" style="background: #f39c12;"></span>
                   <span class="legend-label">Returns</span>
-                  <span class="legend-value">{{ stats.totalReturns | currency }}</span>
+                  <span class="legend-value">{{ stats.totalReturns | bdtCurrency }}</span>
                 </div>
               </div>
             </div>
@@ -211,7 +212,7 @@ interface MonthlyTrend {
                   <div class="activity-content">
                     <div class="activity-main">
                       <span class="activity-title">{{ activity.memberName }}</span>
-                      <span class="activity-amount">{{ activity.amount | currency }}</span>
+                      <span class="activity-amount">{{ activity.amount | bdtCurrency }}</span>
                     </div>
                     <div class="activity-detail">
                       <span class="activity-desc">{{ activity.description }}</span>
@@ -250,7 +251,7 @@ interface MonthlyTrend {
                     </div>
                   </div>
                   <div class="investor-amount">
-                    {{ investor.totalContributions | currency }}
+                    {{ investor.totalContributions | bdtCurrency }}
                   </div>
                 </div>
                 <div class="empty-investors" *ngIf="stats.topInvestors.length === 0">
@@ -440,7 +441,7 @@ interface MonthlyTrend {
     .material-icons { font-size: 20px; }
   `],
   standalone: true,
-  imports: [CommonModule, RouterModule, BaseChartDirective],
+  imports: [CommonModule, RouterModule, BaseChartDirective, BdtCurrencyPipe],
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   userName: string = '';
@@ -547,7 +548,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnInit() {
     const userName = this.tokenService.getUserName();
     const userEmail = this.tokenService.getUserEmail();
-    console.log('[Dashboard] UserName:', userName, 'UserEmail:', userEmail);
     this.userName = userName || userEmail?.split('@')[0] || 'User';
     this.loadDashboardData();
 
@@ -579,7 +579,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       },
       error: (err) => {
-        console.error('Failed to load dashboard:', err);
         this.isLoading = false;
         this.hasData = true;
         this.cdr.detectChanges();

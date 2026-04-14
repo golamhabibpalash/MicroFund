@@ -39,7 +39,13 @@
               {
                 "glob": "**/*",
                 "input": "src/assets",
-                "output": "assets"
+                "output": "assets",
+                "ignore": [".DS_Store"]
+              },
+              {
+                "glob": "**/*",
+                "input": "src/assets/member",
+                "output": "assets/member"
               }
             ],
             "styles": ["src/styles.scss"]

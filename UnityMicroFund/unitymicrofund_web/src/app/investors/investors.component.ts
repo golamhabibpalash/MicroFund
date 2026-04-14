@@ -1,10 +1,11 @@
 import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Token } from '../core/services/token';
 import { ChangeDetectorRef } from '@angular/core';
+import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 
 interface Member {
   id: string;
@@ -23,6 +24,8 @@ interface Member {
 
 @Component({
   selector: 'app-investors',
+  standalone: true,
+  imports: [CommonModule, RouterModule, HttpClientModule, FormsModule, BdtCurrencyPipe, DecimalPipe, DatePipe],
   template: `
     <div class="investors-wrapper">
       <!-- Top Header -->
@@ -77,7 +80,7 @@ interface Member {
             <span class="material-icons">account_balance_wallet</span>
           </div>
           <div class="stat-info">
-            <span class="stat-value">{{ totalContributions | currency }}</span>
+            <span class="stat-value">{{ totalContributions | bdtCurrency }}</span>
             <span class="stat-label">Total Contributions</span>
           </div>
         </div>
@@ -118,8 +121,8 @@ interface Member {
                 </td>
                 <td>{{ member.email }}</td>
                 <td>{{ member.phone }}</td>
-                <td class="amount">{{ member.monthlyAmount | currency }}</td>
-                <td class="contributions">{{ member.totalContributions | currency }}</td>
+                <td class="amount">{{ member.monthlyAmount | bdtCurrency }}</td>
+                <td class="contributions">{{ member.totalContributions | bdtCurrency }}</td>
                 <td>{{ member.totalInstallmentsPaid }}</td>
                 <td class="share">{{ member.sharePercentage | number:'1.1-1' }}%</td>
                 <td>
@@ -157,11 +160,11 @@ interface Member {
           <div class="member-stats">
             <div class="stat">
               <span class="stat-label">Monthly</span>
-              <span class="stat-value">{{ member.monthlyAmount | currency }}</span>
+              <span class="stat-value">{{ member.monthlyAmount | bdtCurrency }}</span>
             </div>
             <div class="stat">
               <span class="stat-label">Contributed</span>
-              <span class="stat-value">{{ member.totalContributions | currency }}</span>
+              <span class="stat-value">{{ member.totalContributions | bdtCurrency }}</span>
             </div>
             <div class="stat">
               <span class="stat-label">Installments</span>
@@ -249,12 +252,32 @@ interface Member {
     .join-date { font-size: 12px; color: #999; }
     .empty-state { grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: white; border-radius: 12px; color: #999; }
     .empty-state .material-icons { font-size: 64px; margin-bottom: 16px; }
-    .empty-state h3 { font-size: 18px; color: #666; margin: 0 0 8px 0; }
+.empty-state h3 { font-size: 18px; color: #666; margin: 0 0 8px 0; }
     .empty-state p { margin: 0; }
     .material-icons { font-size: 20px; }
-  `],
-  standalone: true,
-  imports: [CommonModule, RouterModule, HttpClientModule, FormsModule],
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 992px) {
+      .page-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .header-actions { width: 100%; flex-wrap: wrap; }
+      .stats-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .top-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .search-box { width: 100%; }
+      .view-toggle { display: none; }
+      .table-container { overflow-x: auto; }
+      .members-table { min-width: 600px; }
+    }
+    @media (max-width: 576px) {
+      .stat-card { padding: 16px; }
+      .stat-card .stat-value { font-size: 20px; }
+      .btn { padding: 8px 12px; font-size: 13px; }
+    }
+  `]
 })
 export class InvestorsComponent implements OnInit {
   members: Member[] = [];

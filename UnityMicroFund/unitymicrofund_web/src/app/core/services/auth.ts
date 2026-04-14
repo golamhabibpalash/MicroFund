@@ -45,15 +45,12 @@ export class Auth {
   login(credentials: LoginCredentials): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.apiUrl}/login`, credentials).pipe(
       tap((response) => {
-        console.log('Auth.login - Response:', response);
-        console.log('Auth.login - AccessToken present:', !!response.accessToken);
         this.tokenService.saveToken(response.accessToken);
         if (response.refreshToken) {
           this.tokenService.saveRefreshToken(response.refreshToken);
         }
         this.tokenService.setTokenExpiry(new Date(response.expiresAt));
         this.isAuthenticatedSubject.next(true);
-        console.log('Auth.login - Token saved, verifying:', !!this.tokenService.getToken());
       }),
     );
   }

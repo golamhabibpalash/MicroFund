@@ -4,6 +4,7 @@ import { RouterModule, Router } from '@angular/router';
 import { HttpClient, HttpClientModule, HttpHeaders } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Token } from '../core/services/token';
+import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 
 interface UserProfile {
   userId: string;
@@ -49,7 +50,7 @@ interface UserProfile {
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.scss'],
   standalone: true,
-  imports: [CommonModule, RouterModule, HttpClientModule, FormsModule],
+  imports: [CommonModule, RouterModule, HttpClientModule, FormsModule, BdtCurrencyPipe],
 })
 export class ProfileComponent implements OnInit {
   profile: UserProfile | null = null;
@@ -107,7 +108,6 @@ export class ProfileComponent implements OnInit {
   loadProfile() {
     this.isLoading = true;
     const token = this.tokenService.getToken();
-    console.log('Token found:', !!token);
     
     if (!token) {
       this.errorMessage = 'No token found. Please login.';
@@ -119,14 +119,12 @@ export class ProfileComponent implements OnInit {
       .get<UserProfile>('/api/profile')
       .subscribe({
         next: (data) => {
-          console.log('Profile loaded:', data);
           this.profile = data;
           this.populateForm(data);
           this.isLoading = false;
           this.cdr.detectChanges();
         },
         error: (err) => {
-          console.error('Profile load error:', err);
           this.errorMessage = err.message || 'Failed to load profile';
           this.isLoading = false;
           this.cdr.detectChanges();
@@ -199,12 +197,42 @@ export class ProfileComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
       const file = input.files[0];
-      const reader = new FileReader();
-      reader.onload = () => {
-        const imageUrl = reader.result as string;
-        this.updateProfileImage(imageUrl);
-      };
-      reader.readAsDataURL(file);
+      
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+      const maxSize = 2 * 1024 * 1024; // 2MB
+
+      if (!allowedTypes.includes(file.type)) {
+        this.errorMessage = 'Please select a JPG or PNG image file.';
+        this.cdr.detectChanges();
+        return;
+      }
+
+      if (file.size > maxSize) {
+        this.errorMessage = 'Image size must be less than 2MB.';
+        this.cdr.detectChanges();
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', this.profile?.userId || '');
+
+      this.isLoading = true;
+      this.http.post<{ imageUrl: string }>('/api/profile/upload-image', formData).subscribe({
+        next: (response) => {
+          if (this.profile) {
+            this.profile.profileImageUrl = response.imageUrl;
+          }
+          this.successMessage = 'Profile image updated successfully';
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          this.errorMessage = err.error?.message || 'Failed to upload profile image';
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+      });
     }
   }
 

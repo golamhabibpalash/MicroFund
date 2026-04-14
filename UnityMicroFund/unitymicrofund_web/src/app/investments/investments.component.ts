@@ -1,10 +1,11 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { StatCardComponent } from '../shared/components/stat-card/stat-card.component';
 import { PageHeaderComponent } from '../shared/components/page-header/page-header.component';
+import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 
 interface Investment {
   id: string;
@@ -29,6 +30,8 @@ interface MemberInvestment {
 
 @Component({
   selector: 'app-investments',
+  standalone: true,
+  imports: [CommonModule, FormsModule, RouterModule, StatCardComponent, PageHeaderComponent, BdtCurrencyPipe, DatePipe],
   template: `
     <div class="investments-wrapper">
       <app-page-header 
@@ -312,31 +315,31 @@ interface MemberInvestment {
             </div>
             <div class="detail-card">
               <span class="detail-label">Principal Amount</span>
-              <span class="detail-value currency">{{ formatCurrency(selectedInvestment.principalAmount) }}</span>
+              <span class="detail-value currency">{{ formatCurrency(selectedInvestment?.principalAmount ?? 0) }}</span>
             </div>
             <div class="detail-card">
               <span class="detail-label">Current Value</span>
-              <span class="detail-value currency highlight">{{ formatCurrency(selectedInvestment.currentValue) }}</span>
+              <span class="detail-value currency highlight">{{ formatCurrency(selectedInvestment?.currentValue ?? 0) }}</span>
             </div>
             <div class="detail-card">
               <span class="detail-label">Total Returns</span>
-              <span class="detail-value currency" [class.positive]="selectedInvestment.returnAmount >= 0" [class.negative]="selectedInvestment.returnAmount < 0">
-                {{ selectedInvestment.returnAmount >= 0 ? '+' : '' }}{{ formatCurrency(selectedInvestment.returnAmount) }}
+              <span class="detail-value currency" [class.positive]="(selectedInvestment?.returnAmount ?? 0) >= 0" [class.negative]="(selectedInvestment?.returnAmount ?? 0) < 0">
+                {{ (selectedInvestment?.returnAmount ?? 0) >= 0 ? '+' : '' }}{{ formatCurrency(selectedInvestment?.returnAmount ?? 0) }}
               </span>
             </div>
             <div class="detail-card">
               <span class="detail-label">Return Percentage</span>
-              <span class="detail-value return-badge" [class.positive]="selectedInvestment.returnPercentage >= 0" [class.negative]="selectedInvestment.returnPercentage < 0">
-                {{ selectedInvestment.returnPercentage >= 0 ? '+' : '' }}{{ selectedInvestment.returnPercentage.toFixed(2) }}%
+              <span class="detail-value return-badge" [class.positive]="(selectedInvestment?.returnPercentage ?? 0) >= 0" [class.negative]="(selectedInvestment?.returnPercentage ?? 0) < 0">
+                {{ (selectedInvestment?.returnPercentage ?? 0) >= 0 ? '+' : '' }}{{ (selectedInvestment?.returnPercentage ?? 0).toFixed(2) }}%
               </span>
             </div>
           </div>
-          <div class="description-section" *ngIf="selectedInvestment.description">
+          <div class="description-section" *ngIf="selectedInvestment?.description">
             <h4>Description</h4>
-            <p>{{ selectedInvestment.description }}</p>
+            <p>{{ selectedInvestment?.description }}</p>
           </div>
-          <div class="members-section" *ngIf="selectedInvestment.members.length > 0">
-            <h4>Invested Members ({{ selectedInvestment.members.length }})</h4>
+          <div class="members-section" *ngIf="selectedInvestment?.members && selectedInvestment.members.length > 0">
+            <h4>Invested Members ({{ selectedInvestment?.members?.length }})</h4>
             <div class="members-list">
               <div class="member-item" *ngFor="let m of selectedInvestment.members">
                 <div class="member-avatar">{{ getInitials(m.memberName) }}</div>
@@ -494,12 +497,35 @@ interface MemberInvestment {
     .member-info { flex: 1; }
     .member-name { font-weight: 600; color: #1a1a2e; display: block; }
     .member-share { font-size: 12px; color: #666; }
-    .member-value { font-weight: 600; color: #667eea; }
+.member-value { font-weight: 600; color: #667eea; }
 
     .material-icons { font-size: 20px; }
-  `],
-  standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, StatCardComponent, PageHeaderComponent]
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 992px) {
+      .page-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .header-actions { width: 100%; flex-wrap: wrap; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .chart-section { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .top-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .search-box { width: 100%; }
+      .view-toggle { display: none; }
+      .investments-grid { grid-template-columns: 1fr; }
+      .table-container { overflow-x: auto; }
+      .investments-table { min-width: 600px; }
+    }
+    @media (max-width: 576px) {
+      .stat-card { padding: 16px; }
+      .stat-card .stat-value { font-size: 20px; }
+      .btn { padding: 8px 12px; font-size: 13px; }
+      .modal-content { margin: 12px; }
+    }
+  `]
 })
 export class InvestmentsComponent implements OnInit {
   investments: Investment[] = [];
@@ -602,7 +628,7 @@ export class InvestmentsComponent implements OnInit {
   }
 
   formatCurrency(value: number): string {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+    return new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(value);
   }
 
   getTypeIcon(type: string): string {

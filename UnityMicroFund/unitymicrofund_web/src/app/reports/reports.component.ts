@@ -1,9 +1,10 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { Token } from '../core/services/token';
+import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 import * as jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -76,6 +77,8 @@ interface SummaryReport {
 
 @Component({
   selector: 'app-reports',
+  standalone: true,
+  imports: [CommonModule, FormsModule, RouterModule, BdtCurrencyPipe, DecimalPipe],
   template: `
     <div class="reports-wrapper">
       <!-- Header -->
@@ -210,7 +213,7 @@ interface SummaryReport {
               <tr *ngFor="let row of paginatedData">
                 <td *ngFor="let col of selectedReport.columns">
                   <ng-container [ngSwitch]="col.format">
-                    <span *ngSwitchCase="'currency'">{{ row[col.key] | currency }}</span>
+                    <span *ngSwitchCase="'currency'">{{ row[col.key] | bdtCurrency }}</span>
                     <span *ngSwitchCase="'date'">{{ row[col.key] | date:'mediumDate' }}</span>
                     <span *ngSwitchCase="'percentage'">{{ row[col.key] | number:'1.1-1' }}%</span>
                     <span *ngSwitchCase="'number'">{{ row[col.key] | number }}</span>
@@ -356,12 +359,33 @@ interface SummaryReport {
     .loading-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; border-radius: 16px; }
     .spinner { width: 50px; height: 50px; border: 4px solid #f3f3f3; border-top: 4px solid #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .loading-overlay p { font-size: 14px; color: #666; }
+.loading-overlay p { font-size: 14px; color: #666; }
 
     .material-icons { font-size: 20px; }
-  `],
-  standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule]
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .reports-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 992px) {
+      .page-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .header-actions { width: 100%; flex-wrap: wrap; }
+      .reports-grid { grid-template-columns: 1fr; }
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 768px) {
+      .top-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .report-filters { flex-direction: column; }
+      .filters-section { flex-direction: column; }
+      .summary-grid { grid-template-columns: 1fr; }
+      .btn { padding: 8px 12px; font-size: 13px; }
+    }
+    @media (max-width: 576px) {
+      .report-card { padding: 16px; }
+      .report-card h3 { font-size: 16px; }
+      .btn-primary, .btn-secondary { width: 100%; }
+    }
+  `]
 })
 export class ReportsComponent implements OnInit {
   reportTypes: ReportConfig[] = [
@@ -600,7 +624,7 @@ export class ReportsComponent implements OnInit {
   }
 
   formatCurrency(value: number): string {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value);
+    return new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(value);
   }
 
   exportToCSV() {

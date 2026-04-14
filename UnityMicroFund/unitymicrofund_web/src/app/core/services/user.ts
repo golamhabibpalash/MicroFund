@@ -21,15 +21,15 @@ export class UserService {
     const decoded = this.tokenService.decodeToken();
     if (!decoded) return null;
     
-    console.log('[UserService] All decoded fields:', Object.keys(decoded));
+    let role = decoded.role || 
+                decoded.userRole || 
+                decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
+                decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role'] ||
+                decoded['role'];
     
-    const role = decoded.role || 
-                  decoded.userRole || 
-                  decoded['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
-                  decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role'] ||
-                  decoded['role'];
-    
-    console.log('[UserService] Found role:', role);
+    if (Array.isArray(role)) {
+      role = role[0];
+    }
     
     if (role === 'Admin' || role === 'Manager' || role === 'Member' || role === 'Viewer') {
       return role as UserRole;

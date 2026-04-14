@@ -14,3 +14,249 @@ body {
 * {
   box-sizing: border-box;
 }
+
+// Responsive Breakpoints
+$breakpoint-xs: 480px;
+$breakpoint-sm: 576px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 992px;
+$breakpoint-xl: 1200px;
+$breakpoint-xxl: 1400px;
+
+// Mixins for responsive design
+@mixin xs {
+  @media (max-width: #{$breakpoint-xs}) {
+    @content;
+  }
+}
+
+@mixin sm {
+  @media (max-width: #{$breakpoint-sm}) {
+    @content;
+  }
+}
+
+@mixin md {
+  @media (max-width: #{$breakpoint-md}) {
+    @content;
+  }
+}
+
+@mixin lg {
+  @media (max-width: #{$breakpoint-lg}) {
+    @content;
+  }
+}
+
+@mixin xl {
+  @media (max-width: #{$breakpoint-xl}) {
+    @content;
+  }
+}
+
+// Global Responsive Utilities
+.container {
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 15px;
+
+  @include lg {
+    max-width: 960px;
+  }
+
+  @include md {
+    max-width: 720px;
+  }
+
+  @include sm {
+    max-width: 540px;
+  }
+
+  @include xs {
+    max-width: 100%;
+    padding: 0 12px;
+  }
+}
+
+// Hide on specific breakpoints
+.hide-xs {
+  @include xs { display: none !important; }
+}
+
+.hide-sm {
+  @include sm { display: none !important; }
+}
+
+.hide-md {
+  @include md { display: none !important; }
+}
+
+.hide-lg {
+  @include lg { display: none !important; }
+}
+
+.show-xs {
+  display: none !important;
+  @include xs { display: block !important; }
+}
+
+.show-sm {
+  display: none !important;
+  @include sm { display: block !important; }
+}
+
+.show-md {
+  display: none !important;
+  @include md { display: block !important; }
+}
+
+// Mobile-first flex utilities
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-1 { gap: 4px; }
+.gap-2 { gap: 8px; }
+.gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; }
+.gap-5 { gap: 20px; }
+.gap-6 { gap: 24px; }
+
+// Spacing utilities
+.m-0 { margin: 0; }
+.m-1 { margin: 4px; }
+.m-2 { margin: 8px; }
+.m-3 { margin: 12px; }
+.m-4 { margin: 16px; }
+.m-5 { margin: 20px; }
+
+.mt-1 { margin-top: 4px; }
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.mt-5 { margin-top: 20px; }
+
+.mb-1 { margin-bottom: 4px; }
+.mb-2 { margin-bottom: 8px; }
+.mb-3 { margin-bottom: 12px; }
+.mb-4 { margin-bottom: 16px; }
+.mb-5 { margin-bottom: 20px; }
+
+.p-0 { padding: 0; }
+.p-1 { padding: 4px; }
+.p-2 { padding: 8px; }
+.p-3 { padding: 12px; }
+.p-4 { padding: 16px; }
+.p-5 { padding: 20px; }
+
+// Text utilities
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.text-xs { font-size: 12px; }
+.text-sm { font-size: 14px; }
+.text-md { font-size: 16px; }
+.text-lg { font-size: 18px; }
+.text-xl { font-size: 20px; }
+.text-2xl { font-size: 24px; }
+
+.font-bold { font-weight: 700; }
+.font-medium { font-weight: 500; }
+.font-normal { font-weight: 400; }
+
+// Width utilities
+.w-full { width: 100%; }
+.w-auto { width: auto; }
+
+// Grid utilities
+.grid {
+  display: grid;
+}
+
+.grid-cols-1 {
+  grid-template-columns: repeat(1, 1fr);
+}
+
+.grid-cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-cols-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+// Responsive grid
+@include md {
+  .grid-cols-2-md {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .grid-cols-3-md {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .grid-cols-4-md {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@include sm {
+  .grid-cols-1-sm {
+    grid-template-columns: 1fr;
+  }
+  
+  .grid-cols-2-sm {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@include xs {
+  .grid-cols-1-xs {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Scrollbar styling
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}

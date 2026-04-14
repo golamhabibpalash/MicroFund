@@ -20,6 +20,12 @@ public class DashboardService : IDashboardService
             .Where(c => c.Status == ContributionStatus.Paid)
             .SumAsync(c => c.Amount);
 
+        var totalAccountsBalance = await _context.Accounts
+            .Where(a => a.IsActive)
+            .SumAsync(a => a.Balance);
+
+        totalPool += totalAccountsBalance;
+
         var totalMembers = await _context.Members.CountAsync(m => m.IsActive);
 
         var currentMonth = DateTime.UtcNow.ToString("MMMM");
@@ -81,15 +87,24 @@ public class DashboardService : IDashboardService
 
         var topInvestors = await _context.Members
             .Where(m => m.IsActive)
-            .Select(m => new TopInvestorDto
+            .ToListAsync();
+
+        var topInvestorDtos = topInvestors
+            .Select(m =>
             {
-                MemberName = m.Name,
-                TotalContributions = m.Contributions != null ? m.Contributions.Where(c => c.Status == ContributionStatus.Paid).Sum(c => c.Amount) : 0,
-                SharePercentage = totalPool > 0 ? (m.Contributions != null ? m.Contributions.Where(c => c.Status == ContributionStatus.Paid).Sum(c => c.Amount) : 0) / totalPool * 100 : 0
+                var totalContrib = _context.Contributions
+                    .Where(c => c.MemberId == m.Id && c.Status == ContributionStatus.Paid)
+                    .Sum(c => c.Amount);
+                return new TopInvestorDto
+                {
+                    MemberName = m.Name,
+                    TotalContributions = totalContrib,
+                    SharePercentage = totalPool > 0 ? totalContrib / totalPool * 100 : 0
+                };
             })
             .OrderByDescending(t => t.TotalContributions)
             .Take(5)
-            .ToListAsync();
+            .ToList();
 
         var monthlyTrend = new MonthlyTrendDto();
         for (int i = 5; i >= 0; i--)
@@ -117,7 +132,7 @@ public class DashboardService : IDashboardService
             TotalInvested = totalPrincipal,
             ContributionsThisMonth = contributionsThisMonth,
             RecentActivities = recentActivities,
-            TopInvestors = topInvestors,
+            TopInvestors = topInvestorDtos,
             MonthlyTrend = monthlyTrend
         };
     }

@@ -10,7 +10,14 @@ import { UserService } from '../core/services/user';
   imports: [RouterModule, CommonModule],
   template: `
     <div class="layout-container">
-      <aside class="sidebar">
+      <div class="sidebar-overlay" [class.show]="sidebarOpen" (click)="toggleSidebar()"></div>
+      
+      <header class="mobile-header" (click)="toggleSidebar()">
+        <span class="material-icons">menu</span>
+        <span class="mobile-title">UnityMicroFund</span>
+      </header>
+
+      <aside class="sidebar" [class.open]="sidebarOpen">
         <div class="logo-section">
           <div class="logo-wrapper">
             <div class="logo-glow"></div>
@@ -34,36 +41,36 @@ import { UserService } from '../core/services/user';
           </div>
         </div>
         <nav class="nav-menu">
-          <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
+          <a routerLink="/dashboard" routerLinkActive="active" class="nav-item" (click)="closeSidebarOnMobile()">
             <span class="material-icons">dashboard</span>
             <span>Dashboard</span>
           </a>
-          <a routerLink="/investments" routerLinkActive="active" class="nav-item">
+          <a routerLink="/investments" routerLinkActive="active" class="nav-item" (click)="closeSidebarOnMobile()">
             <span class="material-icons">trending_up</span>
             <span>Investments</span>
           </a>
-          <a routerLink="/investors" routerLinkActive="active" class="nav-item">
+          <a routerLink="/investors" routerLinkActive="active" class="nav-item" (click)="closeSidebarOnMobile()">
             <span class="material-icons">people</span>
             <span>Investors</span>
           </a>
-          <a routerLink="/payments" routerLinkActive="active" class="nav-item">
+          <a routerLink="/payments" routerLinkActive="active" class="nav-item" (click)="closeSidebarOnMobile()">
             <span class="material-icons">payments</span>
             <span>Payments</span>
           </a>
-          <a routerLink="/accounts" routerLinkActive="active" class="nav-item">
+          <a routerLink="/accounts" routerLinkActive="active" class="nav-item" (click)="closeSidebarOnMobile()">
             <span class="material-icons">account_balance</span>
             <span>Accounts</span>
           </a>
-          <a routerLink="/reports" routerLinkActive="active" class="nav-item">
+          <a routerLink="/reports" routerLinkActive="active" class="nav-item" (click)="closeSidebarOnMobile()">
             <span class="material-icons">assessment</span>
             <span>Reports</span>
           </a>
-          <a routerLink="/profile" routerLinkActive="active" class="nav-item">
+          <a routerLink="/profile" routerLinkActive="active" class="nav-item" (click)="closeSidebarOnMobile()">
             <span class="material-icons">person</span>
             <span>Profile</span>
           </a>
           <div class="nav-divider" *ngIf="isAdmin"></div>
-          <a routerLink="/users" routerLinkActive="active" class="nav-item" *ngIf="isAdmin">
+          <a routerLink="/users" routerLinkActive="active" class="nav-item" *ngIf="isAdmin" (click)="closeSidebarOnMobile()">
             <span class="material-icons">admin_panel_settings</span>
             <span>User Management</span>
           </a>
@@ -320,10 +327,157 @@ import { UserService } from '../core/services/user';
       color: rgba(255, 215, 0, 0.9);
     }
 
+    .mobile-header {
+      display: none;
+      background: linear-gradient(135deg, #0C4C7D 0%, #0a3d5e 100%);
+      color: white;
+      padding: 12px 16px;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 998;
+    }
+
+    .mobile-header .material-icons {
+      font-size: 28px;
+    }
+
+    .mobile-header .mobile-title {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
     .main-content {
       flex: 1;
       margin-left: 260px;
       padding: 24px;
+    }
+
+    // Responsive Styles
+    @media (max-width: 992px) {
+      .mobile-header {
+        display: flex;
+      }
+
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        z-index: 1000;
+        top: 52px;
+        height: calc(100vh - 52px);
+      }
+
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      .main-content {
+        margin-left: 0;
+        margin-top: 52px;
+        padding: 16px;
+      }
+
+      .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 52px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+      }
+
+      .sidebar-overlay.show {
+        display: block;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .main-content {
+        padding: 12px;
+      }
+
+      .logo-section {
+        padding: 16px;
+      }
+
+      .logo-inner {
+        gap: 10px;
+      }
+
+      .logo-icon-container {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+      }
+
+      .logo-img {
+        width: 28px;
+        height: 28px;
+      }
+
+      .logo-text {
+        font-size: 16px;
+      }
+
+      .logo-tagline {
+        font-size: 10px;
+      }
+
+      .nav-menu {
+        padding: 12px;
+      }
+
+      .nav-item {
+        padding: 12px 16px;
+        font-size: 14px;
+      }
+
+      .nav-item .material-icons {
+        font-size: 20px;
+      }
+
+      .sidebar-footer {
+        padding: 16px;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .main-content {
+        padding: 8px;
+      }
+
+      .sidebar {
+        width: 100%;
+      }
+
+      .nav-item span:not(.material-icons) {
+        display: inline;
+      }
+
+      .user-role-badge {
+        justify-content: center;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .logo-content {
+        display: none;
+      }
+
+      .nav-item {
+        justify-content: center;
+        padding: 14px;
+      }
+
+      .nav-item .material-icons {
+        margin-right: 0;
+      }
     }
   `]
 })
@@ -336,6 +490,7 @@ export class AdminLayoutComponent implements OnInit {
 
   userRole: string | null = null;
   isAdmin = false;
+  sidebarOpen = false;
 
   ngOnInit() {
     this.checkUserRole();
@@ -351,7 +506,6 @@ export class AdminLayoutComponent implements OnInit {
   checkUserRole() {
     this.userRole = this.userService.getRole();
     this.isAdmin = this.userService.isAdmin();
-    console.log('[AdminLayout] Current role:', this.userRole, 'IsAdmin:', this.isAdmin);
   }
 
   getRoleIcon(): string {
@@ -366,6 +520,16 @@ export class AdminLayoutComponent implements OnInit {
 
   onRouteActivate() {
     this.cdr.detectChanges();
+  }
+
+  toggleSidebar() {
+    this.sidebarOpen = !this.sidebarOpen;
+  }
+
+  closeSidebarOnMobile() {
+    if (window.innerWidth <= 992) {
+      this.sidebarOpen = false;
+    }
   }
 
   logout() {
