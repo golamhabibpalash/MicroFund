@@ -13,7 +13,11 @@ export interface AuthResponse {
     name: string;
     email: string;
     role: string;
+    isActive?: boolean;
+    isApproved?: boolean;
   };
+  message?: string;
+  requiresApproval?: boolean;
 }
 
 export interface LoginCredentials {

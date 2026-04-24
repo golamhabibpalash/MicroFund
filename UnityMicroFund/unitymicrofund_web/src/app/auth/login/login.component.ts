@@ -1,6 +1,8 @@
 import { Component, OnInit, AfterViewInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Auth } from '../../core/services/auth';
+import { AuthService, GoogleAuthResponse } from '../../core/services/auth.service';
+import { Token } from '../../core/services/token';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 
@@ -24,6 +26,8 @@ export class LoginComponent implements OnInit, AfterViewInit {
   constructor(
     private fb: FormBuilder,
     private authService: Auth,
+    private googleAuthService: AuthService,
+    private tokenService: Token,
     private router: Router,
   ) {
     this.form = this.fb.group({
@@ -59,14 +63,23 @@ export class LoginComponent implements OnInit, AfterViewInit {
   handleGoogleResponse(response: any): void {
     if (response.credential) {
       this.isGoogleLoading = true;
-      this.authService.googleLogin(response.credential).subscribe({
-        next: () => {
+      this.googleAuthService.googleLogin(response.credential).subscribe({
+        next: (res) => {
           this.isGoogleLoading = false;
-          window.location.href = '/dashboard';
+          if (res.requiresApproval) {
+            this.error = 'Your registration is pending approval. You will be notified once an admin approves your account.';
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+          } else if (res.accessToken) {
+            localStorage.setItem('token', res.accessToken);
+            localStorage.setItem('refreshToken', res.refreshToken);
+            this.tokenService.setUserApproved(res.user.isApproved);
+            window.location.href = '/dashboard';
+          }
         },
         error: (err) => {
           this.isGoogleLoading = false;
-          this.error = err.error?.message || 'Google login failed. Please try again.';
+          this.error = err.error?.message || err.error?.RequiresApproval || 'Google login failed. Please try again.';
         }
       });
     }
@@ -90,7 +103,11 @@ export class LoginComponent implements OnInit, AfterViewInit {
     this.authService.login(this.form.value).subscribe({
       next: (response) => {
         this.isLoading = false;
-        window.location.href = '/dashboard';
+        if ((response as any).requiresApproval) {
+          this.error = 'Your account is pending approval. You will be notified once an admin approves your account.';
+        } else {
+          window.location.href = '/dashboard';
+        }
       },
       error: (err) => {
         this.isLoading = false;

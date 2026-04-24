@@ -174,6 +174,22 @@ public class AuthService : IAuthService
         {
             return null;
         }
+
+        if (!user.IsApproved)
+        {
+            return new AuthResponseDto
+            {
+                User = new UserDto
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Email = user.Email,
+                    Role = user.Role.ToString(),
+                    IsActive = user.IsActive,
+                    IsApproved = user.IsApproved
+                }
+            };
+        }
         
         if (!VerifyPassword(dto.Password, user.PasswordHash))
         {
@@ -227,6 +243,26 @@ public class AuthService : IAuthService
             {
                 return null;
             }
+
+            if (!existingUser.IsApproved)
+            {
+                return new AuthResponseDto
+                {
+                    User = new UserDto
+                    {
+                        Id = existingUser.Id,
+                        Name = existingUser.Name,
+                        Email = existingUser.Email,
+                        Role = existingUser.Role.ToString(),
+                        IsActive = existingUser.IsActive,
+                        IsApproved = existingUser.IsApproved
+                    },
+                    AccessToken = null,
+                    RefreshToken = null,
+                    RequiresApproval = true
+                };
+            }
+
             existingUser.GoogleId = payload.Subject;
             existingUser.GoogleAccessToken = googleToken;
             existingUser.UpdatedAt = DateTime.UtcNow;
@@ -243,6 +279,7 @@ public class AuthService : IAuthService
             GoogleAccessToken = googleToken,
             Role = UnityMicroFund.API.Models.UserRole.Member,
             IsActive = true,
+            IsApproved = false,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -250,7 +287,21 @@ public class AuthService : IAuthService
         _context.Users.Add(newUser);
         await _context.SaveChangesAsync();
 
-        return await GenerateAuthResponseAsync(newUser);
+        return new AuthResponseDto
+        {
+            User = new UserDto
+            {
+                Id = newUser.Id,
+                Name = newUser.Name,
+                Email = newUser.Email,
+                Role = newUser.Role.ToString(),
+                IsActive = newUser.IsActive,
+                IsApproved = newUser.IsApproved
+            },
+            AccessToken = null,
+            RefreshToken = null,
+            RequiresApproval = true
+        };
     }
 
     public async Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordDto dto)
@@ -318,7 +369,9 @@ public class AuthService : IAuthService
                 Id = user.Id,
                 Name = user.Name,
                 Email = user.Email,
-                Role = user.Role.ToString()
+                Role = user.Role.ToString(),
+                IsActive = user.IsActive,
+                IsApproved = user.IsApproved
             }
         };
     }

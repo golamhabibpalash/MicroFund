@@ -33,6 +33,7 @@ public class AuthResponseDto
     public DateTime ExpiresAt { get; set; }
     public UserDto User { get; set; } = null!;
     public string? Message { get; set; }
+    public bool RequiresApproval { get; set; }
 }
 
 public class UserDto
@@ -41,6 +42,8 @@ public class UserDto
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public bool IsApproved { get; set; }
 }
 
 public class ChangePasswordDto

@@ -32,6 +32,7 @@ public class UsersController : ControllerBase
                 u.Email,
                 u.Role,
                 u.IsActive,
+                u.IsApproved,
                 u.CreatedAt,
                 u.UpdatedAt
             })
@@ -57,6 +58,7 @@ public class UsersController : ControllerBase
             user.Email,
             user.Role,
             user.IsActive,
+            user.IsApproved,
             user.CreatedAt,
             user.UpdatedAt
         });
@@ -148,6 +150,71 @@ public class UsersController : ControllerBase
             user.Role,
             user.IsActive,
             message = dto.IsActive ? "User activated" : "User deactivated"
+        });
+    }
+
+    [HttpGet("pending")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GetPendingUsers()
+    {
+        var users = await _context.Users
+            .Where(u => !u.IsApproved)
+            .Select(u => new
+            {
+                u.Id,
+                u.Name,
+                u.Email,
+                u.Role,
+                u.IsActive,
+                u.IsApproved,
+                u.GoogleId,
+                u.CreatedAt
+            })
+            .ToListAsync();
+
+        return Ok(users);
+    }
+
+    [HttpPut("{id}/approve")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> ApproveUser(Guid id)
+    {
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (currentUserId == null || !Guid.TryParse(currentUserId, out var currentId))
+        {
+            return Unauthorized();
+        }
+
+        var currentUser = await _context.Users.FindAsync(currentId);
+        if (currentUser == null || currentUser.Role != UserRole.Admin)
+        {
+            return Forbid();
+        }
+
+        var user = await _context.Users.FindAsync(id);
+        if (user == null)
+        {
+            return NotFound(new { message = "User not found" });
+        }
+
+        if (user.IsApproved)
+        {
+            return BadRequest(new { message = "User is already approved" });
+        }
+
+        user.IsApproved = true;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            user.Id,
+            user.Name,
+            user.Email,
+            user.Role,
+            user.IsActive,
+            user.IsApproved,
+            message = "User approved successfully"
         });
     }
 }

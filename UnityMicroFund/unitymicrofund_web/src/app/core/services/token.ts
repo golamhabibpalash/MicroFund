@@ -7,6 +7,7 @@ export class Token {
   private readonly tokenKey = 'access_token';
   private readonly refreshTokenKey = 'refresh_token';
   private readonly tokenExpiryKey = 'token_expiry';
+  private readonly userApprovedKey = 'user_approved';
 
   saveToken(token: string): void {
     try {
@@ -30,6 +31,7 @@ export class Token {
   removeToken(): void {
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.tokenExpiryKey);
+    localStorage.removeItem(this.userApprovedKey);
   }
 
   saveRefreshToken(token: string): void {
@@ -42,6 +44,15 @@ export class Token {
 
   removeRefreshToken(): void {
     localStorage.removeItem(this.refreshTokenKey);
+  }
+
+  setUserApproved(isApproved: boolean): void {
+    localStorage.setItem(this.userApprovedKey, isApproved.toString());
+  }
+
+  isUserApproved(): boolean {
+    const approved = localStorage.getItem(this.userApprovedKey);
+    return approved === 'true';
   }
 
   setTokenExpiry(expiresAt: number | Date): void {

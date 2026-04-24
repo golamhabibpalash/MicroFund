@@ -20,6 +20,25 @@ interface Member {
   totalInstallmentsPaid: number;
   currentShareValue: number;
   sharePercentage: number;
+  profileImageUrl?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  nationality?: string;
+  alternatePhone?: string;
+  occupation?: string;
+  employerName?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+  nomineeName?: string;
+  nomineeRelation?: string;
+  nomineePhone?: string;
+  bankName?: string;
+  accountHolderName?: string;
+  accountNumber?: string;
+  routingNumber?: string;
+  swiftCode?: string;
+  signatureUrl?: string;
 }
 
 @Component({
@@ -614,90 +633,428 @@ export class InvestorsComponent implements OnInit {
   <meta charset="UTF-8">
   <title>Investor Profile - ${member.name}</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 40px; color: #1a1a2e; }
-    .header { text-align: center; border-bottom: 2px solid #667eea; padding-bottom: 20px; margin-bottom: 30px; }
-    .header h1 { margin: 0; color: #667eea; }
-    .header p { color: #666; margin: 5px 0 0 0; }
-    .section { margin-bottom: 25px; }
-    .section h2 { font-size: 14px; color: #667eea; text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-    .info-item { display: flex; flex-direction: column; }
-    .label { font-size: 11px; color: #999; margin-bottom: 2px; }
-    .value { font-size: 14px; font-weight: 500; }
-    .status { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; }
-    .status.active { background: #e8f5e9; color: #27ae60; }
-    .status.inactive { background: #ffebee; color: #e74c3c; }
-    .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #999; font-size: 12px; }
+    @page { size: A4; margin: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; 
+      color: #1a1a2e; 
+      line-height: 1.5;
+      background: white;
+    }
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 18mm 20mm;
+      margin: 0 auto;
+      background: white;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 3px solid #1a1a2e;
+      margin-bottom: 18px;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-box {
+      width: 55px;
+      height: 55px;
+      background: linear-gradient(135deg, #1a1a2e 0%, #3a3a5a 100%);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 18px;
+      text-align: center;
+      line-height: 1.1;
+    }
+    .org-info h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a1a2e;
+      letter-spacing: 0.3px;
+    }
+    .org-info p {
+      font-size: 10px;
+      color: #666;
+    }
+    .header-right {
+      text-align: right;
+    }
+    .doc-type {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #999;
+    }
+    .doc-date {
+      font-size: 11px;
+      color: #666;
+      margin-top: 2px;
+    }
+    .profile-header {
+      display: flex;
+      gap: 18px;
+      margin-bottom: 18px;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border: 1px solid #e5e5e5;
+    }
+    .photo-box {
+      width: 100px;
+      height: 115px;
+      border: 2px solid #1a1a2e;
+      border-radius: 4px;
+      overflow: hidden;
+      flex-shrink: 0;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .photo-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .photo-box .initials {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .profile-details {
+      flex: 1;
+    }
+    .member-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 4px;
+    }
+    .contact-info {
+      font-size: 11px;
+      color: #555;
+      margin-bottom: 3px;
+    }
+    .status-tags {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .tag {
+      padding: 3px 10px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .tag.member { background: #1a1a2e; color: white; }
+    .tag.active { background: #16a34a; color: white; }
+    .tag.inactive { background: #dc2626; color: white; }
+    .section {
+      margin-bottom: 15px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #1a1a2e;
+      padding-bottom: 5px;
+      border-bottom: 2px solid #1a1a2e;
+      margin-bottom: 10px;
+    }
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .info-table tr:nth-child(even) {
+      background: #fafafa;
+    }
+    .info-table td {
+      padding: 6px 8px;
+      font-size: 11px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .info-table .label {
+      color: #666;
+      width: 40%;
+      font-weight: 500;
+    }
+    .info-table .value {
+      color: #1a1a2e;
+      font-weight: 600;
+    }
+    .financial-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .financial-table tr {
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .financial-table td {
+      padding: 8px;
+      font-size: 12px;
+    }
+    .financial-table .label {
+      color: #555;
+    }
+    .financial-table .value {
+      text-align: right;
+      font-weight: 700;
+    }
+    .financial-table .total-row {
+      background: #f0f0f0;
+    }
+    .financial-table .total-row .label {
+      font-weight: 700;
+    }
+    .financial-table .total-row .value {
+      color: #16a34a;
+      font-size: 13px;
+    }
+    .signatures {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 35px;
+      padding-top: 15px;
+    }
+    .sig-box {
+      text-align: center;
+      width: 45%;
+    }
+    .sig-line {
+      width: 100%;
+      height: 1px;
+      background: #1a1a2e;
+      margin-bottom: 6px;
+    }
+    .sig-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #555;
+    }
+    .sig-date {
+      font-size: 9px;
+      color: #999;
+      margin-top: 3px;
+    }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 12px;
+      border-top: 2px solid #1a1a2e;
+      margin-top: 30px;
+    }
+    .footer-left {
+      font-size: 9px;
+      color: #777;
+    }
+    .footer-right {
+      display: flex;
+      gap: 15px;
+      font-size: 9px;
+      color: #777;
+    }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Investor Profile Report</h1>
-    <p>Unity MicroFund • Generated on ${new Date().toLocaleDateString()}</p>
-  </div>
-  
-  <div class="section">
-    <h2>Personal Information</h2>
-    <div class="info-grid">
-      <div class="info-item">
-        <span class="label">Member ID</span>
-        <span class="value">${member.id}</span>
+  <div class="page">
+    <div class="header">
+      <div class="header-left">
+        <div class="logo-box">Unity<br>Micro<br>Fund</div>
+        <div class="org-info">
+          <h1>Unity MicroFund</h1>
+          <p>Micro Investment for Small Business</p>
+        </div>
       </div>
-      <div class="info-item">
-        <span class="label">Name</span>
-        <span class="value">${member.name}</span>
-      </div>
-      <div class="info-item">
-        <span class="label">Email</span>
-        <span class="value">${member.email}</span>
-      </div>
-      <div class="info-item">
-        <span class="label">Phone</span>
-        <span class="value">${member.phone}</span>
-      </div>
-      <div class="info-item" style="grid-column: 1 / -1;">
-        <span class="label">Address</span>
-        <span class="value">${member.address}</span>
-      </div>
-      <div class="info-item">
-        <span class="label">Status</span>
-        <span class="status ${member.isActive ? 'active' : 'inactive'}">${member.isActive ? 'Active' : 'Inactive'}</span>
-      </div>
-      <div class="info-item">
-        <span class="label">Join Date</span>
-        <span class="value">${new Date(member.joinDate).toLocaleDateString()}</span>
+      <div class="header-right">
+        <div class="doc-type">Investor Profile</div>
+        <div class="doc-date">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
       </div>
     </div>
-  </div>
-  
-  <div class="section">
-    <h2>Financial Details</h2>
-    <div class="info-grid">
-      <div class="info-item">
-        <span class="label">Monthly Amount</span>
-        <span class="value">${member.monthlyAmount.toLocaleString()} BDT</span>
+    
+    <div class="profile-header">
+      <div class="photo-box">
+        ${member.profileImageUrl ? 
+          `<img src="${member.profileImageUrl}" alt="Photo" onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'initials\\'>${member.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2)}</div>'">` : 
+          `<div class="initials">${member.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}</div>`
+        }
       </div>
-      <div class="info-item">
-        <span class="label">Total Contributions</span>
-        <span class="value">${member.totalContributions.toLocaleString()} BDT</span>
-      </div>
-      <div class="info-item">
-        <span class="label">Installments Paid</span>
-        <span class="value">${member.totalInstallmentsPaid}</span>
-      </div>
-      <div class="info-item">
-        <span class="label">Current Share Value</span>
-        <span class="value">${member.currentShareValue.toLocaleString()} BDT</span>
-      </div>
-      <div class="info-item">
-        <span class="label">Share Percentage</span>
-        <span class="value">${member.sharePercentage.toFixed(2)}%</span>
+      <div class="profile-details">
+        <div class="member-name">${member.name}</div>
+        <div class="contact-info">✉ ${member.email || 'N/A'}</div>
+        <div class="contact-info">📱 ${member.phone}</div>
+        <div class="contact-info">📍 ${member.address || 'N/A'}</div>
+        <div class="status-tags">
+          <span class="tag member">Member</span>
+          <span class="tag ${member.isActive ? 'active' : 'inactive'}">${member.isActive ? 'Active' : 'Inactive'}</span>
+        </div>
       </div>
     </div>
-  </div>
-  
-  <div class="footer">
-    <p>Unity MicroFund • Investor Profile Report</p>
+    
+    <div class="section">
+      <div class="section-title">Personal Information</div>
+      <table class="info-table">
+        <tr>
+          <td class="label">Member ID</td>
+          <td class="value">${member.id}</td>
+        </tr>
+        <tr>
+          <td class="label">Date of Birth</td>
+          <td class="value">${member.dateOfBirth ? new Date(member.dateOfBirth).toLocaleDateString('en-GB') : 'N/A'}</td>
+        </tr>
+        <tr>
+          <td class="label">Gender</td>
+          <td class="value">${member.gender || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td class="label">Nationality</td>
+          <td class="value">${member.nationality || 'Bangladeshi'}</td>
+        </tr>
+        <tr>
+          <td class="label">Alternate Phone</td>
+          <td class="value">${member.alternatePhone || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td class="label">Join Date</td>
+          <td class="value">${new Date(member.joinDate).toLocaleDateString('en-GB')}</td>
+        </tr>
+      </table>
+    </div>
+    
+    <div class="section">
+      <div class="section-title">Occupation & Business</div>
+      <table class="info-table">
+        <tr>
+          <td class="label">Occupation</td>
+          <td class="value">${member.occupation || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td class="label">Employer / Business Name</td>
+          <td class="value">${member.employerName || 'N/A'}</td>
+        </tr>
+      </table>
+    </div>
+    
+    <div class="section">
+      <div class="section-title">Emergency Contact</div>
+      <table class="info-table">
+        <tr>
+          <td class="label">Contact Name</td>
+          <td class="value">${member.emergencyContactName || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td class="label">Contact Phone</td>
+          <td class="value">${member.emergencyContactPhone || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td class="label">Relationship</td>
+          <td class="value">${member.emergencyContactRelation || 'N/A'}</td>
+        </tr>
+      </table>
+    </div>
+    
+    <div class="section">
+      <div class="section-title">Nominee Information</div>
+      <table class="info-table">
+        <tr>
+          <td class="label">Nominee Name</td>
+          <td class="value">${member.nomineeName || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td class="label">Relationship</td>
+          <td class="value">${member.nomineeRelation || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td class="label">Nominee Phone</td>
+          <td class="value">${member.nomineePhone || 'N/A'}</td>
+        </tr>
+      </table>
+    </div>
+    
+    <div class="section">
+      <div class="section-title">Bank Account Details</div>
+      <table class="info-table">
+        <tr>
+          <td class="label">Bank Name</td>
+          <td class="value">${member.bankName || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td class="label">Account Holder Name</td>
+          <td class="value">${member.accountHolderName || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td class="label">Account Number</td>
+          <td class="value">${member.accountNumber || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td class="label">Routing Number</td>
+          <td class="value">${member.routingNumber || 'N/A'}</td>
+        </tr>
+        <tr>
+          <td class="label">SWIFT Code</td>
+          <td class="value">${member.swiftCode || 'N/A'}</td>
+        </tr>
+      </table>
+    </div>
+    
+    <div class="section">
+      <div class="section-title">Financial Summary</div>
+      <table class="financial-table">
+        <tr>
+          <td class="label">Monthly Contribution</td>
+          <td class="value">${member.monthlyAmount.toLocaleString('en-BD', { style: 'currency', currency: 'BDT' })}</td>
+        </tr>
+        <tr>
+          <td class="label">Total Contributions Paid</td>
+          <td class="value">${member.totalContributions.toLocaleString('en-BD', { style: 'currency', currency: 'BDT' })}</td>
+        </tr>
+        <tr>
+          <td class="label">Installments Completed</td>
+          <td class="value">${member.totalInstallmentsPaid}</td>
+        </tr>
+        <tr>
+          <td class="label">Current Share Value</td>
+          <td class="value">${member.currentShareValue.toLocaleString('en-BD', { style: 'currency', currency: 'BDT' })}</td>
+        </tr>
+        <tr class="total-row">
+          <td class="label">Share Percentage</td>
+          <td class="value">${member.sharePercentage.toFixed(2)}%</td>
+        </tr>
+      </table>
+    </div>
+    
+    <div class="signatures">
+      <div class="sig-box">
+        <div class="sig-line"></div>
+        <div class="sig-label">Authorized Signature</div>
+        <div class="sig-date">Date: _______________</div>
+      </div>
+      <div class="sig-box">
+        <div class="sig-line"></div>
+        <div class="sig-label">Member Signature</div>
+        <div class="sig-date">Date: _______________</div>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <div class="footer-left">Unity MicroFund - Investor Profile Document</div>
+      <div class="footer-right">
+        <span>📧 unitymicrofund@gmail.com</span>
+        <span>📞 +880 1234 567890</span>
+      </div>
+    </div>
   </div>
 </body>
 </html>`;

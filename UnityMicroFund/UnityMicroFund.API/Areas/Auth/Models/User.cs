@@ -24,6 +24,8 @@ public class User
 
     public bool IsActive { get; set; } = true;
 
+    public bool IsApproved { get; set; } = false;
+
     public string? RefreshToken { get; set; }
 
     public DateTime? RefreshTokenExpiry { get; set; }
