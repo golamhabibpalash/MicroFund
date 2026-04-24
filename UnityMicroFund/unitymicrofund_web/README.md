@@ -1,59 +1,83 @@
-# UnitymicrofundWeb
+# UnityMicroFund
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.7.
+A full-stack web application for managing a microfund investment system. Track member contributions, manage investments across various types, process transactions, and generate reports.
 
-## Development server
+## Tech Stack
 
-To start a local development server, run:
+| Layer | Technology |
+|-------|------------|
+| Frontend | Angular 21 with Angular Material |
+| Backend | ASP.NET Core 10 (.NET) |
+| Database | MariaDB |
+| Authentication | JWT Bearer tokens |
+| Real-time | SignalR (chat functionality) |
+| Charts | Chart.js / ng2-charts |
+| PDF Export | jsPDF with AutoTable |
+| API Docs | Swagger/OpenAPI |
+
+## Features
+
+- **Dashboard** - Overview with statistics and key metrics
+- **Member Management** - Track members with personal, banking, and emergency contact info
+- **Contributions** - Monthly payment tracking (Paid/Pending/Overdue)
+- **Investments** - Manage stocks, real estate, business, and savings investments
+- **Transactions** - Transfer management with approval workflow
+- **Accounts** - Financial account management
+- **Reports** - Financial reporting with PDF export
+- **Chat** - Real-time messaging via SignalR
+- **User Management** - Admin and user role management
+- **Activity & Audit Logs** - System activity tracking
+- **Notifications** - In-app notification system
+
+## Project Structure
+
+```
+UnityMicroFund/
+├── unitymicrofund_web/    # Angular 21 frontend application
+└── UnityMicroFund.API/    # ASP.NET Core Web API backend
+```
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- .NET 10 SDK
+- MariaDB
+
+### Backend Setup
 
 ```bash
+cd UnityMicroFund.API
+dotnet restore
+dotnet run
+```
+
+The API will be available at `http://localhost:5000` with Swagger UI at `/swagger`.
+
+### Frontend Setup
+
+```bash
+cd unitymicrofund_web
+npm install
 ng serve
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+The application will be available at `http://localhost:4200`.
 
-## Code scaffolding
+### Database Configuration
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+Update `appsettings.json` in the API project with your MariaDB connection string:
 
-```bash
-ng generate component component-name
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Database=unitymicrofund;User=root;Password=yourpassword;"
+  }
+}
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Default Credentials
 
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- **Admin Email**: admin@unitymicrofund.com
+- **Admin Password**: Admin@123

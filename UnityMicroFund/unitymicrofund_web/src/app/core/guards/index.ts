@@ -1,4 +1,4 @@
-export { AuthGuard, authGuard } from './auth-guard';
+export { AuthGuard } from './auth-guard';
 export { PublicGuard, publicGuard } from './public-guard';
 export { 
   RoleGuard, 

@@ -6,6 +6,11 @@ using UnityMicroFund.API.Models;
 
 namespace UnityMicroFund.API.Areas.Tasks.Controllers;
 
+public class RejectRequestDto
+{
+    public string? Reason { get; set; }
+}
+
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
@@ -59,9 +64,9 @@ public class NotificationController : ControllerBase
 
     [HttpGet("registration-requests")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> GetRegistrationRequests()
+    public async Task<IActionResult> GetRegistrationRequests([FromQuery] string? status = "Pending")
     {
-        var requests = await _notificationService.GetPendingRegistrationRequestsAsync();
+        var requests = await _notificationService.GetRegistrationRequestsAsync(status);
         return Ok(requests);
     }
 
@@ -79,12 +84,12 @@ public class NotificationController : ControllerBase
 
     [HttpPost("registration-requests/{id}/reject")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> RejectRegistration(Guid id)
+    public async Task<IActionResult> RejectRegistration(Guid id, [FromBody] RejectRequestDto? dto)
     {
         var userId = GetUserId();
         if (userId == null) return Unauthorized();
 
-        var result = await _notificationService.RejectRegistrationAsync(id, userId.Value);
+        var result = await _notificationService.RejectRegistrationAsync(id, userId.Value, dto?.Reason);
         if (!result) return BadRequest();
         return Ok();
     }

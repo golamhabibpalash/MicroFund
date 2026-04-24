@@ -3,8 +3,6 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Models;
 using UnityMicroFund.API.Areas.Auth.Models;
-using UnityMicroFund.API.Models;
-using UnityMicroFund.API.Areas.Auth.Models;
 
 namespace UnityMicroFund.API.Data;
 
@@ -28,6 +26,9 @@ public class AppDbContext : DbContext
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<RegistrationRequest> RegistrationRequests { get; set; }
+    public DbSet<ChatRoom> ChatRooms { get; set; }
+    public DbSet<ChatMessage> ChatMessages { get; set; }
+    public DbSet<ChatRoomMember> ChatRoomMembers { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -98,6 +99,21 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Status).HasConversion<string>();
             entity.Property(e => e.ApprovalStatus).HasConversion<string>();
             entity.HasIndex(e => e.RefNo).IsUnique();
+        });
+
+        modelBuilder.Entity<ChatRoom>(entity =>
+        {
+            entity.Property(e => e.Type).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<ChatMessage>(entity =>
+        {
+            entity.HasIndex(e => new { e.ChatRoomId, e.CreatedAt });
+        });
+
+        modelBuilder.Entity<ChatRoomMember>(entity =>
+        {
+            entity.HasIndex(e => new { e.ChatRoomId, e.MemberId }).IsUnique();
         });
 
         SeedData(modelBuilder);

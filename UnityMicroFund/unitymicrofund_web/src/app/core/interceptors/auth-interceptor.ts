@@ -7,15 +7,13 @@ import {
   HttpErrorResponse,
 } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { catchError, switchMap } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 import { Token } from '../services/token';
-import { Auth } from '../services/auth';
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
   constructor(
-    private tokenService: Token,
-    private authService: Auth
+    private tokenService: Token
   ) {}
 
   intercept(
@@ -37,10 +35,7 @@ export class AuthInterceptor implements HttpInterceptor {
 
     return next.handle(req).pipe(
       catchError((error: HttpErrorResponse) => {
-        // Handle 401 errors by attempting to refresh token
-        if (error.status === 401 && token) {
-          return this.handle401Error(req, next);
-        }
+        // Don't redirect to login on 401 - let the component handle it
         return throwError(() => error);
       })
     );
@@ -55,26 +50,5 @@ export class AuthInterceptor implements HttpInterceptor {
         Authorization: `Bearer ${token}`,
       },
     });
-  }
-
-  private handle401Error(
-    req: HttpRequest<any>,
-    next: HttpHandler
-  ): Observable<HttpEvent<any>> {
-    return this.authService.refreshToken().pipe(
-      switchMap(() => {
-        const newToken = this.tokenService.getToken();
-        if (newToken) {
-          req = this.addTokenToRequest(req, newToken);
-          return next.handle(req);
-        }
-        this.authService.logout();
-        return throwError(() => new Error('Token refresh failed'));
-      }),
-      catchError(() => {
-        this.authService.logout();
-        return throwError(() => new Error('Unable to refresh token'));
-      })
-    );
   }
 }

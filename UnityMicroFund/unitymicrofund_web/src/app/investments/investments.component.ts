@@ -5,7 +5,6 @@ import { HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { StatCardComponent } from '../shared/components/stat-card/stat-card.component';
 import { PageHeaderComponent } from '../shared/components/page-header/page-header.component';
-import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 
 interface Investment {
   id: string;
@@ -31,7 +30,7 @@ interface MemberInvestment {
 @Component({
   selector: 'app-investments',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, StatCardComponent, PageHeaderComponent, BdtCurrencyPipe, DatePipe],
+  imports: [CommonModule, FormsModule, RouterModule, StatCardComponent, PageHeaderComponent, DatePipe],
   template: `
     <div class="investments-wrapper">
       <app-page-header 
@@ -315,31 +314,31 @@ interface MemberInvestment {
             </div>
             <div class="detail-card">
               <span class="detail-label">Principal Amount</span>
-              <span class="detail-value currency">{{ formatCurrency(selectedInvestment?.principalAmount ?? 0) }}</span>
+              <span class="detail-value currency">{{ formatCurrency(selectedInvestment.principalAmount) }}</span>
             </div>
             <div class="detail-card">
               <span class="detail-label">Current Value</span>
-              <span class="detail-value currency highlight">{{ formatCurrency(selectedInvestment?.currentValue ?? 0) }}</span>
+              <span class="detail-value currency highlight">{{ formatCurrency(selectedInvestment.currentValue) }}</span>
             </div>
             <div class="detail-card">
               <span class="detail-label">Total Returns</span>
-              <span class="detail-value currency" [class.positive]="(selectedInvestment?.returnAmount ?? 0) >= 0" [class.negative]="(selectedInvestment?.returnAmount ?? 0) < 0">
-                {{ (selectedInvestment?.returnAmount ?? 0) >= 0 ? '+' : '' }}{{ formatCurrency(selectedInvestment?.returnAmount ?? 0) }}
+              <span class="detail-value currency" [class.positive]="selectedInvestment.returnAmount >= 0" [class.negative]="selectedInvestment.returnAmount < 0">
+                {{ selectedInvestment.returnAmount >= 0 ? '+' : '' }}{{ formatCurrency(selectedInvestment.returnAmount) }}
               </span>
             </div>
             <div class="detail-card">
               <span class="detail-label">Return Percentage</span>
-              <span class="detail-value return-badge" [class.positive]="(selectedInvestment?.returnPercentage ?? 0) >= 0" [class.negative]="(selectedInvestment?.returnPercentage ?? 0) < 0">
-                {{ (selectedInvestment?.returnPercentage ?? 0) >= 0 ? '+' : '' }}{{ (selectedInvestment?.returnPercentage ?? 0).toFixed(2) }}%
+              <span class="detail-value return-badge" [class.positive]="selectedInvestment.returnPercentage >= 0" [class.negative]="selectedInvestment.returnPercentage < 0">
+                {{ selectedInvestment.returnPercentage >= 0 ? '+' : '' }}{{ selectedInvestment.returnPercentage.toFixed(2) }}%
               </span>
             </div>
           </div>
-          <div class="description-section" *ngIf="selectedInvestment?.description">
+          <div class="description-section" *ngIf="selectedInvestment.description">
             <h4>Description</h4>
-            <p>{{ selectedInvestment?.description }}</p>
+            <p>{{ selectedInvestment.description }}</p>
           </div>
-          <div class="members-section" *ngIf="selectedInvestment?.members && selectedInvestment.members.length > 0">
-            <h4>Invested Members ({{ selectedInvestment?.members?.length }})</h4>
+          <div class="members-section" *ngIf="selectedInvestment.members && selectedInvestment.members.length > 0">
+            <h4>Invested Members ({{ selectedInvestment.members.length }})</h4>
             <div class="members-list">
               <div class="member-item" *ngFor="let m of selectedInvestment.members">
                 <div class="member-avatar">{{ getInitials(m.memberName) }}</div>

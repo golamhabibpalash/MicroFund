@@ -129,3 +129,4 @@ connect.lock/
 
 *.log
 logs/
+.aider*

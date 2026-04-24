@@ -87,6 +87,7 @@ public class AuthService : IAuthService
                 Email = dto.Email,
                 PasswordHash = HashPassword(dto.Password),
                 Role = Enum.TryParse<UnityMicroFund.API.Models.UserRole>(dto.Role, true, out var role) ? role : UnityMicroFund.API.Models.UserRole.Member,
+                IsActive = false,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -121,6 +122,7 @@ public class AuthService : IAuthService
                 MonthlyAmount = dto.MonthlyAmount,
                 JoinDate = DateTime.UtcNow,
                 AcceptTerms = dto.AcceptTerms,
+                IsActive = false,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -128,9 +130,29 @@ public class AuthService : IAuthService
             _context.Members.Add(member);
 
             await _context.SaveChangesAsync();
+
+            await _notificationService.CreateRegistrationRequestAsync(user.Id, user.Email, user.Name, member.Id);
+
+            var admins = await _context.Users.Where(u => u.Role == UnityMicroFund.API.Models.UserRole.Admin && u.IsActive).ToListAsync();
+            foreach (var admin in admins)
+            {
+                await _notificationService.CreateNotificationAsync(
+                    "New Registration Request",
+                    $"User {user.Name} ({user.Email}) has registered as a member and is waiting for approval.",
+                    NotificationType.RegistrationApproval,
+                    admin.Id,
+                    user.Id,
+                    user.Id,
+                    member.Id
+                );
+            }
+
             await transaction.CommitAsync();
 
-            return await GenerateAuthResponseAsync(user);
+            return new AuthResponseDto
+            {
+                Message = "Registration pending approval"
+            };
         }
         catch
         {
@@ -141,8 +163,19 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponseDto?> LoginAsync(LoginDto dto)
     {
-        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email && u.IsActive);
-        if (user == null || !VerifyPassword(dto.Password, user.PasswordHash))
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+        
+        if (user == null)
+        {
+            return null;
+        }
+        
+        if (!user.IsActive)
+        {
+            return null;
+        }
+        
+        if (!VerifyPassword(dto.Password, user.PasswordHash))
         {
             return null;
         }

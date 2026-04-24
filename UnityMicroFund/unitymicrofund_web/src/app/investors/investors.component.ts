@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Token } from '../core/services/token';
@@ -28,6 +28,148 @@ interface Member {
   imports: [CommonModule, RouterModule, HttpClientModule, FormsModule, BdtCurrencyPipe, DecimalPipe, DatePipe],
   template: `
     <div class="investors-wrapper">
+      <!-- Profile Modal -->
+      <div class="modal-overlay" *ngIf="showProfileModal" (click)="closeProfileModal()">
+        <div class="modal-content" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>Investor Profile</h2>
+            <button class="modal-close" (click)="closeProfileModal()">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+          <div class="modal-body" *ngIf="selectedMember">
+            <div class="profile-header">
+              <div class="profile-avatar">{{ getInitials(selectedMember.name) }}</div>
+              <div class="profile-title">
+                <h3>{{ selectedMember.name }}</h3>
+                <span class="status-badge" [class.active]="selectedMember.isActive" [class.inactive]="!selectedMember.isActive">
+                  {{ selectedMember.isActive ? 'Active' : 'Inactive' }}
+                </span>
+              </div>
+            </div>
+            <div class="profile-section">
+              <h4>Contact Information</h4>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="label">Email</span>
+                  <span class="value">{{ selectedMember.email }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">Phone</span>
+                  <span class="value">{{ selectedMember.phone }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">Address</span>
+                  <span class="value">{{ selectedMember.address }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="profile-section">
+              <h4>Financial Details</h4>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="label">Monthly Amount</span>
+                  <span class="value">{{ selectedMember.monthlyAmount | bdtCurrency }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">Total Contributions</span>
+                  <span class="value highlight">{{ selectedMember.totalContributions | bdtCurrency }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">Installments Paid</span>
+                  <span class="value">{{ selectedMember.totalInstallmentsPaid }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">Current Share Value</span>
+                  <span class="value">{{ selectedMember.currentShareValue | bdtCurrency }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">Share Percentage</span>
+                  <span class="value">{{ selectedMember.sharePercentage | number:'1.1-1' }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="profile-section">
+              <h4>Membership</h4>
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="label">Member ID</span>
+                  <span class="value">{{ selectedMember.id }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">Join Date</span>
+                  <span class="value">{{ selectedMember.joinDate | date:'longDate' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" (click)="downloadProfile(selectedMember!)">
+              <span class="material-icons">picture_as_pdf</span>
+              Download PDF
+            </button>
+            <button class="btn btn-primary" (click)="closeProfileModal()">Close</button>
+          </div>
+        </div>
+      </div>
+      <!-- Edit Modal -->
+      <div class="modal-overlay" *ngIf="showEditModal" (click)="closeEditModal()">
+        <div class="modal-content edit-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>Edit Investor</h2>
+            <button class="modal-close" (click)="closeEditModal()">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+          <form (ngSubmit)="saveMember()" *ngIf="editingMember">
+            <div class="modal-body">
+              <div class="form-section">
+                <h3>Personal Information</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="editName">Full Name</label>
+                    <input type="text" id="editName" [(ngModel)]="editingMember.name" name="name" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="editEmail">Email</label>
+                    <input type="email" id="editEmail" [(ngModel)]="editingMember.email" name="email" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="editPhone">Phone</label>
+                    <input type="tel" id="editPhone" [(ngModel)]="editingMember.phone" name="phone" required>
+                  </div>
+                  <div class="form-group full-width">
+                    <label for="editAddress">Address</label>
+                    <textarea id="editAddress" [(ngModel)]="editingMember.address" name="address" rows="2"></textarea>
+                  </div>
+                </div>
+              </div>
+              <div class="form-section">
+                <h3>Financial Information</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="editMonthlyAmount">Monthly Amount (BDT)</label>
+                    <input type="number" id="editMonthlyAmount" [(ngModel)]="editingMember.monthlyAmount" name="monthlyAmount">
+                  </div>
+                  <div class="form-group">
+                    <label for="editStatus">Status</label>
+                    <select id="editStatus" [(ngModel)]="editingMember.isActive" name="isActive">
+                      <option [ngValue]="true">Active</option>
+                      <option [ngValue]="false">Inactive</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" (click)="closeEditModal()">Cancel</button>
+              <button type="submit" class="btn btn-primary" [disabled]="isSaving">
+                {{ isSaving ? 'Saving...' : 'Save Changes' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
       <!-- Top Header -->
       <header class="top-header">
         <div class="header-left">
@@ -111,6 +253,7 @@ interface Member {
                 <th>Share %</th>
                 <th>Status</th>
                 <th>Joined</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -131,9 +274,20 @@ interface Member {
                   </span>
                 </td>
                 <td class="date">{{ member.joinDate | date:'mediumDate' }}</td>
+                <td>
+                  <button class="btn-action" (click)="viewProfile(member)" title="View Profile">
+                    <span class="material-icons">person</span>
+                  </button>
+                  <button class="btn-action" (click)="openEditModal(member)" title="Edit">
+                    <span class="material-icons">edit</span>
+                  </button>
+                  <button class="btn-action" (click)="downloadProfile(member)" title="Download PDF">
+                    <span class="material-icons">picture_as_pdf</span>
+                  </button>
+                </td>
               </tr>
               <tr *ngIf="filteredMembers.length === 0">
-                <td colspan="9" class="empty-row">
+                <td colspan="10" class="empty-row">
                   <span class="material-icons">people</span>
                   <span>No investors found</span>
                 </td>
@@ -177,6 +331,17 @@ interface Member {
           </div>
           <div class="member-footer">
             <span class="join-date">Since {{ member.joinDate | date:'MMM yyyy' }}</span>
+            <div class="card-actions">
+              <button class="btn-action" (click)="viewProfile(member)" title="View Profile">
+                <span class="material-icons">person</span>
+              </button>
+              <button class="btn-action" (click)="openEditModal(member)" title="Edit">
+                <span class="material-icons">edit</span>
+              </button>
+              <button class="btn-action" (click)="downloadProfile(member)" title="Download PDF">
+                <span class="material-icons">picture_as_pdf</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -230,6 +395,9 @@ interface Member {
     .date { color: #666; font-size: 13px; }
     .empty-row { text-align: center; padding: 40px; color: #999; }
     .empty-row .material-icons { font-size: 48px; display: block; margin-bottom: 8px; }
+    .btn-action { background: none; border: none; padding: 6px; cursor: pointer; color: #667eea; border-radius: 4px; transition: all 0.2s; }
+    .btn-action:hover { background: #667eea; color: white; }
+    .investors-table .btn-action { margin-right: 4px; }
     
     /* Card Styles */
     .members-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
@@ -250,6 +418,7 @@ interface Member {
     .stat .stat-value { font-size: 16px; font-weight: 600; color: #1a1a2e; }
     .member-footer { display: flex; justify-content: space-between; align-items: center; }
     .join-date { font-size: 12px; color: #999; }
+    .card-actions { display: flex; gap: 4px; }
     .empty-state { grid-column: 1 / -1; text-align: center; padding: 60px 20px; background: white; border-radius: 12px; color: #999; }
     .empty-state .material-icons { font-size: 64px; margin-bottom: 16px; }
 .empty-state h3 { font-size: 18px; color: #666; margin: 0 0 8px 0; }
@@ -277,6 +446,42 @@ interface Member {
       .stat-card .stat-value { font-size: 20px; }
       .btn { padding: 8px 12px; font-size: 13px; }
     }
+
+    /* Modal Styles */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+    .modal-content { background: white; border-radius: 16px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; animation: modalSlideIn 0.3s ease; }
+    @keyframes modalSlideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #eee; }
+    .modal-header h2 { margin: 0; font-size: 20px; color: #1a1a2e; }
+    .modal-close { background: none; border: none; cursor: pointer; color: #666; padding: 4px; border-radius: 4px; }
+    .modal-close:hover { background: #f5f5f5; color: #333; }
+    .modal-body { padding: 24px; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid #eee; }
+    .profile-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+    .profile-avatar { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 24px; }
+    .profile-title h3 { margin: 0 0 8px 0; font-size: 24px; color: #1a1a2e; }
+    .profile-section { margin-bottom: 24px; }
+    .profile-section h4 { font-size: 14px; color: #666; text-transform: uppercase; margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .info-item { display: flex; flex-direction: column; }
+    .info-item .label { font-size: 12px; color: #999; margin-bottom: 4px; }
+    .info-item .value { font-size: 15px; color: #1a1a2e; font-weight: 500; }
+    .info-item .value.highlight { color: #27ae60; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 8px; font-weight: 500; cursor: pointer; border: none; transition: all 0.2s; }
+    .btn-primary { background: #667eea; color: white; }
+    .btn-primary:hover { background: #5568d3; }
+    .btn-secondary { background: #f5f6fa; color: #666; border: 1px solid #ddd; }
+    .btn-secondary:hover { background: #eee; }
+    .edit-modal { max-width: 650px; }
+    .form-section { margin-bottom: 24px; }
+    .form-section h3 { font-size: 14px; color: #666; text-transform: uppercase; margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #eee; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .form-group { display: flex; flex-direction: column; }
+    .form-group.full-width { grid-column: 1 / -1; }
+    .form-group label { font-size: 13px; color: #666; margin-bottom: 6px; font-weight: 500; }
+    .form-group input, .form-group select, .form-group textarea { padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; transition: border-color 0.2s; }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #667eea; }
+    .modal-body { padding: 20px 24px; max-height: 60vh; overflow-y: auto; }
   `]
 })
 export class InvestorsComponent implements OnInit {
@@ -286,11 +491,17 @@ export class InvestorsComponent implements OnInit {
   errorMessage = '';
   searchTerm = '';
   viewMode: 'table' | 'card' = 'table';
+  showProfileModal = false;
+  showEditModal = false;
+  selectedMember: Member | null = null;
+  editingMember: Member | null = null;
+  isSaving = false;
 
   constructor(
     private http: HttpClient,
     private tokenService: Token,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private router: Router
   ) {}
 
   ngOnInit() {
@@ -353,5 +564,151 @@ export class InvestorsComponent implements OnInit {
       .join('')
       .toUpperCase()
       .substring(0, 2);
+  }
+
+  viewProfile(member: Member) {
+    this.selectedMember = member;
+    this.showProfileModal = true;
+  }
+
+  openEditModal(member: Member) {
+    this.editingMember = { ...member };
+    this.showEditModal = true;
+  }
+
+  closeEditModal() {
+    this.showEditModal = false;
+    this.editingMember = null;
+  }
+
+  saveMember() {
+    if (!this.editingMember) return;
+    this.isSaving = true;
+    this.http.put<Member>(`/api/members/${this.editingMember.id}`, this.editingMember).subscribe({
+      next: (updated) => {
+        const index = this.members.findIndex(m => m.id === updated.id);
+        if (index !== -1) {
+          this.members[index] = updated;
+          this.filterMembers();
+        }
+        this.isSaving = false;
+        this.closeEditModal();
+      },
+      error: (err) => {
+        console.error('Error saving member:', err);
+        this.isSaving = false;
+      }
+    });
+  }
+
+  closeProfileModal() {
+    this.showProfileModal = false;
+    this.selectedMember = null;
+  }
+
+  downloadProfile(member: Member) {
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Investor Profile - ${member.name}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; color: #1a1a2e; }
+    .header { text-align: center; border-bottom: 2px solid #667eea; padding-bottom: 20px; margin-bottom: 30px; }
+    .header h1 { margin: 0; color: #667eea; }
+    .header p { color: #666; margin: 5px 0 0 0; }
+    .section { margin-bottom: 25px; }
+    .section h2 { font-size: 14px; color: #667eea; text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+    .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .info-item { display: flex; flex-direction: column; }
+    .label { font-size: 11px; color: #999; margin-bottom: 2px; }
+    .value { font-size: 14px; font-weight: 500; }
+    .status { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; }
+    .status.active { background: #e8f5e9; color: #27ae60; }
+    .status.inactive { background: #ffebee; color: #e74c3c; }
+    .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #999; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Investor Profile Report</h1>
+    <p>Unity MicroFund • Generated on ${new Date().toLocaleDateString()}</p>
+  </div>
+  
+  <div class="section">
+    <h2>Personal Information</h2>
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="label">Member ID</span>
+        <span class="value">${member.id}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Name</span>
+        <span class="value">${member.name}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Email</span>
+        <span class="value">${member.email}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Phone</span>
+        <span class="value">${member.phone}</span>
+      </div>
+      <div class="info-item" style="grid-column: 1 / -1;">
+        <span class="label">Address</span>
+        <span class="value">${member.address}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Status</span>
+        <span class="status ${member.isActive ? 'active' : 'inactive'}">${member.isActive ? 'Active' : 'Inactive'}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Join Date</span>
+        <span class="value">${new Date(member.joinDate).toLocaleDateString()}</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="section">
+    <h2>Financial Details</h2>
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="label">Monthly Amount</span>
+        <span class="value">${member.monthlyAmount.toLocaleString()} BDT</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Total Contributions</span>
+        <span class="value">${member.totalContributions.toLocaleString()} BDT</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Installments Paid</span>
+        <span class="value">${member.totalInstallmentsPaid}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Current Share Value</span>
+        <span class="value">${member.currentShareValue.toLocaleString()} BDT</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Share Percentage</span>
+        <span class="value">${member.sharePercentage.toFixed(2)}%</span>
+      </div>
+    </div>
+  </div>
+  
+  <div class="footer">
+    <p>Unity MicroFund • Investor Profile Report</p>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = window.URL.createObjectURL(blob);
+    const printWindow = window.open(url, '_blank');
+    if (printWindow) {
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
   }
 }

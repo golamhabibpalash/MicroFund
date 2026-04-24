@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Areas.Members.DTOs;
 using UnityMicroFund.API.Areas.Members.Services;
+using UnityMicroFund.API.Data;
+using UnityMicroFund.API.Models;
 
 namespace UnityMicroFund.API.Areas.Members.Controllers;
 
@@ -11,10 +14,12 @@ namespace UnityMicroFund.API.Areas.Members.Controllers;
 public class MembersController : ControllerBase
 {
     private readonly IMemberService _memberService;
+    private readonly AppDbContext _context;
 
-    public MembersController(IMemberService memberService)
+    public MembersController(IMemberService memberService, AppDbContext context)
     {
         _memberService = memberService;
+        _context = context;
     }
 
     [HttpGet]
@@ -23,7 +28,31 @@ public class MembersController : ControllerBase
         [FromQuery] bool? isActive = null)
     {
         var members = await _memberService.GetMembersAsync(search, isActive);
-        return Ok(members);
+        
+        var membersList = members.ToList();
+        
+        var totalPool = await _context.Contributions
+            .Where(c => c.Status == ContributionStatus.Paid)
+            .SumAsync(c => c.Amount);
+        
+        var memberTotals = await _context.Contributions
+            .Where(c => c.Status == ContributionStatus.Paid)
+            .GroupBy(c => c.MemberId)
+            .Select(g => new { MemberId = g.Key, Total = g.Sum(c => c.Amount), Count = g.Count() })
+            .ToDictionaryAsync(x => x.MemberId, x => new { x.Total, x.Count });
+        
+        var result = membersList.Select(m =>
+        {
+            if (memberTotals.TryGetValue(m.Id, out var totals))
+            {
+                m.TotalContributions = totals.Total;
+                m.TotalInstallmentsPaid = totals.Count;
+                m.SharePercentage = totalPool > 0 ? (totals.Total / totalPool) * 100 : 0;
+            }
+            return m;
+        }).ToList();
+        
+        return Ok(result);
     }
 
     [HttpGet("{id}")]

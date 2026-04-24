@@ -1,7 +1,5 @@
-import { Injectable, inject } from '@angular/core';
-import { CanActivate, CanActivateFn, ActivatedRouteSnapshot, RouterStateSnapshot, Router, UrlTree } from '@angular/router';
-import { Observable } from 'rxjs';
-import { Auth } from '../services/auth';
+import { Injectable } from '@angular/core';
+import { CanActivate, ActivatedRouteSnapshot, RouterStateSnapshot, Router, UrlTree } from '@angular/router';
 import { Token } from '../services/token';
 
 @Injectable({
@@ -9,40 +7,31 @@ import { Token } from '../services/token';
 })
 export class AuthGuard implements CanActivate {
   constructor(
-    private authService: Auth,
     private tokenService: Token,
     private router: Router
   ) {}
 
-canActivate(
+  canActivate(
     route: ActivatedRouteSnapshot,
     state: RouterStateSnapshot
-  ): Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree {
-    const token = this.tokenService.getToken();
+  ): boolean | UrlTree {
+    console.log('=== AUTH GUARD CHECK ===');
+    console.log('URL:', state.url);
     
-    if (token && !this.tokenService.isTokenExpired()) {
-      return true;
+    // Check localStorage directly
+    const localStorageToken = localStorage.getItem('access_token');
+    console.log('Direct localStorage check:', !!localStorageToken);
+    
+    // Check via service
+    const serviceToken = this.tokenService.getToken();
+    console.log('Service getToken():', !!serviceToken);
+    
+    if (!localStorageToken && !serviceToken) {
+      console.log('AUTH GUARD: No token found - redirecting to login');
+      return this.router.createUrlTree(['/auth/login']);
     }
 
-    this.router.navigate(['/auth/login'], {
-      queryParams: { returnUrl: state.url },
-    });
-    return false;
-  }
-}
-
-export const authGuard: CanActivateFn = (route, state) => {
-  const tokenService = inject(Token);
-  const router = inject(Router);
-
-  const token = tokenService.getToken();
-  
-  if (token && !tokenService.isTokenExpired()) {
+    console.log('AUTH GUARD: Token found - allowing access');
     return true;
   }
-
-  router.navigate(['/auth/login'], {
-    queryParams: { returnUrl: state.url },
-  });
-  return false;
-};
+}

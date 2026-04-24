@@ -14,6 +14,7 @@ import { CommonModule } from '@angular/common';
 export class LoginComponent {
   form: FormGroup;
   error: string = '';
+  isLoading = false;
 
   constructor(
     private fb: FormBuilder,
@@ -30,11 +31,29 @@ export class LoginComponent {
     if (this.form.invalid) return;
 
     this.error = '';
+    this.isLoading = true;
+
+    console.log('=== LOGIN START ===');
+    console.log('Credentials:', this.form.value);
+
     this.authService.login(this.form.value).subscribe({
-      next: () => {
-        this.router.navigate(['/dashboard']);
+      next: (response) => {
+        console.log('=== LOGIN SUCCESS ===');
+        console.log('Response keys:', Object.keys(response));
+        console.log('Has accessToken:', !!response.accessToken);
+        console.log('accessToken length:', response.accessToken?.length);
+        
+        // Check localStorage
+        const savedToken = localStorage.getItem('access_token');
+        console.log('Token in localStorage:', !!savedToken);
+        console.log('Token value:', savedToken ? savedToken.substring(0, 50) + '...' : 'null');
+        
+        window.location.href = '/dashboard';
       },
       error: (err) => {
+        console.log('=== LOGIN ERROR ===');
+        console.log('Error:', err);
+        this.isLoading = false;
         this.error = err.error?.message || 'Login failed. Please check your credentials.';
       },
     });

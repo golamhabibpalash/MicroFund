@@ -9,11 +9,22 @@ export class Token {
   private readonly tokenExpiryKey = 'token_expiry';
 
   saveToken(token: string): void {
-    localStorage.setItem(this.tokenKey, token);
+    try {
+      localStorage.setItem(this.tokenKey, token);
+      console.log('Token saved to localStorage, length:', token.length);
+    } catch (e) {
+      console.error('Failed to save token:', e);
+    }
   }
 
   getToken(): string | null {
-    return localStorage.getItem(this.tokenKey);
+    try {
+      const token = localStorage.getItem(this.tokenKey);
+      return token;
+    } catch (e) {
+      console.error('Failed to get token:', e);
+      return null;
+    }
   }
 
   removeToken(): void {
@@ -37,6 +48,8 @@ export class Token {
     let expiryTime: number;
     if (expiresAt instanceof Date) {
       expiryTime = expiresAt.getTime();
+    } else if (typeof expiresAt === 'string') {
+      expiryTime = new Date(expiresAt).getTime();
     } else {
       expiryTime = expiresAt;
     }
@@ -72,6 +85,7 @@ export class Token {
       }
       return JSON.parse(atob(base64));
     } catch (error) {
+      console.error('Failed to decode token:', error);
       return null;
     }
   }

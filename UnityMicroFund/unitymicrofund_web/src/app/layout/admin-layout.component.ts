@@ -3,11 +3,12 @@ import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { filter } from 'rxjs/operators';
 import { UserService } from '../core/services/user';
+import { ChatInterfaceComponent } from '../chat/chat-interface.component';
 
 @Component({
   selector: 'app-admin-layout',
   standalone: true,
-  imports: [RouterModule, CommonModule],
+  imports: [RouterModule, CommonModule, ChatInterfaceComponent],
   template: `
     <div class="layout-container">
       <div class="sidebar-overlay" [class.show]="sidebarOpen" (click)="toggleSidebar()"></div>
@@ -90,6 +91,8 @@ import { UserService } from '../core/services/user';
       <main class="main-content">
         <router-outlet (activate)="onRouteActivate()"></router-outlet>
       </main>
+
+      <app-chat-interface></app-chat-interface>
     </div>
   `,
   styles: [`

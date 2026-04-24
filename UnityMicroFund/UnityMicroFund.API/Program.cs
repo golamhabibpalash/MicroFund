@@ -6,6 +6,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using UnityMicroFund.API.Areas.Accounts.Services;
 using UnityMicroFund.API.Areas.Auth.Services;
+using UnityMicroFund.API.Areas.Chat.Hubs;
+using UnityMicroFund.API.Areas.Chat.Services;
 using UnityMicroFund.API.Areas.Contributions.Services;
 using UnityMicroFund.API.Areas.Dashboard.Services;
 using UnityMicroFund.API.Areas.Investments.Services;
@@ -45,6 +47,19 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
         ValidAudience = builder.Configuration["Jwt:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(key)
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chat"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -116,6 +131,8 @@ builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -152,6 +169,7 @@ app.UseStaticFiles(new StaticFileOptions
 app.UseDefaultFiles();
 
 app.MapControllers();
+app.MapHub<ChatHub>("/chat");
 
 using (var scope = app.Services.CreateScope())
 {

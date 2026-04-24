@@ -13,8 +13,9 @@ public interface INotificationService
     Task MarkAllAsReadAsync(Guid userId);
     Task<RegistrationRequest> CreateRegistrationRequestAsync(Guid userId, string userEmail, string userName, Guid? memberId = null);
     Task<List<RegistrationRequest>> GetPendingRegistrationRequestsAsync();
+    Task<List<RegistrationRequest>> GetRegistrationRequestsAsync(string? status = null);
     Task<bool> ApproveRegistrationAsync(Guid requestId, Guid approvedByUserId);
-    Task<bool> RejectRegistrationAsync(Guid requestId, Guid rejectedByUserId);
+    Task<bool> RejectRegistrationAsync(Guid requestId, Guid rejectedByUserId, string? reason = null);
 }
 
 public class NotificationService : INotificationService
@@ -117,6 +118,20 @@ public class NotificationService : INotificationService
             .ToListAsync();
     }
 
+    public async Task<List<RegistrationRequest>> GetRegistrationRequestsAsync(string? status = null)
+    {
+        var query = _context.RegistrationRequests.AsQueryable();
+
+        if (!string.IsNullOrEmpty(status))
+        {
+            query = query.Where(r => r.Status == status);
+        }
+
+        return await query
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync();
+    }
+
     public async Task<bool> ApproveRegistrationAsync(Guid requestId, Guid approvedByUserId)
     {
         var request = await _context.RegistrationRequests.FindAsync(requestId);
@@ -134,36 +149,57 @@ public class NotificationService : INotificationService
 
         await _context.SaveChangesAsync();
 
-        var admins = await _context.Users
-            .Where(u => u.Role == UserRole.Admin && u.IsActive)
-            .ToListAsync();
-
-        foreach (var admin in admins)
+        var member = await _context.Members.FirstOrDefaultAsync(m => m.UserId == user.Id);
+        if (member != null)
         {
-            await CreateNotificationAsync(
-                "Registration Approved",
-                $"Registration for {user.Name} has been approved.",
-                NotificationType.RegistrationApproval,
-                admin.Id,
-                approvedByUserId,
-                request.UserId,
-                request.MemberId
-            );
+            member.IsActive = true;
+            member.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
         }
+
+        await CreateNotificationAsync(
+            "Registration Approved",
+            "Your registration has been approved. You can now login to the system.",
+            NotificationType.RegistrationApproval,
+            user.Id,
+            approvedByUserId,
+            request.UserId,
+            request.MemberId
+        );
 
         return true;
     }
 
-    public async Task<bool> RejectRegistrationAsync(Guid requestId, Guid rejectedByUserId)
+    public async Task<bool> RejectRegistrationAsync(Guid requestId, Guid rejectedByUserId, string? reason = null)
     {
         var request = await _context.RegistrationRequests.FindAsync(requestId);
         if (request == null) return false;
+
+        var user = await _context.Users.FindAsync(request.UserId);
+        if (user == null) return false;
+
+        user.IsActive = false;
+        user.UpdatedAt = DateTime.UtcNow;
 
         request.Status = "Rejected";
         request.ProcessedAt = DateTime.UtcNow;
         request.ProcessedByUserId = rejectedByUserId;
 
         await _context.SaveChangesAsync();
+
+        var message = reason != null
+            ? $"Your registration has been rejected. Reason: {reason}"
+            : "Your registration has been rejected.";
+
+        await CreateNotificationAsync(
+            "Registration Rejected",
+            message,
+            NotificationType.RegistrationApproval,
+            user.Id,
+            rejectedByUserId,
+            request.UserId,
+            request.MemberId
+        );
 
         return true;
     }
