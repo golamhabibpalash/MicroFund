@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("UnityMicroFund.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+57a81820e23923d3d68e193cb2e3cbad4f499ae7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+264d06e8249ef69aca040e810e8df7a713650185")]
 [assembly: System.Reflection.AssemblyProductAttribute("UnityMicroFund.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("UnityMicroFund.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

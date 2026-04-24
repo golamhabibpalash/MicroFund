@@ -170,12 +170,7 @@ public class AuthService : IAuthService
             return null;
         }
         
-        if (!user.IsActive)
-        {
-            return null;
-        }
-
-        if (!user.IsApproved)
+        if (!user.IsActive || !user.IsApproved)
         {
             return new AuthResponseDto
             {
@@ -187,7 +182,8 @@ public class AuthService : IAuthService
                     Role = user.Role.ToString(),
                     IsActive = user.IsActive,
                     IsApproved = user.IsApproved
-                }
+                },
+                RequiresApproval = true
             };
         }
         
