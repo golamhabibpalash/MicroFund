@@ -3,132 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { AccountService, Account, CreateAccountRequest, UpdateAccountRequest } from '../core/services/account';
+import { ToastService } from '../core/services/toast.service';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
-
-const MOCK_ACCOUNTS: Account[] = [
-  {
-    id: '1',
-    name: 'Master Account',
-    description: 'Primary organization account',
-    accountType: 'MasterAccount',
-    balance: 150000.00,
-    bankName: 'First National Bank',
-    accountHolderName: 'Unity MicroFund Organization',
-    accountNumber: '****1234',
-    routingNumber: '021000021',
-    swiftCode: 'FNBAUS33',
-    branchName: 'Main Branch',
-    branchAddress: '123 Financial District, New York, NY 10001',
-    bankPhone: '+1-555-123-4567',
-    bankEmail: 'info@firstnational.com',
-    iban: 'US12345678901234567890',
-    isActive: true,
-    createdBy: 'admin',
-    createdAt: '2024-01-15T10:00:00Z',
-    updatedAt: '2024-04-10T14:30:00Z',
-    totalFunded: 250000.00,
-    totalRefunded: 50000.00,
-    transactionCount: 45
-  },
-  {
-    id: '2',
-    name: 'Operating Fund',
-    description: 'Day-to-day operational expenses',
-    accountType: 'OperatingFund',
-    balance: 45000.00,
-    bankName: 'Bank of America',
-    accountHolderName: 'Unity MicroFund Organization',
-    accountNumber: '****5678',
-    routingNumber: '026009593',
-    swiftCode: 'BOFAUS3N',
-    branchName: 'Downtown Branch',
-    branchAddress: '456 Main Street, Los Angeles, CA 90001',
-    bankPhone: '+1-555-987-6543',
-    bankEmail: 'ops@bofa.com',
-    iban: 'US09876543210987654321',
-    isActive: true,
-    createdBy: 'admin',
-    createdAt: '2024-02-01T09:00:00Z',
-    updatedAt: '2024-04-08T11:15:00Z',
-    totalFunded: 80000.00,
-    totalRefunded: 35000.00,
-    transactionCount: 28
-  },
-  {
-    id: '3',
-    name: 'Reserve Fund',
-    description: 'Emergency and contingency reserve',
-    accountType: 'ReserveFund',
-    balance: 75000.00,
-    bankName: 'Chase Bank',
-    accountHolderName: 'Unity MicroFund Organization',
-    accountNumber: '****9012',
-    routingNumber: '021000021',
-    swiftCode: 'CHASUS33',
-    branchName: 'Central Branch',
-    branchAddress: '789 Business Park, Chicago, IL 60601',
-    bankPhone: '+1-555-456-7890',
-    bankEmail: 'reserve@chase.com',
-    iban: 'US54321098765432109876',
-    isActive: true,
-    createdBy: 'admin',
-    createdAt: '2024-02-15T14:30:00Z',
-    updatedAt: '2024-04-05T16:45:00Z',
-    totalFunded: 100000.00,
-    totalRefunded: 25000.00,
-    transactionCount: 15
-  },
-  {
-    id: '4',
-    name: 'Investment Fund',
-    description: 'Long-term investment portfolio',
-    accountType: 'InvestmentFund',
-    balance: 200000.00,
-    bankName: 'Goldman Sachs',
-    accountHolderName: 'Unity MicroFund Organization',
-    accountNumber: '****3456',
-    routingNumber: '021000128',
-    swiftCode: 'GASUS33',
-    branchName: 'Investment Branch',
-    branchAddress: '100 Wall Street, New York, NY 10005',
-    bankPhone: '+1-555-222-3333',
-    bankEmail: 'investments@gs.com',
-    iban: 'US98765432101234567890',
-    isActive: true,
-    createdBy: 'admin',
-    createdAt: '2024-03-01T11:00:00Z',
-    updatedAt: '2024-04-12T09:00:00Z',
-    totalFunded: 300000.00,
-    totalRefunded: 100000.00,
-    transactionCount: 62
-  },
-  {
-    id: '5',
-    name: 'Emergency Fund',
-    description: 'Medical and disaster emergencies',
-    accountType: 'EmergencyFund',
-    balance: 25000.00,
-    bankName: 'Wells Fargo',
-    accountHolderName: 'Unity MicroFund Organization',
-    accountNumber: '****7890',
-    routingNumber: '121000248',
-    swiftCode: 'WFBIUS6S',
-    branchName: 'Emergency Services Branch',
-    branchAddress: '200 Health District, Houston, TX 77001',
-    bankPhone: '+1-555-777-8888',
-    bankEmail: 'emergency@wellsfargo.com',
-    iban: 'US11112222333344445555',
-    isActive: false,
-    createdBy: 'admin',
-    createdAt: '2024-01-20T08:00:00Z',
-    updatedAt: '2024-03-15T10:30:00Z',
-    totalFunded: 50000.00,
-    totalRefunded: 25000.00,
-    transactionCount: 8
-  }
-];
 
 @Component({
   selector: 'app-accounts',
@@ -402,19 +280,9 @@ const MOCK_ACCOUNTS: Account[] = [
               <label>Branch Name</label>
               <input type="text" [(ngModel)]="formData.branchName" name="branchName" />
             </div>
-            <div class="form-group">
+<div class="form-group">
               <label>Branch Address</label>
               <textarea [(ngModel)]="formData.branchAddress" name="branchAddress" rows="2"></textarea>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Bank Phone</label>
-                <input type="text" [(ngModel)]="formData.bankPhone" name="bankPhone" />
-              </div>
-              <div class="form-group">
-                <label>Bank Email</label>
-                <input type="email" [(ngModel)]="formData.bankEmail" name="bankEmail" />
-              </div>
             </div>
           </div>
 
@@ -599,6 +467,7 @@ export class AccountsComponent implements OnInit, OnDestroy {
 
   constructor(
     private accountService: AccountService,
+    private toastService: ToastService,
     private router: Router,
     private cdr: ChangeDetectorRef
   ) {}
@@ -663,8 +532,6 @@ export class AccountsComponent implements OnInit, OnDestroy {
       swiftCode: '',
       branchName: '',
       branchAddress: '',
-      bankPhone: '',
-      bankEmail: '',
       iban: ''
     };
   }
@@ -675,17 +542,13 @@ export class AccountsComponent implements OnInit, OnDestroy {
       next: (accounts) => {
         this.accounts = Array.isArray(accounts) ? accounts : [];
         this.filteredAccounts = [...this.accounts];
-        
-        if (this.accounts.length === 0) {
-          this.accounts = [...MOCK_ACCOUNTS];
-          this.filteredAccounts = [...this.accounts];
-        }
         this.isLoading = false;
         this.cdr.detectChanges();
       },
-      error: () => {
-        this.accounts = [...MOCK_ACCOUNTS];
-        this.filteredAccounts = [...this.accounts];
+      error: (err) => {
+        console.error('Failed to load accounts:', err);
+        this.accounts = [];
+        this.filteredAccounts = [];
         this.isLoading = false;
         this.cdr.detectChanges();
       }
@@ -714,8 +577,6 @@ export class AccountsComponent implements OnInit, OnDestroy {
       swiftCode: account.swiftCode,
       branchName: account.branchName,
       branchAddress: account.branchAddress,
-      bankPhone: account.bankPhone,
-      bankEmail: account.bankEmail,
       iban: account.iban
     };
     this.showModal = true;
@@ -730,41 +591,39 @@ export class AccountsComponent implements OnInit, OnDestroy {
 
   saveAccount() {
     if (!this.formData.name || !this.formData.accountType) {
-      alert('Please fill in required fields');
+      this.toastService.warning('Please fill in required fields');
       return;
     }
 
     this.isSubmitting = true;
 
-    const onSuccess = () => {
-      console.log('Operation successful');
-      this.isSubmitting = false;
-      this.closeModal();
-      this.loadAccounts();
-    };
-
-    const onError = (err: any, operation: string) => {
-      console.error(`Failed to ${operation}:`, err);
-      this.isSubmitting = false;
-      const errorMsg = err.error?.message || `Failed to ${operation}. Please try again.`;
-      alert(errorMsg);
-    };
-
     if (this.isEditMode && this.selectedAccountId) {
       const updateData: UpdateAccountRequest = this.formData;
       this.accountService.updateAccount(this.selectedAccountId, updateData).subscribe({
-        next: onSuccess,
-        error: (err) => onError(err, 'update account')
+        next: () => {
+          this.isSubmitting = false;
+          this.toastService.success('Account updated successfully!');
+          this.closeModal();
+          this.loadAccounts();
+        },
+        error: (err) => {
+          this.isSubmitting = false;
+          this.toastService.error(err.error?.message || 'Failed to update account. Please try again.');
+        }
       });
     } else {
       const createData: CreateAccountRequest = this.formData;
-      console.log('Submitting create account:', createData);
       this.accountService.createAccount(createData).subscribe({
-        next: (result) => {
-          console.log('Account created successfully:', result);
-          onSuccess();
+        next: () => {
+          this.isSubmitting = false;
+          this.toastService.success('Account created successfully!');
+          this.closeModal();
+          this.loadAccounts();
         },
-        error: (err) => onError(err, 'create account')
+        error: (err) => {
+          this.isSubmitting = false;
+          this.toastService.error(err.error?.message || 'Failed to create account. Please try again.');
+        }
       });
     }
   }
@@ -784,13 +643,12 @@ export class AccountsComponent implements OnInit, OnDestroy {
 
     this.accountService.deleteAccount(this.accountToDelete.id).subscribe({
       next: () => {
-        alert('Account deleted successfully!');
+        this.toastService.success('Account deleted successfully!');
         this.cancelDelete();
         this.loadAccounts();
       },
       error: (err) => {
-        console.error('Failed to delete account:', err);
-        alert(err.error?.message || 'Failed to delete account. It may have existing transactions.');
+        this.toastService.error(err.error?.message || 'Failed to delete account.');
       }
     });
   }

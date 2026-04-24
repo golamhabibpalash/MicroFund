@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Areas.Transactions.DTOs;
 using UnityMicroFund.API.Data;
+using UnityMicroFund.API.Infrastructure.Email;
 using UnityMicroFund.API.Models;
 
 namespace UnityMicroFund.API.Areas.Transactions.Services;
@@ -8,10 +9,12 @@ namespace UnityMicroFund.API.Areas.Transactions.Services;
 public class TransactionService : ITransactionService
 {
     private readonly AppDbContext _context;
+    private readonly IEmailService _emailService;
 
-    public TransactionService(AppDbContext context)
+    public TransactionService(AppDbContext context, IEmailService emailService)
     {
         _context = context;
+        _emailService = emailService;
     }
 
     public async Task<IEnumerable<TransactionResponseDto>> GetTransactionsAsync(TransactionFilterDto filter)
@@ -102,7 +105,7 @@ public class TransactionService : ITransactionService
 
         var transaction = new Transaction
         {
-            RefNo = await GenerateRefNoAsync(),
+            RefNo = string.IsNullOrWhiteSpace(dto.RefNo) ? await GenerateRefNoAsync() : dto.RefNo,
             TransferFor = dto.TransferFor,
             Amount = dto.Amount,
             Status = status,
@@ -111,6 +114,8 @@ public class TransactionService : ITransactionService
             CreatedById = userId,
             AccountId = dto.AccountId,
             ApprovalStatus = TransactionApprovalStatus.Pending,
+            ReceiptType = dto.ReceiptType,
+            TransactionDate = dto.TransactionDate,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -151,6 +156,7 @@ public class TransactionService : ITransactionService
     {
         var transaction = await _context.Transactions
             .Include(t => t.Account)
+            .Include(t => t.CreatedBy)
             .FirstOrDefaultAsync(t => t.Id == id);
 
         if (transaction == null) return null;
@@ -186,6 +192,19 @@ public class TransactionService : ITransactionService
         transaction.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        if (transaction.CreatedBy != null && !string.IsNullOrEmpty(transaction.CreatedBy.Email))
+        {
+            var statusText = dto.IsApproved ? "Approved" : "Rejected";
+            await _emailService.SendTransactionApprovedEmailAsync(
+                transaction.CreatedBy.Email,
+                transaction.CreatedBy.Name,
+                transaction.RefNo,
+                transaction.Amount,
+                transaction.Account?.Name ?? "N/A",
+                statusText
+            );
+        }
 
         return await GetTransactionByIdAsync(id);
     }
@@ -228,6 +247,17 @@ public class TransactionService : ITransactionService
         return $"{prefix}{nextNumber:D6}";
     }
 
+    public async Task<bool> UpdateReceiptUrlAsync(Guid transactionId, string receiptUrl)
+    {
+        var transaction = await _context.Transactions.FindAsync(transactionId);
+        if (transaction == null) return false;
+
+        transaction.ReceiptUrl = receiptUrl;
+        transaction.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     private TransactionResponseDto MapToDto(Transaction t)
     {
         return new TransactionResponseDto
@@ -249,7 +279,10 @@ public class TransactionService : ITransactionService
             AccountId = t.AccountId,
             AccountName = t.Account?.Name ?? "Unknown",
             CreatedAt = t.CreatedAt,
-            UpdatedAt = t.UpdatedAt
+            UpdatedAt = t.UpdatedAt,
+            ReceiptUrl = t.ReceiptUrl,
+            ReceiptType = t.ReceiptType,
+            TransactionDate = t.TransactionDate
         };
     }
 }

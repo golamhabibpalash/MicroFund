@@ -15,8 +15,6 @@ export interface Account {
   swiftCode?: string;
   branchName?: string;
   branchAddress?: string;
-  bankPhone?: string;
-  bankEmail?: string;
   iban?: string;
   isActive: boolean;
   createdBy?: string;
@@ -39,8 +37,6 @@ export interface CreateAccountRequest {
   swiftCode?: string;
   branchName?: string;
   branchAddress?: string;
-  bankPhone?: string;
-  bankEmail?: string;
   iban?: string;
 }
 
@@ -56,8 +52,6 @@ export interface UpdateAccountRequest {
   swiftCode?: string;
   branchName?: string;
   branchAddress?: string;
-  bankPhone?: string;
-  bankEmail?: string;
   iban?: string;
 }
 

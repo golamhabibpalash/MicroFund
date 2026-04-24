@@ -1,5 +1,13 @@
 @use '@angular/material' as mat;
 
+// Toastr styles - using CSS instead of SCSS import
+:root {
+  --toastr-success: #27ae60;
+  --toastr-error: #e74c3c;
+  --toastr-warning: #f39c12;
+  --toastr-info: #3498db;
+}
+
 html {
   height: 100%;
 }

@@ -36,6 +36,9 @@ export interface Transaction {
   accountName: string;
   createdAt: string;
   updatedAt: string;
+  receiptUrl?: string;
+  receiptType?: string;
+  transactionDate?: string;
 }
 
 export interface CreateTransactionRequest {
@@ -44,6 +47,15 @@ export interface CreateTransactionRequest {
   status: 'Fund' | 'Refund';
   remarks?: string;
   accountId: string;
+  receiptType?: string;
+  refNo?: string;
+  transactionDate?: string;
+}
+
+export interface ReceiptType {
+  id: string;
+  name: string;
+  icon: string;
 }
 
 export interface TransactionFilter {
@@ -90,6 +102,16 @@ export class TransactionService {
 
   deleteTransaction(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
+  getReceiptTypes(): Observable<ReceiptType[]> {
+    return this.http.get<ReceiptType[]>(`${this.apiUrl}/receipt-types`);
+  }
+
+  uploadReceipt(transactionId: string, file: File): Observable<{ receiptUrl: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<{ receiptUrl: string }>(`${this.apiUrl}/${transactionId}/receipt`, formData);
   }
 
   private buildQueryParams(filter?: TransactionFilter): { [key: string]: string } {

@@ -58,4 +58,12 @@ public class Transaction
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
+
+    [MaxLength(500)]
+    public string? ReceiptUrl { get; set; }
+
+    [MaxLength(100)]
+    public string? ReceiptType { get; set; }
+
+    public DateTime? TransactionDate { get; set; }
 }

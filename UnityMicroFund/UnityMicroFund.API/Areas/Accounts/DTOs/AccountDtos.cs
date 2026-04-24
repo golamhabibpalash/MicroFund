@@ -39,12 +39,6 @@ public class CreateAccountDto
     [MaxLength(500)]
     public string? BranchAddress { get; set; }
 
-    [MaxLength(100)]
-    public string? BankPhone { get; set; }
-
-    [MaxLength(100)]
-    public string? BankEmail { get; set; }
-
     [MaxLength(50)]
     public string? Iban { get; set; }
 }
@@ -82,12 +76,6 @@ public class UpdateAccountDto
     [MaxLength(500)]
     public string? BranchAddress { get; set; }
 
-    [MaxLength(100)]
-    public string? BankPhone { get; set; }
-
-    [MaxLength(100)]
-    public string? BankEmail { get; set; }
-
     [MaxLength(50)]
     public string? Iban { get; set; }
 }
@@ -106,8 +94,6 @@ public class AccountResponseDto
     public string? SwiftCode { get; set; }
     public string? BranchName { get; set; }
     public string? BranchAddress { get; set; }
-    public string? BankPhone { get; set; }
-    public string? BankEmail { get; set; }
     public string? Iban { get; set; }
     public bool IsActive { get; set; }
     public string? CreatedBy { get; set; }

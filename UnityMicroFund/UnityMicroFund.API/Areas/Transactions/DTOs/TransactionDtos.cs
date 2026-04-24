@@ -21,6 +21,12 @@ public class CreateTransactionDto
 
     [Required]
     public Guid AccountId { get; set; }
+
+    public string? ReceiptType { get; set; }
+
+    public string? RefNo { get; set; }
+
+    public DateTime? TransactionDate { get; set; }
 }
 
 public class UpdateTransactionDto
@@ -68,6 +74,9 @@ public class TransactionResponseDto
     public string AccountName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public string? ReceiptUrl { get; set; }
+    public string? ReceiptType { get; set; }
+    public DateTime? TransactionDate { get; set; }
 }
 
 public class TransactionFilterDto

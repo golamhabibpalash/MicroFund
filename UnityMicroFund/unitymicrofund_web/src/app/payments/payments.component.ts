@@ -2,9 +2,11 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
-import { TransactionService, Account, Transaction, CreateTransactionRequest } from '../core/services/transaction';
+import { TransactionService, Account, Transaction, CreateTransactionRequest, ReceiptType } from '../core/services/transaction';
+import { ToastService } from '../core/services/toast.service';
 import { filter } from 'rxjs/operators';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
+import { createWorker } from 'tesseract.js';
 
 @Component({
   selector: 'app-payments',
@@ -65,7 +67,7 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
                 <th>Transfer For</th>
                 <th>Amount</th>
                 <th>Account</th>
-                <th>Status</th>
+                <th>Type</th>
                 <th>Approval</th>
                 <th>Date</th>
               </tr>
@@ -77,9 +79,8 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
                 <td class="amount">{{ tx.amount | bdtCurrency }}</td>
                 <td>{{ tx.accountName }}</td>
                 <td>
-                  <span class="tx-type" [class.fund]="tx.status === 'Fund'" [class.refund]="tx.status === 'Refund'">
-                    {{ tx.status }}
-                  </span>
+                  <span class="receipt-type" *ngIf="tx.receiptType">{{ tx.receiptType }}</span>
+                  <span class="receipt-type empty" *ngIf="!tx.receiptType">-</span>
                 </td>
                 <td>
                   <span class="status" [class.pending]="tx.approvalStatus === 'Pending'"
@@ -115,52 +116,144 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 
     <!-- Transaction Modal -->
     <div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
-      <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-content modal-large" (click)="$event.stopPropagation()">
         <div class="modal-header">
           <h3>Create New Transaction</h3>
           <button class="close-btn" (click)="closeModal()">
             <span class="material-icons">close</span>
           </button>
         </div>
-        <form (ngSubmit)="createTransaction()">
-          <div class="form-group">
-            <label for="accountId">Account *</label>
-            <select id="accountId" [(ngModel)]="newTransaction.accountId" name="accountId" required>
-              <option value="">Select Account</option>
-              <option *ngFor="let account of accounts" [value]="account.id">
-                {{ account.name }} ({{ account.accountType }})
-              </option>
-            </select>
+        <div class="modal-body-content">
+          <!-- OCR Upload Section -->
+          <div class="ocr-section">
+            <div class="ocr-header">
+              <span class="material-icons ocr-icon">document_scanner</span>
+              <div class="ocr-info">
+                <h4>Scan Receipt with OCR</h4>
+                <p>Upload a transaction receipt to auto-fill fields</p>
+              </div>
+            </div>
+            
+            <div class="receipt-type-selector">
+              <label>Select Receipt Type:</label>
+              <div class="receipt-type-chips">
+                <button *ngFor="let type of receiptTypes" 
+                        type="button"
+                        class="type-chip"
+                        [class.selected]="selectedReceiptType === type.id"
+                        (click)="selectReceiptType(type.id)">
+                  <span class="material-icons">{{ type.icon }}</span>
+                  {{ type.name }}
+                </button>
+              </div>
+            </div>
+
+            <div class="ocr-upload" [class.has-preview]="ocrPreviewUrl">
+              <input type="file" id="receipt-upload" accept="image/*" (change)="onReceiptSelected($event)" hidden #fileInput>
+              <div class="upload-area" *ngIf="!ocrPreviewUrl" (click)="fileInput.click()">
+                <span class="material-icons">cloud_upload</span>
+                <p>Click to upload receipt image</p>
+                <span class="file-types">Supports: JPG, PNG, JPEG</span>
+              </div>
+              <div class="preview-area" *ngIf="ocrPreviewUrl">
+                <img [src]="ocrPreviewUrl" alt="Receipt preview" class="receipt-preview">
+                <div class="preview-actions">
+                  <button type="button" class="btn-rescan" (click)="fileInput.click()">
+                    <span class="material-icons">refresh</span>
+                    Change Image
+                  </button>
+                  <button type="button" class="btn-scan" (click)="processOcr()" [disabled]="isOcrProcessing || !selectedReceiptType">
+                    <span class="material-icons" *ngIf="!isOcrProcessing">qr_code_scanner</span>
+                    <span class="material-icons spinning" *ngIf="isOcrProcessing">sync</span>
+                    {{ isOcrProcessing ? 'Scanning ' + ocrProgress + '%' : 'Scan Receipt' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="ocr-hint" *ngIf="!ocrPreviewUrl">
+              <span class="material-icons">lightbulb</span>
+              <span>Tip: Select receipt type first, then upload and scan for best results</span>
+            </div>
           </div>
-          <div class="form-group">
-            <label for="transferFor">Transfer For *</label>
-            <input type="text" id="transferFor" [(ngModel)]="newTransaction.transferFor" name="transferFor" 
-                   placeholder="e.g., Monthly Investment" required />
-          </div>
-          <div class="form-group">
-            <label for="amount">Amount *</label>
-            <input type="number" id="amount" [(ngModel)]="newTransaction.amount" name="amount" 
-                   placeholder="0.00" step="0.01" min="0.01" required />
-          </div>
-          <div class="form-group">
-            <label for="status">Transaction Type *</label>
-            <select id="status" [(ngModel)]="newTransaction.status" name="status" required>
-              <option value="Fund">Fund (Add to Account)</option>
-              <option value="Refund">Refund (Deduct from Account)</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="remarks">Remarks</label>
-            <textarea id="remarks" [(ngModel)]="newTransaction.remarks" name="remarks" 
-                      placeholder="Optional notes..." rows="3"></textarea>
-          </div>
-          <div class="form-actions">
-            <button type="button" class="btn-secondary" (click)="closeModal()">Cancel</button>
-            <button type="submit" class="btn-primary" [disabled]="isSubmitting">
-              {{ isSubmitting ? 'Creating...' : 'Create Transaction' }}
-            </button>
-          </div>
-        </form>
+
+          <!-- Form Section -->
+          <form (ngSubmit)="createTransaction()" class="transaction-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="refNo">Transaction ID</label>
+                <input type="text" id="refNo" [(ngModel)]="newTransaction.refNo" name="refNo" 
+                       [placeholder]="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' ? 'From receipt' : 'Optional'" />
+                <small class="hint" *ngIf="selectedReceiptType === 'DBBL'">DBBL Transaction ID from receipt</small>
+                <small class="hint" *ngIf="selectedReceiptType === 'UCB'">UCB Transaction ID from receipt</small>
+                <small class="hint" *ngIf="selectedReceiptType === 'EBL'">EBL Transaction ID from receipt</small>
+              </div>
+              <div class="form-group">
+                <label for="receiptTypeField">Receipt Type</label>
+                <select id="receiptTypeField" [(ngModel)]="newTransaction.receiptType" name="receiptType">
+                  <option value="">Select Receipt Type</option>
+                  <option *ngFor="let type of receiptTypes" [value]="type.id">
+                    {{ type.name }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" *ngIf="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL'">
+                <label for="transactionDate">Transaction Date</label>
+                <input type="date" id="transactionDate" [(ngModel)]="transactionDate" name="transactionDate" />
+              </div>
+              <div class="form-group" *ngIf="!(selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL')">
+                <label for="accountId">Account *</label>
+                <select id="accountId" [(ngModel)]="newTransaction.accountId" name="accountId" required>
+                  <option value="">Select Account</option>
+                  <option *ngFor="let account of accounts" [value]="account.id">
+                    {{ account.name }} ({{ account.accountType }})
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="status">Transaction Type *</label>
+                <select id="status" [(ngModel)]="newTransaction.status" name="status" required>
+                  <option value="Fund">Fund (Add to Account)</option>
+                  <option value="Refund">Refund (Deduct from Account)</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group" *ngIf="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL'">
+              <label for="accountId">Account *</label>
+              <select id="accountId" [(ngModel)]="newTransaction.accountId" name="accountId" required>
+                <option value="">Select Account</option>
+                <option *ngFor="let account of accounts" [value]="account.id">
+                  {{ account.name }} ({{ account.accountType }})
+                </option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="transferFor">Transfer For *</label>
+              <input type="text" id="transferFor" [(ngModel)]="newTransaction.transferFor" name="transferFor" 
+                     placeholder="e.g., Monthly Investment, bKash Payment, Business Fund" required />
+            </div>
+            <div class="form-group">
+              <label for="amount">Amount (BDT) *</label>
+              <div class="amount-input">
+                <span class="currency-symbol">৳</span>
+                <input type="number" id="amount" [(ngModel)]="newTransaction.amount" name="amount" 
+                       placeholder="0.00" step="0.01" min="0.01" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="remarks">Remarks</label>
+              <textarea id="remarks" [(ngModel)]="newTransaction.remarks" name="remarks" 
+                        placeholder="Optional notes about this transaction..." rows="3"></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn-secondary" (click)="closeModal()">Cancel</button>
+              <button type="submit" class="btn-primary" [disabled]="isSubmitting">
+                {{ isSubmitting ? 'Creating...' : 'Create Transaction' }}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 
@@ -262,6 +355,23 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
                       [class.rejected]="selectedTransaction.approvalStatus === 'Rejected'">
                   {{ selectedTransaction.approvalStatus }}
                 </span>
+              </span>
+            </div>
+            <div class="detail-row">
+              <span class="label">Receipt Type:</span>
+              <span class="value">{{ selectedTransaction.receiptType || 'N/A' }}</span>
+            </div>
+            <div class="detail-row" *ngIf="selectedTransaction.transactionDate">
+              <span class="label">Transaction Date:</span>
+              <span class="value">{{ selectedTransaction.transactionDate | date:'mediumDate' }}</span>
+            </div>
+            <div class="detail-row" *ngIf="selectedTransaction.receiptUrl">
+              <span class="label">Receipt:</span>
+              <span class="value">
+                <a [href]="selectedTransaction.receiptUrl" target="_blank" class="receipt-link">
+                  <span class="material-icons">receipt</span>
+                  View Receipt
+                </a>
               </span>
             </div>
             <div class="detail-row">
@@ -461,6 +571,20 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
     .tx-type.refund {
       background: #ffebee;
       color: #e74c3c;
+    }
+
+    .receipt-type {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .receipt-type.empty {
+      background: #f5f5f5;
+      color: #999;
     }
 
     .status {
@@ -731,6 +855,23 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
       font-size: 16px;
     }
 
+    .receipt-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #667eea;
+      text-decoration: none;
+      font-size: 13px;
+    }
+
+    .receipt-link:hover {
+      text-decoration: underline;
+    }
+
+    .receipt-link .material-icons {
+      font-size: 16px;
+    }
+
     /* Responsive */
     @media (max-width: 1200px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -756,18 +897,338 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
       .form-grid { grid-template-columns: 1fr; }
       .detail-grid { grid-template-columns: 1fr; }
     }
+
+    /* OCR Section Styles */
+    .modal-large {
+      max-width: 700px;
+    }
+
+    .modal-body-content {
+      padding: 0;
+    }
+
+    .ocr-section {
+      background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+      padding: 24px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .ocr-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .ocr-icon {
+      color: #667eea;
+      font-size: 32px;
+    }
+
+    .ocr-info h4 {
+      margin: 0 0 4px 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a1a2e;
+    }
+
+    .ocr-info p {
+      margin: 0;
+      font-size: 13px;
+      color: #666;
+    }
+
+    .ocr-upload {
+      background: white;
+      border: 2px dashed #667eea;
+      border-radius: 12px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .ocr-upload:hover {
+      border-color: #764ba2;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+
+    .ocr-upload.has-preview {
+      border-style: solid;
+    }
+
+    .upload-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .upload-area:hover {
+      background: #f8f9ff;
+    }
+
+    .upload-area .material-icons {
+      font-size: 48px;
+      color: #667eea;
+      margin-bottom: 12px;
+    }
+
+    .upload-area p {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .file-types {
+      font-size: 12px;
+      color: #999;
+    }
+
+    .preview-area {
+      padding: 16px;
+    }
+
+    .receipt-preview {
+      width: 100%;
+      max-height: 200px;
+      object-fit: contain;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .preview-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .btn-rescan, .btn-scan {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-rescan {
+      background: #f5f6fa;
+      color: #666;
+    }
+
+    .btn-rescan:hover {
+      background: #eee;
+    }
+
+    .btn-scan {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .btn-scan:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-scan:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .spinning {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .ocr-hint {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 12px;
+      background: #fffde7;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .ocr-hint .material-icons {
+      font-size: 18px;
+      color: #f39c12;
+    }
+
+    .transaction-form {
+      padding: 24px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .amount-input {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .currency-symbol {
+      position: absolute;
+      left: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #667eea;
+    }
+
+    .amount-input input {
+      padding-left: 32px;
+    }
+
+    .receipt-type-selector {
+      margin-bottom: 16px;
+    }
+
+    .receipt-type-selector label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .receipt-type-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .type-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 12px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .type-chip .material-icons {
+      font-size: 16px;
+      color: #666;
+    }
+
+    .type-chip:hover {
+      border-color: #667eea;
+      background: #f8f9ff;
+    }
+
+    .type-chip.selected {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-color: transparent;
+    }
+
+    .type-chip.selected .material-icons {
+      color: white;
+    }
+
+    .hint {
+      display: block;
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+    }
+
+    .file-upload-section {
+      background: #f9f9f9;
+      border: 1px dashed #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .file-upload-section .material-icons {
+      font-size: 32px;
+      color: #667eea;
+      margin-bottom: 8px;
+    }
+
+    .file-upload-section p {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .file-upload-section input {
+      display: none;
+    }
+
+    .upload-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: #f5f6fa;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .upload-btn:hover {
+      background: #eee;
+      border-color: #667eea;
+    }
+
+    .selected-file {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #27ae60;
+    }
+
+    .selected-file .material-icons {
+      font-size: 16px;
+    }
   `]
 })
 export class PaymentsComponent implements OnInit {
   accounts: Account[] = [];
   transactions: Transaction[] = [];
+  receiptTypes: ReceiptType[] = [];
   showModal = false;
   showApproveModal = false;
   showViewModal = false;
   isSubmitting = false;
   isLoading = false;
+  isUploading = false;
   selectedTransaction: Transaction | null = null;
   approvalRemarks = '';
+  isOcrProcessing = false;
+  ocrProgress = 0;
+  ocrPreviewUrl: string | null = null;
+  selectedReceiptType = '';
+  receiptFile: File | null = null;
+  transactionDate = '';
   
   totalFunded = 0;
   totalRefunded = 0;
@@ -778,23 +1239,51 @@ export class PaymentsComponent implements OnInit {
     amount: 0,
     status: 'Fund',
     remarks: '',
-    accountId: ''
+    accountId: '',
+    receiptType: '',
+    refNo: ''
   };
 
   constructor(
     private transactionService: TransactionService,
+    private toastService: ToastService,
     private cdr: ChangeDetectorRef,
     private router: Router
   ) {}
 
   ngOnInit() {
     this.loadData();
+    this.loadReceiptTypes();
     
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe((event: NavigationEnd) => {
       if (event.url.includes('/payments')) {
         this.loadData();
+      }
+    });
+  }
+
+  loadReceiptTypes() {
+    this.transactionService.getReceiptTypes().subscribe({
+      next: (types) => {
+        this.receiptTypes = types;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.receiptTypes = [
+          { id: 'DBBL', name: 'DBBL (Dutch-Bangla Bank)', icon: 'account_balance' },
+          { id: 'UCB', name: 'UCB (United Credit Bank)', icon: 'account_balance' },
+          { id: 'EBL', name: 'EBL (Eastern Bank)', icon: 'account_balance' },
+          { id: 'bKash', name: 'bKash', icon: 'phone_android' },
+          { id: 'Rocket', name: 'Rocket', icon: 'phone_android' },
+          { id: 'Nagad', name: 'Nagad', icon: 'phone_android' },
+          { id: 'BankTransfer', name: 'Bank Transfer', icon: 'swap_horiz' },
+          { id: 'Cash', name: 'Cash', icon: 'payments' },
+          { id: 'Check', name: 'Check', icon: 'receipt_long' },
+          { id: 'Other', name: 'Other', icon: 'more_horiz' }
+        ];
+        this.cdr.detectChanges();
       }
     });
   }
@@ -851,6 +1340,258 @@ export class PaymentsComponent implements OnInit {
   closeModal() {
     this.showModal = false;
     this.resetForm();
+    this.resetOcrState();
+  }
+
+  resetOcrState() {
+    this.ocrPreviewUrl = null;
+    this.isOcrProcessing = false;
+    this.ocrProgress = 0;
+  }
+
+  selectReceiptType(type: string) {
+    this.selectedReceiptType = type;
+    this.newTransaction.receiptType = type;
+  }
+
+  onReceiptSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (input.files && input.files[0]) {
+      this.receiptFile = input.files[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        this.ocrPreviewUrl = e.target?.result as string;
+        this.cdr.detectChanges();
+      };
+      reader.readAsDataURL(this.receiptFile);
+    }
+  }
+
+  async processOcr() {
+    if (!this.ocrPreviewUrl) return;
+
+    this.isOcrProcessing = true;
+    this.ocrProgress = 0;
+
+    try {
+      const worker = await createWorker('eng', 1, {
+        logger: (m) => {
+          if (m.status === 'recognizing text') {
+            this.ocrProgress = Math.round(m.progress * 100);
+            this.cdr.detectChanges();
+          }
+        }
+      });
+
+      const { data: { text } } = await worker.recognize(this.ocrPreviewUrl);
+      await worker.terminate();
+
+      this.parseReceiptText(text);
+    } catch (error) {
+      console.error('OCR Error:', error);
+      alert('Failed to process receipt. Please fill the form manually.');
+    } finally {
+      this.isOcrProcessing = false;
+      this.ocrProgress = 0;
+      this.cdr.detectChanges();
+    }
+  }
+
+  parseReceiptText(text: string) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    // Amount patterns: ৳1234.56, Tk 1234.56, 1,234.56, 1234.56
+    const amountPatterns = [
+      /[৳Tk]?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g,
+      /(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g
+    ];
+
+    // Common transaction type keywords
+    const transactionTypes = [
+      'cash in', 'cash out', 'send money', 'receive money', 'mobile load',
+      'bKash', 'rocket', 'dbbl', 'nagad', 'bank', 'transfer', 'payment',
+      'deposit', 'withdraw', 'refund', 'fund', 'investment', 'contribution'
+    ];
+
+    // Transaction ID patterns (for DBBL and other banks)
+    const transactionIdPatterns = [
+      /(?:transaction\s*id|txn\s*id|ref\s*no|sl\s*no|trx\s*id|receipt\s*no|voucher)[^\d]*(\d{6,20})/gi,
+      /(?:id|ref|trx|sl)[^\d]*(\d{6,20})/gi,
+      /(\d{10,20})/g
+    ];
+
+    // Date patterns
+    const datePatterns = [
+      /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/,
+      /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/,
+      /(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4})/i,
+      /(\d{1,2}\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4})/i
+    ];
+
+    let extractedAmount = 0;
+    let extractedPurpose = '';
+    let extractedDate = '';
+    let extractedRefNo = '';
+
+    // Extract Transaction ID based on receipt type
+    if (this.selectedReceiptType === 'DBBL' || this.selectedReceiptType === 'UCB' || this.selectedReceiptType === 'EBL') {
+      for (const pattern of transactionIdPatterns) {
+        const match = text.match(pattern);
+        if (match) {
+          extractedRefNo = match[1] || match[0];
+          break;
+        }
+      }
+    }
+
+    // Extract amount - look for the largest number (likely the transaction amount)
+    for (const pattern of amountPatterns) {
+      const matches = text.matchAll(pattern);
+      const amounts: number[] = [];
+      for (const match of matches) {
+        const numStr = match[1].replace(/,/g, '');
+        const num = parseFloat(numStr);
+        if (num > 0 && num < 10000000) { // Reasonable amount range
+          amounts.push(num);
+        }
+      }
+      if (amounts.length > 0) {
+        // Usually the largest amount is the transaction amount
+        extractedAmount = Math.max(...amounts);
+        break;
+      }
+    }
+
+    // Extract purpose/transfer for
+    const textLower = text.toLowerCase();
+    for (const type of transactionTypes) {
+      if (textLower.includes(type)) {
+        const idx = textLower.indexOf(type);
+        const start = Math.max(0, idx - 30);
+        const end = Math.min(text.length, idx + type.length + 30);
+        const context = text.substring(start, end).trim();
+        extractedPurpose = context.replace(/\s+/g, ' ');
+        break;
+      }
+    }
+
+    // If no specific purpose found, use first non-empty line
+    if (!extractedPurpose && lines.length > 0) {
+      extractedPurpose = lines.slice(0, 3).join(' - ');
+    }
+
+    // Extract date
+    for (const pattern of datePatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        extractedDate = match[1];
+        break;
+      }
+    }
+
+    // Parse and convert extracted date to input format (YYYY-MM-DD)
+    if (extractedDate) {
+      const parsedDate = this.parseReceiptDate(extractedDate);
+      if (parsedDate) {
+        this.transactionDate = parsedDate;
+        this.newTransaction.transactionDate = parsedDate;
+      }
+    }
+
+    // Apply extracted values
+    if (extractedAmount > 0) {
+      this.newTransaction.amount = extractedAmount;
+    }
+
+    if (extractedPurpose) {
+      this.newTransaction.transferFor = extractedPurpose;
+    }
+
+    if (extractedRefNo) {
+      this.newTransaction.refNo = extractedRefNo;
+    }
+
+    if (extractedDate) {
+      this.newTransaction.remarks = (this.newTransaction.remarks || '') + 
+        (this.newTransaction.remarks ? '\n' : '') + 
+        `Receipt Date: ${extractedDate}`;
+    }
+
+    setTimeout(() => {
+      this.cdr.detectChanges();
+      const dateInput = document.getElementById('transactionDate') as HTMLInputElement;
+      if (dateInput && this.transactionDate) {
+        dateInput.value = this.transactionDate;
+      }
+    }, 100);
+
+    this.toastService.success('Receipt scanned! Please verify the details before submitting.');
+  }
+
+  parseReceiptDate(dateStr: string): string | null {
+    try {
+      const months: { [key: string]: string } = {
+        'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+        'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+        'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+      };
+
+      // Format: dd-MMM-yyyy (e.g., 24-Apr-2026) - DBBL format
+      const dbblFormat = /^(\d{1,2})[-](jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-](\d{4})$/i;
+      let match = dateStr.match(dbblFormat);
+      if (match) {
+        const day = parseInt(match[1]);
+        const month = parseInt(months[match[2].toLowerCase()]);
+        const year = parseInt(match[3]);
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+
+      // Format: DD Mon YYYY (e.g., 24 April 2026)
+      const dbblAltFormat = /^(\d{1,2})\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{4})$/i;
+      match = dateStr.match(dbblAltFormat);
+      if (match) {
+        const day = parseInt(match[1]);
+        const monthName = match[2].toLowerCase();
+        const month = months[monthName.substring(0, 3)] || months[monthName];
+        const year = parseInt(match[3]);
+        return `${year}-${month}-${String(day).padStart(2, '0')}`;
+      }
+
+      // Format: dd Mon yyyy (e.g., 24 Apr 2026)
+      const shortMonthFormat = /^(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{4})$/i;
+      match = dateStr.match(shortMonthFormat);
+      if (match) {
+        const day = parseInt(match[1]);
+        const month = parseInt(months[match[2].toLowerCase()]);
+        const year = parseInt(match[3]);
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+
+      // Format: YYYY-MM-DD
+      const isoFormat = /^(\d{4})[-](\d{1,2})[-](\d{1,2})$/;
+      match = dateStr.match(isoFormat);
+      if (match) {
+        return `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`;
+      }
+
+      // Format: MM/DD/YYYY
+      const usFormat = /^(\d{1,2})[\/](\d{1,2})[\/](\d{4})$/;
+      match = dateStr.match(usFormat);
+      if (match) {
+        return `${match[3]}-${String(match[1]).padStart(2, '0')}-${String(match[2]).padStart(2, '0')}`;
+      }
+
+      // Format: DD/MD/YYYY
+      const euFormat = /^(\d{1,2})[\/](\d{1,2})[\/](\d{4})$/;
+      match = dateStr.match(euFormat);
+      if (match) {
+        return `${match[3]}-${String(match[2]).padStart(2, '0')}-${String(match[1]).padStart(2, '0')}`;
+      }
+
+    } catch (e) {
+      console.error('Date parsing error:', e);
+    }
+    return null;
   }
 
   resetForm() {
@@ -859,33 +1600,70 @@ export class PaymentsComponent implements OnInit {
       amount: 0,
       status: 'Fund',
       remarks: '',
-      accountId: ''
+      accountId: '',
+      receiptType: '',
+      refNo: ''
     };
+    this.receiptFile = null;
+    this.ocrPreviewUrl = null;
+    this.selectedReceiptType = '';
+    this.transactionDate = '';
   }
 
   createTransaction() {
     if (!this.newTransaction.accountId || !this.newTransaction.transferFor || !this.newTransaction.amount) {
-      alert('Please fill in all required fields');
+      this.toastService.warning('Please fill in all required fields');
       return;
     }
 
+    const transactionData: CreateTransactionRequest = {
+      ...this.newTransaction,
+      transactionDate: this.transactionDate || undefined
+    };
+
     this.isSubmitting = true;
     
-    this.transactionService.createTransaction(this.newTransaction).subscribe({
-      next: () => {
-        this.isSubmitting = false;
-        alert('Transaction created successfully! It will be reviewed by an admin.');
-        this.showModal = false;
-        this.resetForm();
-        this.cdr.detectChanges();
-        this.loadTransactions();
+    this.transactionService.createTransaction(transactionData).subscribe({
+      next: (transaction) => {
+        if (this.receiptFile) {
+          this.uploadReceipt(transaction.id, this.receiptFile);
+        } else {
+          this.isSubmitting = false;
+          this.handleTransactionSuccess();
+        }
       },
       error: () => {
         this.isSubmitting = false;
-        alert('Failed to create transaction. Please try again.');
+        this.toastService.error('Failed to create transaction. Please try again.');
         this.cdr.detectChanges();
       }
     });
+  }
+
+  uploadReceipt(transactionId: string, file: File) {
+    this.isUploading = true;
+    this.transactionService.uploadReceipt(transactionId, file).subscribe({
+      next: () => {
+        this.isUploading = false;
+        this.isSubmitting = false;
+        this.handleTransactionSuccess();
+      },
+      error: () => {
+        this.isUploading = false;
+        this.isSubmitting = false;
+        this.toastService.warning('Transaction created but failed to upload receipt.');
+        this.handleTransactionSuccess();
+      }
+    });
+  }
+
+  handleTransactionSuccess() {
+    this.toastService.success('Transaction created successfully! It will be reviewed by an admin.');
+    this.showModal = false;
+    this.resetForm();
+    this.resetOcrState();
+    this.cdr.detectChanges();
+    this.loadTransactions();
   }
 
   openApproveModal(transaction: Transaction) {
@@ -921,14 +1699,14 @@ export class PaymentsComponent implements OnInit {
     ).subscribe({
       next: () => {
         this.isSubmitting = false;
-        alert('Transaction approved successfully!');
+        this.toastService.success('Transaction approved successfully!');
         this.closeApproveModal();
         this.loadTransactions();
       },
       error: (err) => {
         this.isSubmitting = false;
-        const errorMsg = err.error?.message || (err.status === 403 ? 'You do not have permission to approve transactions. Admin/Manager role required.' : 'Failed to approve transaction. Please try again.');
-        alert(errorMsg);
+        const errorMsg = err.error?.message || (err.status === 403 ? 'You do not have permission to approve transactions.' : 'Failed to approve transaction.');
+        this.toastService.error(errorMsg);
       }
     });
   }
@@ -944,14 +1722,14 @@ export class PaymentsComponent implements OnInit {
     ).subscribe({
       next: () => {
         this.isSubmitting = false;
-        alert('Transaction rejected.');
+        this.toastService.info('Transaction rejected.');
         this.closeApproveModal();
         this.loadTransactions();
       },
       error: (err) => {
         this.isSubmitting = false;
-        const errorMsg = err.error?.message || (err.status === 403 ? 'You do not have permission to reject transactions. Admin/Manager role required.' : 'Failed to reject transaction. Please try again.');
-        alert(errorMsg);
+        const errorMsg = err.error?.message || (err.status === 403 ? 'You do not have permission to reject transactions.' : 'Failed to reject transaction.');
+        this.toastService.error(errorMsg);
       }
     });
   }

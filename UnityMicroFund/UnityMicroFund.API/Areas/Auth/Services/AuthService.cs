@@ -202,6 +202,57 @@ public class AuthService : IAuthService
         return await GenerateAuthResponseAsync(user);
     }
 
+    public async Task<AuthResponseDto?> GoogleLoginOrRegisterAsync(string googleToken)
+    {
+        Google.Apis.Auth.GoogleJsonWebSignature.Payload payload;
+        try
+        {
+            var settings = new Google.Apis.Auth.GoogleJsonWebSignature.ValidationSettings
+            {
+                Audience = new[] { _configuration["Google:ClientId"] }
+            };
+            payload = await Google.Apis.Auth.GoogleJsonWebSignature.ValidateAsync(googleToken, settings);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Google token validation failed: {ex.Message}");
+            return null;
+        }
+
+        var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Email == payload.Email);
+
+        if (existingUser != null)
+        {
+            if (!existingUser.IsActive)
+            {
+                return null;
+            }
+            existingUser.GoogleId = payload.Subject;
+            existingUser.GoogleAccessToken = googleToken;
+            existingUser.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return await GenerateAuthResponseAsync(existingUser);
+        }
+
+        var newUser = new User
+        {
+            Id = Guid.NewGuid(),
+            Name = payload.Name ?? payload.Email,
+            Email = payload.Email,
+            GoogleId = payload.Subject,
+            GoogleAccessToken = googleToken,
+            Role = UnityMicroFund.API.Models.UserRole.Member,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        _context.Users.Add(newUser);
+        await _context.SaveChangesAsync();
+
+        return await GenerateAuthResponseAsync(newUser);
+    }
+
     public async Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordDto dto)
     {
         var user = await _context.Users.FindAsync(userId);

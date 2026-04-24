@@ -120,6 +120,30 @@ export class Auth {
     this.isAuthenticatedSubject.next(false);
   }
 
+  googleLogin(token: string): Observable<AuthResponse> {
+    console.log('Auth Service: Sending Google login request');
+    return this.http.post<AuthResponse>(`${this.apiUrl}/google-login`, { token }).pipe(
+      tap((response) => {
+        console.log('Auth Service: Google login response received');
+        if (response.accessToken) {
+          this.tokenService.saveToken(response.accessToken);
+          if (response.refreshToken) {
+            this.tokenService.saveRefreshToken(response.refreshToken);
+          }
+          if (response.expiresAt) {
+            this.tokenService.setTokenExpiry(new Date(response.expiresAt));
+          }
+          this.isAuthenticatedSubject.next(true);
+          console.log('Auth Service: Google token saved successfully');
+        }
+      }),
+      catchError((error: HttpErrorResponse) => {
+        console.error('Auth Service: Google login error', error);
+        return throwError(() => error);
+      })
+    );
+  }
+
   isAuthenticated(): boolean {
     const token = this.tokenService.getToken();
     return !!token;

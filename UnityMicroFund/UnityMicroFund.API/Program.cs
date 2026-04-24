@@ -13,6 +13,9 @@ using UnityMicroFund.API.Areas.Dashboard.Services;
 using UnityMicroFund.API.Areas.Investments.Services;
 using UnityMicroFund.API.Areas.Members.Services;
 using UnityMicroFund.API.Areas.Settings.Services;
+using UnityMicroFund.API.Areas.Transactions.Services;
+using UnityMicroFund.API.Data;
+using UnityMicroFund.API.Infrastructure.Email;
 using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Areas.Transactions.Services;
 using UnityMicroFund.API.Data;
@@ -130,6 +133,7 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddSignalR();
@@ -156,15 +160,31 @@ contentTypeProvider.Mappings[".jpeg"] = "image/jpeg";
 contentTypeProvider.Mappings[".jpg"] = "image/jpeg";
 contentTypeProvider.Mappings[".png"] = "image/png";
 
-app.UseStaticFiles(new StaticFileOptions
+var webDistPath = Path.Combine(builder.Environment.ContentRootPath, "..", "unitymicrofund_web", "dist", "unitymicrofund_web", "browser", "assets");
+var altPath = Path.Combine(builder.Environment.ContentRootPath, "..", "..", "unitymicrofund_web", "dist", "unitymicrofund_web", "browser", "assets");
+var assetsPath = Directory.Exists(webDistPath) ? webDistPath : (Directory.Exists(altPath) ? altPath : null);
+
+if (assetsPath != null)
 {
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
-        "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/unitymicrofund_web/dist/unitymicrofund_web/browser/assets"),
-    RequestPath = "/assets",
-    ContentTypeProvider = contentTypeProvider,
-    ServeUnknownFileTypes = false,
-    DefaultContentType = "application/octet-stream"
-});
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(assetsPath),
+        RequestPath = "/assets",
+        ContentTypeProvider = contentTypeProvider,
+        ServeUnknownFileTypes = false,
+        DefaultContentType = "application/octet-stream"
+    });
+}
+
+var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "..", "uploads");
+if (Directory.Exists(uploadsPath))
+{
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+        RequestPath = "/uploads"
+    });
+}
 
 app.UseDefaultFiles();
 

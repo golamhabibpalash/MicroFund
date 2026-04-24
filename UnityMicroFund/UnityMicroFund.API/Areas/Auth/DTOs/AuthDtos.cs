@@ -21,6 +21,11 @@ public class RefreshTokenDto
     public string RefreshToken { get; set; } = string.Empty;
 }
 
+public class GoogleLoginDto
+{
+    public string Token { get; set; } = string.Empty;
+}
+
 public class AuthResponseDto
 {
     public string AccessToken { get; set; } = string.Empty;

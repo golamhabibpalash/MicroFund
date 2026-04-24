@@ -70,8 +70,6 @@ public class AccountService : IAccountService
             SwiftCode = dto.SwiftCode,
             BranchName = dto.BranchName,
             BranchAddress = dto.BranchAddress,
-            BankPhone = dto.BankPhone,
-            BankEmail = dto.BankEmail,
             Iban = dto.Iban,
             CreatedBy = userId,
             CreatedAt = DateTime.UtcNow,
@@ -106,8 +104,6 @@ public class AccountService : IAccountService
         if (dto.SwiftCode != null) account.SwiftCode = dto.SwiftCode;
         if (dto.BranchName != null) account.BranchName = dto.BranchName;
         if (dto.BranchAddress != null) account.BranchAddress = dto.BranchAddress;
-        if (dto.BankPhone != null) account.BankPhone = dto.BankPhone;
-        if (dto.BankEmail != null) account.BankEmail = dto.BankEmail;
         if (dto.Iban != null) account.Iban = dto.Iban;
 
         account.UpdatedAt = DateTime.UtcNow;
@@ -175,8 +171,6 @@ public class AccountService : IAccountService
             SwiftCode = a.SwiftCode,
             BranchName = a.BranchName,
             BranchAddress = a.BranchAddress,
-            BankPhone = a.BankPhone,
-            BankEmail = a.BankEmail,
             Iban = a.Iban,
             IsActive = a.IsActive,
             CreatedBy = a.CreatedBy,

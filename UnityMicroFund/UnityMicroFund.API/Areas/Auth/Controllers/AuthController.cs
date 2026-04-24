@@ -64,6 +64,17 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("google-login")]
+    public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginDto dto)
+    {
+        var result = await _authService.GoogleLoginOrRegisterAsync(dto.Token);
+        if (result == null)
+        {
+            return Unauthorized(new { message = "Google authentication failed or account is inactive" });
+        }
+        return Ok(result);
+    }
+
     [Authorize]
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)

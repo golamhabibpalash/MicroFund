@@ -12,10 +12,14 @@ namespace UnityMicroFund.API.Areas.Transactions.Controllers;
 public class TransactionsController : ControllerBase
 {
     private readonly ITransactionService _transactionService;
+    private readonly IWebHostEnvironment _environment;
+    private readonly string[] _allowedExtensions = { ".jpg", ".jpeg", ".png", ".pdf" };
+    private const long MaxFileSize = 10 * 1024 * 1024; // 10MB
 
-    public TransactionsController(ITransactionService transactionService)
+    public TransactionsController(ITransactionService transactionService, IWebHostEnvironment environment)
     {
         _transactionService = transactionService;
+        _environment = environment;
     }
 
     [HttpGet]
@@ -109,5 +113,73 @@ public class TransactionsController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+    }
+
+    [HttpPost("{id}/receipt")]
+    public async Task<IActionResult> UploadReceipt(Guid id, IFormFile file)
+    {
+        try
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "No file uploaded" });
+            }
+
+            if (file.Length > MaxFileSize)
+            {
+                return BadRequest(new { message = "File size exceeds 10MB limit" });
+            }
+
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!_allowedExtensions.Contains(extension))
+            {
+                return BadRequest(new { message = "Invalid file type. Allowed: jpg, jpeg, png, pdf" });
+            }
+
+            var transaction = await _transactionService.GetTransactionByIdAsync(id);
+            if (transaction == null)
+            {
+                return NotFound(new { message = "Transaction not found" });
+            }
+
+            var uploadsFolder = Path.Combine(_environment.ContentRootPath, "..", "uploads", "receipts");
+            Directory.CreateDirectory(uploadsFolder);
+
+            var fileName = $"{transaction.RefNo}_{DateTime.UtcNow:yyyyMMddHHmmss}{extension}";
+            var filePath = Path.Combine(uploadsFolder, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var receiptUrl = $"/uploads/receipts/{fileName}";
+            await _transactionService.UpdateReceiptUrlAsync(id, receiptUrl);
+
+            return Ok(new { receiptUrl });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = $"Failed to upload receipt: {ex.Message}" });
+        }
+    }
+
+    [HttpGet("receipt-types")]
+    public IActionResult GetReceiptTypes()
+    {
+        var receiptTypes = new[]
+        {
+            new { id = "DBBL", name = "DBBL (Dutch-Bangla Bank)", icon = "account_balance" },
+            new { id = "UCB", name = "UCB (United Credit Bank)", icon = "account_balance" },
+            new { id = "EBL", name = "EBL (Eastern Bank)", icon = "account_balance" },
+            new { id = "bKash", name = "bKash", icon = "phone_android" },
+            new { id = "Rocket", name = "Rocket", icon = "phone_android" },
+            new { id = "Nagad", name = "Nagad", icon = "phone_android" },
+            new { id = "BankTransfer", name = "Bank Transfer", icon = "swap_horiz" },
+            new { id = "Cash", name = "Cash", icon = "payments" },
+            new { id = "Check", name = "Check", icon = "receipt_long" },
+            new { id = "Other", name = "Other", icon = "more_horiz" }
+        };
+        return Ok(receiptTypes);
     }
 }

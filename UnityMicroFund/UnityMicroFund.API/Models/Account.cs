@@ -44,12 +44,6 @@ public class Account
     [MaxLength(500)]
     public string? BranchAddress { get; set; }
 
-    [MaxLength(100)]
-    public string? BankPhone { get; set; }
-
-    [MaxLength(100)]
-    public string? BankEmail { get; set; }
-
     [MaxLength(50)]
     public string? Iban { get; set; }
 

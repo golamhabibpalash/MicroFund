@@ -36,6 +36,14 @@ namespace UnityMicroFund.API.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
 
+                    b.Property<string>("GoogleAccessToken")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("GoogleId")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("tinyint(1)");
 
@@ -45,7 +53,6 @@ namespace UnityMicroFund.API.Migrations
                         .HasColumnType("varchar(100)");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasColumnType("longtext");
 
                     b.Property<string>("RefreshToken")
@@ -104,15 +111,7 @@ namespace UnityMicroFund.API.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("BankEmail")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
                     b.Property<string>("BankName")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("BankPhone")
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
@@ -839,6 +838,14 @@ namespace UnityMicroFund.API.Migrations
                     b.Property<Guid>("CreatedById")
                         .HasColumnType("char(36)");
 
+                    b.Property<string>("ReceiptType")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("ReceiptUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
                     b.Property<string>("RefNo")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -851,6 +858,9 @@ namespace UnityMicroFund.API.Migrations
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("TransactionDate")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<Guid>("TransferById")
                         .HasColumnType("char(36)");

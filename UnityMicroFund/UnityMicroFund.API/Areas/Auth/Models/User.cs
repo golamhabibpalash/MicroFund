@@ -17,8 +17,7 @@ public class User
     [MaxLength(256)]
     public string Email { get; set; } = string.Empty;
 
-    [Required]
-    public string PasswordHash { get; set; } = string.Empty;
+    public string? PasswordHash { get; set; }
 
     [Required]
     public UnityMicroFund.API.Models.UserRole Role { get; set; } = UnityMicroFund.API.Models.UserRole.Member;
@@ -28,6 +27,12 @@ public class User
     public string? RefreshToken { get; set; }
 
     public DateTime? RefreshTokenExpiry { get; set; }
+
+    [MaxLength(500)]
+    public string? GoogleId { get; set; }
+
+    [MaxLength(500)]
+    public string? GoogleAccessToken { get; set; }
 
     public DateTime CreatedAt { get; set; }
 
