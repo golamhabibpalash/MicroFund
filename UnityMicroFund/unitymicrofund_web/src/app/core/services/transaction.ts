@@ -2,6 +2,18 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+export interface OcrScanResult {
+  rawText: string;
+  amount: number;
+  transactionId: string;
+  transactionDate: string;
+  transferFor: string;
+  referenceNo: string;
+  extractedLines: string[];
+  success: boolean;
+  errorMessage: string;
+}
+
 export interface Account {
   id: string;
   name: string;
@@ -112,6 +124,14 @@ export class TransactionService {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post<{ receiptUrl: string }>(`${this.apiUrl}/${transactionId}/receipt`, formData);
+  }
+
+  scanReceipt(file: File, receiptType: string): Observable<OcrScanResult> {
+    console.log('TransactionService.scanReceipt called:', file.name, receiptType);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('receiptType', receiptType);
+    return this.http.post<OcrScanResult>('/api/ocr/scan', formData);
   }
 
   private buildQueryParams(filter?: TransactionFilter): { [key: string]: string } {

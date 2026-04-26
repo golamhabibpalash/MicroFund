@@ -2,11 +2,10 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
-import { TransactionService, Account, Transaction, CreateTransactionRequest, ReceiptType } from '../core/services/transaction';
+import { TransactionService, Account, Transaction, CreateTransactionRequest, ReceiptType, OcrScanResult } from '../core/services/transaction';
 import { ToastService } from '../core/services/toast.service';
 import { filter } from 'rxjs/operators';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
-import { createWorker } from 'tesseract.js';
 
 @Component({
   selector: 'app-payments',
@@ -1225,6 +1224,7 @@ export class PaymentsComponent implements OnInit {
   approvalRemarks = '';
   isOcrProcessing = false;
   ocrProgress = 0;
+  ocrError = '';
   ocrPreviewUrl: string | null = null;
   selectedReceiptType = '';
   receiptFile: File | null = null;
@@ -1275,12 +1275,11 @@ export class PaymentsComponent implements OnInit {
           { id: 'DBBL', name: 'DBBL (Dutch-Bangla Bank)', icon: 'account_balance' },
           { id: 'UCB', name: 'UCB (United Credit Bank)', icon: 'account_balance' },
           { id: 'EBL', name: 'EBL (Eastern Bank)', icon: 'account_balance' },
+          { id: 'SBL', name: 'SBL (Sonali Bank)', icon: 'account_balance' },
           { id: 'bKash', name: 'bKash', icon: 'phone_android' },
           { id: 'Rocket', name: 'Rocket', icon: 'phone_android' },
           { id: 'Nagad', name: 'Nagad', icon: 'phone_android' },
-          { id: 'BankTransfer', name: 'Bank Transfer', icon: 'swap_horiz' },
           { id: 'Cash', name: 'Cash', icon: 'payments' },
-          { id: 'Check', name: 'Check', icon: 'receipt_long' },
           { id: 'Other', name: 'Other', icon: 'more_horiz' }
         ];
         this.cdr.detectChanges();
@@ -1358,258 +1357,91 @@ export class PaymentsComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
       this.receiptFile = input.files[0];
+      console.log('Receipt file selected:', this.receiptFile.name, this.receiptFile.size, this.receiptFile.type);
       const reader = new FileReader();
       reader.onload = (e) => {
         this.ocrPreviewUrl = e.target?.result as string;
         this.cdr.detectChanges();
       };
       reader.readAsDataURL(this.receiptFile);
+    } else {
+      console.log('No file selected');
     }
   }
 
   async processOcr() {
-    if (!this.ocrPreviewUrl) return;
+    if (!this.receiptFile || !this.selectedReceiptType) {
+      console.log('Missing receiptFile or selectedReceiptType:', this.receiptFile, this.selectedReceiptType);
+      this.toastService.warning('Please select a receipt type and upload an image first.');
+      return;
+    }
 
     this.isOcrProcessing = true;
     this.ocrProgress = 0;
+    this.ocrError = '';
+
+    console.log('Calling OCR API with:', { file: this.receiptFile.name, type: this.selectedReceiptType });
 
     try {
-      const worker = await createWorker('eng', 1, {
-        logger: (m) => {
-          if (m.status === 'recognizing text') {
-            this.ocrProgress = Math.round(m.progress * 100);
-            this.cdr.detectChanges();
+      this.transactionService.scanReceipt(this.receiptFile, this.selectedReceiptType).subscribe({
+        next: (result) => {
+          this.ocrProgress = 100;
+          console.log('OCR Result:', result);
+          if (result.success) {
+            console.log('OCR Raw Text:', result.rawText);
+            this.applyOcrResult(result);
+            this.toastService.success(`Receipt scanned! Amount: ৳${result.amount.toLocaleString()} extracted.`);
+          } else {
+            this.toastService.error(result.errorMessage || 'Failed to process receipt.');
           }
+          this.isOcrProcessing = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          console.error('OCR Error Full:', err);
+          console.error('OCR Error Status:', err.status);
+          console.error('OCR Error Error:', err.error);
+          this.ocrError = err.message || err.statusText || 'Unknown error';
+          this.toastService.error('Failed to process receipt. Please fill the form manually.');
+          this.isOcrProcessing = false;
+          this.cdr.detectChanges();
         }
       });
-
-      const { data: { text } } = await worker.recognize(this.ocrPreviewUrl);
-      await worker.terminate();
-
-      this.parseReceiptText(text);
     } catch (error) {
-      console.error('OCR Error:', error);
-      alert('Failed to process receipt. Please fill the form manually.');
-    } finally {
+      console.error('OCR Exception:', error);
+      this.toastService.error('Failed to process receipt. Please fill the form manually.');
       this.isOcrProcessing = false;
       this.ocrProgress = 0;
       this.cdr.detectChanges();
     }
   }
 
-  parseReceiptText(text: string) {
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-    
-    // Amount patterns: ৳1234.56, Tk 1234.56, 1,234.56, 1234.56
-    const amountPatterns = [
-      /[৳Tk]?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g,
-      /(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g
-    ];
+  applyOcrResult(result: OcrScanResult) {
+    if (result.amount > 0) {
+      this.newTransaction.amount = result.amount;
+    }
 
-    // Common transaction type keywords
-    const transactionTypes = [
-      'cash in', 'cash out', 'send money', 'receive money', 'mobile load',
-      'bKash', 'rocket', 'dbbl', 'nagad', 'bank', 'transfer', 'payment',
-      'deposit', 'withdraw', 'refund', 'fund', 'investment', 'contribution'
-    ];
+    if (result.referenceNo) {
+      this.newTransaction.refNo = result.referenceNo;
+    }
 
-    // Transaction ID patterns (for DBBL and other banks)
-    const transactionIdPatterns = [
-      /(?:transaction\s*id|txn\s*id|ref\s*no|sl\s*no|trx\s*id|receipt\s*no|voucher)[^\d]*(\d{6,20})/gi,
-      /(?:id|ref|trx|sl)[^\d]*(\d{6,20})/gi,
-      /(\d{10,20})/g
-    ];
-
-    // Date patterns
-    const datePatterns = [
-      /(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/,
-      /(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})/,
-      /(\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4})/i,
-      /(\d{1,2}\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{4})/i
-    ];
-
-    let extractedAmount = 0;
-    let extractedPurpose = '';
-    let extractedDate = '';
-    let extractedRefNo = '';
-
-    // Extract Transaction ID based on receipt type
-    if (this.selectedReceiptType === 'DBBL' || this.selectedReceiptType === 'UCB' || this.selectedReceiptType === 'EBL') {
-      for (const pattern of transactionIdPatterns) {
-        const match = text.match(pattern);
-        if (match) {
-          extractedRefNo = match[1] || match[0];
-          break;
+    if (result.transactionDate) {
+      this.transactionDate = result.transactionDate;
+      this.newTransaction.transactionDate = result.transactionDate;
+      setTimeout(() => {
+        const dateInput = document.getElementById('transactionDate') as HTMLInputElement;
+        if (dateInput && this.transactionDate) {
+          dateInput.value = this.transactionDate;
         }
-      }
+      }, 100);
     }
 
-    // Extract amount - look for the largest number (likely the transaction amount)
-    for (const pattern of amountPatterns) {
-      const matches = text.matchAll(pattern);
-      const amounts: number[] = [];
-      for (const match of matches) {
-        const numStr = match[1].replace(/,/g, '');
-        const num = parseFloat(numStr);
-        if (num > 0 && num < 10000000) { // Reasonable amount range
-          amounts.push(num);
-        }
-      }
-      if (amounts.length > 0) {
-        // Usually the largest amount is the transaction amount
-        extractedAmount = Math.max(...amounts);
-        break;
-      }
+    if (result.transferFor) {
+      this.newTransaction.transferFor = result.transferFor;
     }
 
-    // Extract purpose/transfer for
-    const textLower = text.toLowerCase();
-    for (const type of transactionTypes) {
-      if (textLower.includes(type)) {
-        const idx = textLower.indexOf(type);
-        const start = Math.max(0, idx - 30);
-        const end = Math.min(text.length, idx + type.length + 30);
-        const context = text.substring(start, end).trim();
-        extractedPurpose = context.replace(/\s+/g, ' ');
-        break;
-      }
-    }
-
-    // If no specific purpose found, use first non-empty line
-    if (!extractedPurpose && lines.length > 0) {
-      extractedPurpose = lines.slice(0, 3).join(' - ');
-    }
-
-    // Extract date
-    for (const pattern of datePatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        extractedDate = match[1];
-        break;
-      }
-    }
-
-    // Parse and convert extracted date to input format (YYYY-MM-DD)
-    if (extractedDate) {
-      const parsedDate = this.parseReceiptDate(extractedDate);
-      if (parsedDate) {
-        this.transactionDate = parsedDate;
-        this.newTransaction.transactionDate = parsedDate;
-      }
-    }
-
-    // Apply extracted values
-    if (extractedAmount > 0) {
-      this.newTransaction.amount = extractedAmount;
-    }
-
-    if (extractedPurpose) {
-      this.newTransaction.transferFor = extractedPurpose;
-    }
-
-    if (extractedRefNo) {
-      this.newTransaction.refNo = extractedRefNo;
-    }
-
-    if (extractedDate) {
-      this.newTransaction.remarks = (this.newTransaction.remarks || '') + 
-        (this.newTransaction.remarks ? '\n' : '') + 
-        `Receipt Date: ${extractedDate}`;
-    }
-
-    setTimeout(() => {
-      this.cdr.detectChanges();
-      const dateInput = document.getElementById('transactionDate') as HTMLInputElement;
-      if (dateInput && this.transactionDate) {
-        dateInput.value = this.transactionDate;
-      }
-    }, 100);
-
-    this.toastService.success('Receipt scanned! Please verify the details before submitting.');
+    this.cdr.detectChanges();
   }
-
-  parseReceiptDate(dateStr: string): string | null {
-    try {
-      const months: { [key: string]: string } = {
-        'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
-        'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
-        'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
-      };
-
-      // Format: dd-MMM-yyyy (e.g., 24-Apr-2026) - DBBL format
-      const dbblFormat = /^(\d{1,2})[-](jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-](\d{4})$/i;
-      let match = dateStr.match(dbblFormat);
-      if (match) {
-        const day = parseInt(match[1]);
-        const month = parseInt(months[match[2].toLowerCase()]);
-        const year = parseInt(match[3]);
-        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      }
-
-      // Format: DD Mon YYYY (e.g., 24 April 2026)
-      const dbblAltFormat = /^(\d{1,2})\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{4})$/i;
-      match = dateStr.match(dbblAltFormat);
-      if (match) {
-        const day = parseInt(match[1]);
-        const monthName = match[2].toLowerCase();
-        const month = months[monthName.substring(0, 3)] || months[monthName];
-        const year = parseInt(match[3]);
-        return `${year}-${month}-${String(day).padStart(2, '0')}`;
-      }
-
-      // Format: dd Mon yyyy (e.g., 24 Apr 2026)
-      const shortMonthFormat = /^(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{4})$/i;
-      match = dateStr.match(shortMonthFormat);
-      if (match) {
-        const day = parseInt(match[1]);
-        const month = parseInt(months[match[2].toLowerCase()]);
-        const year = parseInt(match[3]);
-        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      }
-
-      // Format: YYYY-MM-DD
-      const isoFormat = /^(\d{4})[-](\d{1,2})[-](\d{1,2})$/;
-      match = dateStr.match(isoFormat);
-      if (match) {
-        return `${match[1]}-${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`;
-      }
-
-      // Format: MM/DD/YYYY
-      const usFormat = /^(\d{1,2})[\/](\d{1,2})[\/](\d{4})$/;
-      match = dateStr.match(usFormat);
-      if (match) {
-        return `${match[3]}-${String(match[1]).padStart(2, '0')}-${String(match[2]).padStart(2, '0')}`;
-      }
-
-      // Format: DD/MD/YYYY
-      const euFormat = /^(\d{1,2})[\/](\d{1,2})[\/](\d{4})$/;
-      match = dateStr.match(euFormat);
-      if (match) {
-        return `${match[3]}-${String(match[2]).padStart(2, '0')}-${String(match[1]).padStart(2, '0')}`;
-      }
-
-    } catch (e) {
-      console.error('Date parsing error:', e);
-    }
-    return null;
-  }
-
-  resetForm() {
-    this.newTransaction = {
-      transferFor: '',
-      amount: 0,
-      status: 'Fund',
-      remarks: '',
-      accountId: '',
-      receiptType: '',
-      refNo: ''
-    };
-    this.receiptFile = null;
-    this.ocrPreviewUrl = null;
-    this.selectedReceiptType = '';
-    this.transactionDate = '';
-  }
-
   createTransaction() {
     if (!this.newTransaction.accountId || !this.newTransaction.transferFor || !this.newTransaction.amount) {
       this.toastService.warning('Please fill in all required fields');
@@ -1732,5 +1564,18 @@ export class PaymentsComponent implements OnInit {
         this.toastService.error(errorMsg);
       }
     });
+  }
+
+  resetForm() {
+    this.newTransaction = {
+      transferFor: '',
+      amount: 0,
+      status: 'Fund',
+      remarks: '',
+      accountId: '',
+      receiptType: '',
+      refNo: ''
+    };
+    this.transactionDate = '';
   }
 }

@@ -1,0 +1,26 @@
+{
+    "folders": [
+        {
+            "path": ".",
+            "name": "UnityMicroFund"
+        },
+        {
+            "path": "UnityMicroFund/UnityMicroFund.API",
+            "name": "UnityMicroFund.API"
+        },
+        {
+            "path": "UnityMicroFund/unitymicrofund_web",
+            "name": "unitymicrofund_web"
+        }
+    ],
+    "settings": {
+        "dotnet.defaultProject": "UnityMicroFund/UnityMicroFund.API"
+    },
+    "extensions": {
+        "recommendations": [
+            "ms-dotnettools.csharp",
+            "ms-vscode.node-debug2",
+            "angular-inline"
+        ]
+    }
+}

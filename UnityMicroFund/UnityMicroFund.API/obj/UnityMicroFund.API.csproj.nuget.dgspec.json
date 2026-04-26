@@ -1,32 +1,26 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\UnityMicroFund.API.csproj": {}
+    "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/UnityMicroFund.API/UnityMicroFund.API.csproj": {}
   },
   "projects": {
-    "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\UnityMicroFund.API.csproj": {
+    "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/UnityMicroFund.API/UnityMicroFund.API.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\UnityMicroFund.API.csproj",
+        "projectUniqueName": "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/UnityMicroFund.API/UnityMicroFund.API.csproj",
         "projectName": "UnityMicroFund.API",
-        "projectPath": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\UnityMicroFund.API.csproj",
-        "packagesPath": "C:\\Users\\golam\\.nuget\\packages\\",
-        "outputPath": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\obj\\",
+        "projectPath": "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/UnityMicroFund.API/UnityMicroFund.API.csproj",
+        "packagesPath": "/Users/golamhabibpalash/.nuget/packages/",
+        "outputPath": "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/UnityMicroFund.API/obj/",
         "projectStyle": "PackageReference",
-        "fallbackFolders": [
-          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-        ],
         "configFilePaths": [
-          "C:\\Users\\golam\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "/Users/golamhabibpalash/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net10.0"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
-          "C:\\Program Files\\dotnet\\library-packs": {},
+          "/usr/local/share/dotnet/library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -45,7 +39,7 @@
           "auditLevel": "low",
           "auditMode": "all"
         },
-        "SdkAnalysisLevel": "10.0.200"
+        "SdkAnalysisLevel": "10.0.100"
       },
       "frameworks": {
         "net10.0": {
@@ -76,6 +70,10 @@
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[6.5.0, )"
+            },
+            "Tesseract": {
+              "target": "Package",
+              "version": "[5.2.0, )"
             }
           },
           "imports": [
@@ -97,7 +95,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.202/PortableRuntimeIdentifierGraph.json",
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/10.0.100/PortableRuntimeIdentifierGraph.json",
           "packagesToPrune": {
             "Microsoft.AspNetCore": "(,10.0.32767]",
             "Microsoft.AspNetCore.Antiforgery": "(,10.0.32767]",

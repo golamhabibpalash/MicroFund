@@ -1,4 +1,5 @@
 using System.Text;
+using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +13,7 @@ using UnityMicroFund.API.Areas.Contributions.Services;
 using UnityMicroFund.API.Areas.Dashboard.Services;
 using UnityMicroFund.API.Areas.Investments.Services;
 using UnityMicroFund.API.Areas.Members.Services;
+using UnityMicroFund.API.Areas.OCR.Services;
 using UnityMicroFund.API.Areas.Settings.Services;
 using UnityMicroFund.API.Areas.Transactions.Services;
 using UnityMicroFund.API.Data;
@@ -22,6 +24,24 @@ using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Infrastructure.ExceptionHandling;
 using UnityMicroFund.API.Infrastructure.Logging;
 using UnityMicroFund.API.Infrastructure.Middleware;
+
+// Add Homebrew library paths for Tesseract OCR (macOS)
+if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+{
+    var homebrewLibPath = "/opt/homebrew/lib";
+    if (Directory.Exists(homebrewLibPath))
+    {
+        // Use NativeLibrary to add the path for DLL resolution
+        NativeLibrary.SetDllImportResolver(typeof(Program).Assembly, (libraryName, assembly, searchPath) =>
+        {
+            if (libraryName == "libleptonica-1.82.0" || libraryName == "libtesseract-5")
+            {
+                return NativeLibrary.Load(Path.Combine(homebrewLibPath, $"lib{libraryName}.dylib"));
+            }
+            return IntPtr.Zero;
+        });
+    }
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -72,7 +92,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins("http://localhost:4200", "http://localhost:3000")
+        policy.WithOrigins("http://localhost:4200", "http://localhost:3000", "http://127.0.0.1:4200")
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -133,6 +153,7 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<IOcrService, OcrService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IChatService, ChatService>();

@@ -66,7 +66,7 @@ public class UsersController : ControllerBase
 
     [HttpPut("{id}/role")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> UpdateUserRole(Guid id, [FromBody] UpdateRoleDto dto)
+    public async Task<IActionResult> UpdateUserRole(Guid id, [FromBody] UserRoleUpdateDto dto)
     {
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (currentUserId == null || !Guid.TryParse(currentUserId, out var currentId))
@@ -219,7 +219,7 @@ public class UsersController : ControllerBase
     }
 }
 
-public class UpdateRoleDto
+public class UserRoleUpdateDto
 {
     public string Role { get; set; } = string.Empty;
 }
