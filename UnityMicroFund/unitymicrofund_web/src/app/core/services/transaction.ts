@@ -7,8 +7,9 @@ export interface OcrScanResult {
   amount: number;
   transactionId: string;
   transactionDate: string;
-  transferFor: string;
-  referenceNo: string;
+  transferTo: string;
+  transferFrom: string;
+  remarks: string;
   extractedLines: string[];
   success: boolean;
   errorMessage: string;
@@ -31,8 +32,9 @@ export interface Account {
 
 export interface Transaction {
   id: string;
-  refNo: string;
-  transferFor: string;
+  transactionId: string;
+  transferFrom: string;
+  transferTo: string;
   amount: number;
   status: 'Fund' | 'Refund';
   approvalStatus: 'Pending' | 'Approved' | 'Rejected';
@@ -54,13 +56,14 @@ export interface Transaction {
 }
 
 export interface CreateTransactionRequest {
-  transferFor: string;
+  transferTo: string;
   amount: number;
   status: 'Fund' | 'Refund';
   remarks?: string;
   accountId: string;
   receiptType?: string;
-  refNo?: string;
+  transactionId?: string;
+  transferFrom?: string;
   transactionDate?: string;
 }
 

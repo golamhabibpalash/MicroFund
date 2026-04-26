@@ -29,8 +29,9 @@ public class TransactionService : ITransactionService
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             query = query.Where(t =>
-                t.RefNo.Contains(filter.Search) ||
-                t.TransferFor.Contains(filter.Search) ||
+                t.TransactionId.Contains(filter.Search) ||
+                (t.TransferFrom != null && t.TransferFrom.Contains(filter.Search)) ||
+                t.TransferTo.Contains(filter.Search) ||
                 (t.Remarks != null && t.Remarks.Contains(filter.Search)));
         }
 
@@ -105,8 +106,9 @@ public class TransactionService : ITransactionService
 
         var transaction = new Transaction
         {
-            RefNo = string.IsNullOrWhiteSpace(dto.RefNo) ? await GenerateRefNoAsync() : dto.RefNo,
-            TransferFor = dto.TransferFor,
+            TransactionId = string.IsNullOrWhiteSpace(dto.TransactionId) ? await GenerateTransactionIdAsync() : dto.TransactionId,
+            TransferFrom = dto.TransferFrom,
+            TransferTo = dto.TransferTo,
             Amount = dto.Amount,
             Status = status,
             Remarks = dto.Remarks,
@@ -136,7 +138,7 @@ public class TransactionService : ITransactionService
             throw new InvalidOperationException("Cannot update a transaction that has already been processed");
         }
 
-        if (!string.IsNullOrWhiteSpace(dto.TransferFor)) transaction.TransferFor = dto.TransferFor;
+        if (!string.IsNullOrWhiteSpace(dto.TransferTo)) transaction.TransferTo = dto.TransferTo;
         if (dto.Amount.HasValue) transaction.Amount = dto.Amount.Value;
         if (!string.IsNullOrWhiteSpace(dto.Status) && Enum.TryParse<TransactionStatus>(dto.Status, true, out var status))
         {
@@ -199,7 +201,7 @@ public class TransactionService : ITransactionService
             await _emailService.SendTransactionApprovedEmailAsync(
                 transaction.CreatedBy.Email,
                 transaction.CreatedBy.Name,
-                transaction.RefNo,
+                transaction.TransferFrom,
                 transaction.Amount,
                 transaction.Account?.Name ?? "N/A",
                 statusText
@@ -224,20 +226,20 @@ public class TransactionService : ITransactionService
         return true;
     }
 
-    public async Task<string> GenerateRefNoAsync()
+    public async Task<string> GenerateTransactionIdAsync()
     {
         var year = DateTime.UtcNow.Year;
         var prefix = $"TXN-{year}-";
 
         var lastTransaction = await _context.Transactions
-            .Where(t => t.RefNo.StartsWith(prefix))
-            .OrderByDescending(t => t.RefNo)
+            .Where(t => t.TransactionId.StartsWith(prefix))
+            .OrderByDescending(t => t.TransactionId)
             .FirstOrDefaultAsync();
 
         int nextNumber = 1;
         if (lastTransaction != null)
         {
-            var lastNumberStr = lastTransaction.RefNo.Replace(prefix, "");
+            var lastNumberStr = lastTransaction.TransactionId.Replace(prefix, "");
             if (int.TryParse(lastNumberStr, out var lastNumber))
             {
                 nextNumber = lastNumber + 1;
@@ -263,8 +265,9 @@ public class TransactionService : ITransactionService
         return new TransactionResponseDto
         {
             Id = t.Id,
-            RefNo = t.RefNo,
-            TransferFor = t.TransferFor,
+            TransactionId = t.TransactionId,
+            TransferFrom = t.TransferFrom,
+            TransferTo = t.TransferTo,
             Amount = t.Amount,
             Status = t.Status.ToString(),
             ApprovalStatus = t.ApprovalStatus.ToString(),

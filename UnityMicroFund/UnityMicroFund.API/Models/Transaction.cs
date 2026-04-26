@@ -12,11 +12,14 @@ public class Transaction
 
     [Required]
     [MaxLength(50)]
-    public string RefNo { get; set; } = string.Empty;
+    public string TransactionId { get; set; } = string.Empty;
+
+    [MaxLength(200)]
+    public string? TransferFrom { get; set; }
 
     [Required]
     [MaxLength(200)]
-    public string TransferFor { get; set; } = string.Empty;
+    public string TransferTo { get; set; } = string.Empty;
 
     [Required]
     [Column(TypeName = "decimal(18,2)")]

@@ -10,6 +10,6 @@ public interface ITransactionService
     Task<TransactionResponseDto?> UpdateTransactionAsync(Guid id, UpdateTransactionDto dto);
     Task<TransactionResponseDto?> ApproveTransactionAsync(Guid id, ApproveTransactionDto dto, Guid approvedByUserId);
     Task<bool> DeleteTransactionAsync(Guid id);
-    Task<string> GenerateRefNoAsync();
+    Task<string> GenerateTransactionIdAsync();
     Task<bool> UpdateReceiptUrlAsync(Guid transactionId, string receiptUrl);
 }

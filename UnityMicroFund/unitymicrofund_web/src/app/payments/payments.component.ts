@@ -62,19 +62,22 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
           <table>
             <thead>
               <tr>
-                <th>Ref No</th>
-                <th>Transfer For</th>
+                <th>Transaction Id</th>
+                <th>Transfer From</th>
+                <th>Transfer To</th>
                 <th>Amount</th>
                 <th>Account</th>
                 <th>Type</th>
                 <th>Approval</th>
                 <th>Date</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let tx of transactions">
-                <td class="ref-no">{{ tx.refNo }}</td>
-                <td>{{ tx.transferFor }}</td>
+                <td class="transaction-id">{{ tx.transactionId }}</td>
+                <td class="transfer-from">{{ tx.transferFrom || '-' }}</td>
+                <td>{{ tx.transferTo }}</td>
                 <td class="amount">{{ tx.amount | bdtCurrency }}</td>
                 <td>{{ tx.accountName }}</td>
                 <td>
@@ -179,9 +182,9 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
           <form (ngSubmit)="createTransaction()" class="transaction-form">
             <div class="form-row">
               <div class="form-group">
-                <label for="refNo">Transaction ID</label>
-                <input type="text" id="refNo" [(ngModel)]="newTransaction.refNo" name="refNo" 
-                       [placeholder]="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' ? 'From receipt' : 'Optional'" />
+                <label for="transactionId">Transaction ID</label>
+                <input type="text" id="transactionId" [(ngModel)]="transactionId" name="transactionId" 
+                       [placeholder]="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' ? 'From receipt' : 'Auto-generated'" />
                 <small class="hint" *ngIf="selectedReceiptType === 'DBBL'">DBBL Transaction ID from receipt</small>
                 <small class="hint" *ngIf="selectedReceiptType === 'UCB'">UCB Transaction ID from receipt</small>
                 <small class="hint" *ngIf="selectedReceiptType === 'EBL'">EBL Transaction ID from receipt</small>
@@ -227,10 +230,17 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
                 </option>
               </select>
             </div>
-            <div class="form-group">
-              <label for="transferFor">Transfer For *</label>
-              <input type="text" id="transferFor" [(ngModel)]="newTransaction.transferFor" name="transferFor" 
-                     placeholder="e.g., Monthly Investment, bKash Payment, Business Fund" required />
+            <div class="form-row">
+              <div class="form-group">
+                <label for="transferFromInput">Transfer From</label>
+                <input type="text" id="transferFromInput" [(ngModel)]="newTransaction.transferFrom" name="transferFromInput" 
+                       placeholder="e.g., Sender name, Account, Phone" />
+              </div>
+              <div class="form-group">
+                <label for="transferTo">Transfer To *</label>
+                <input type="text" id="transferTo" [(ngModel)]="newTransaction.transferTo" name="transferTo" 
+                       placeholder="e.g., Monthly Investment, bKash Payment, Business Fund" required />
+              </div>
             </div>
             <div class="form-group">
               <label for="amount">Amount (BDT) *</label>
@@ -268,12 +278,12 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
         <div class="modal-body">
           <div class="transaction-details" *ngIf="selectedTransaction">
             <div class="detail-row">
-              <span class="label">Ref No:</span>
-              <span class="value">{{ selectedTransaction.refNo }}</span>
+              <span class="label">Transfer From:</span>
+              <span class="value">{{ selectedTransaction.transferFrom }}</span>
             </div>
             <div class="detail-row">
-              <span class="label">Transfer For:</span>
-              <span class="value">{{ selectedTransaction.transferFor }}</span>
+              <span class="label">Transfer To:</span>
+              <span class="value">{{ selectedTransaction.transferTo }}</span>
             </div>
             <div class="detail-row">
               <span class="label">Amount:</span>
@@ -327,12 +337,12 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
         <div class="modal-body" *ngIf="selectedTransaction">
           <div class="transaction-details">
             <div class="detail-row">
-              <span class="label">Ref No:</span>
-              <span class="value">{{ selectedTransaction.refNo }}</span>
+              <span class="label">Transfer From:</span>
+              <span class="value">{{ selectedTransaction.transferFrom }}</span>
             </div>
             <div class="detail-row">
-              <span class="label">Transfer For:</span>
-              <span class="value">{{ selectedTransaction.transferFor }}</span>
+              <span class="label">Transfer To:</span>
+              <span class="value">{{ selectedTransaction.transferTo }}</span>
             </div>
             <div class="detail-row">
               <span class="label">Amount:</span>
@@ -1229,21 +1239,22 @@ export class PaymentsComponent implements OnInit {
   selectedReceiptType = '';
   receiptFile: File | null = null;
   transactionDate = '';
+  transactionId = '';
   
   totalFunded = 0;
   totalRefunded = 0;
   pendingCount = 0;
 
   newTransaction: CreateTransactionRequest = {
-    transferFor: '',
+    transferTo: '',
     amount: 0,
     status: 'Fund',
     remarks: '',
     accountId: '',
     receiptType: '',
-    refNo: ''
+    transferFrom: ''
   };
-
+  
   constructor(
     private transactionService: TransactionService,
     private toastService: ToastService,
@@ -1417,12 +1428,21 @@ export class PaymentsComponent implements OnInit {
   }
 
   applyOcrResult(result: OcrScanResult) {
+    console.log('OCR Result:', result);
+    
     if (result.amount > 0) {
       this.newTransaction.amount = result.amount;
     }
 
-    if (result.referenceNo) {
-      this.newTransaction.refNo = result.referenceNo;
+    // Populate Transaction ID field (unique ID like TXN-2026-000001)
+    if (result.transactionId) {
+      this.transactionId = result.transactionId;
+      this.newTransaction.transactionId = result.transactionId;
+    }
+
+    // Populate Transfer From field (sender info)
+    if (result.transferFrom) {
+      this.newTransaction.transferFrom = result.transferFrom;
     }
 
     if (result.transactionDate) {
@@ -1436,20 +1456,29 @@ export class PaymentsComponent implements OnInit {
       }, 100);
     }
 
-    if (result.transferFor) {
-      this.newTransaction.transferFor = result.transferFor;
+    if (result.transferTo) {
+      this.newTransaction.transferTo = result.transferTo;
     }
 
-    this.cdr.detectChanges();
+    if (result.remarks) {
+      this.newTransaction.remarks = result.remarks;
+    }
+
+    console.log('After apply - transactionId:', this.transactionId, 'transferFrom:', this.newTransaction.transferFrom);
+
+    setTimeout(() => {
+      this.cdr.detectChanges();
+    }, 150);
   }
   createTransaction() {
-    if (!this.newTransaction.accountId || !this.newTransaction.transferFor || !this.newTransaction.amount) {
+    if (!this.newTransaction.accountId || !this.newTransaction.transferTo || !this.newTransaction.amount) {
       this.toastService.warning('Please fill in all required fields');
       return;
     }
 
     const transactionData: CreateTransactionRequest = {
       ...this.newTransaction,
+      transactionId: this.transactionId || undefined,
       transactionDate: this.transactionDate || undefined
     };
 
@@ -1568,14 +1597,15 @@ export class PaymentsComponent implements OnInit {
 
   resetForm() {
     this.newTransaction = {
-      transferFor: '',
+      transferTo: '',
       amount: 0,
       status: 'Fund',
       remarks: '',
       accountId: '',
       receiptType: '',
-      refNo: ''
+      transferFrom: ''
     };
     this.transactionDate = '';
+    this.transactionId = '';
   }
 }

@@ -1,6 +1,7 @@
 namespace UnityMicroFund.API.Areas.OCR.Services;
 
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using UnityMicroFund.API.Areas.OCR.DTOs;
 
 public class OcrService : IOcrService
@@ -44,6 +45,10 @@ public class OcrService : IOcrService
                 {
                     ParseEblReceipt(text, result);
                 }
+                else if (receiptType == "SBL")
+                {
+                    ParseSblReceipt(text, result);
+                }
                 else
                 {
                     ParseGenericReceipt(text, result);
@@ -71,13 +76,27 @@ public class OcrService : IOcrService
 
     private async Task<string> PerformOcr(string imagePath)
     {
-        // Try system tesseract first (Homebrew installed)
-        string[] tesseractPaths = new[]
+        string[] tesseractPaths;
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            "/opt/homebrew/bin/tesseract",
-            "/usr/local/bin/tesseract",
-            "tesseract"
-        };
+            tesseractPaths = new[]
+            {
+                @"C:\Program Files\Tesseract-OCR\tesseract.exe",
+                @"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+                Environment.ExpandEnvironmentVariables(@"%ProgramFiles%\Tesseract-OCR\tesseract.exe"),
+                "tesseract"
+            };
+        }
+        else
+        {
+            tesseractPaths = new[]
+            {
+                "/opt/homebrew/bin/tesseract",
+                "/usr/local/bin/tesseract",
+                "tesseract"
+            };
+        }
 
         string? tesseractCmd = null;
         foreach (var cmd in tesseractPaths)
@@ -91,12 +110,12 @@ public class OcrService : IOcrService
 
         if (string.IsNullOrEmpty(tesseractCmd))
         {
-            throw new Exception("Tesseract not found. Please install: brew install tesseract");
+            throw new Exception("Tesseract not found. Please install Tesseract OCR");
         }
 
         // Output to temp file
         var outputPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}");
-        
+
         try
         {
             var startInfo = new ProcessStartInfo
@@ -115,7 +134,7 @@ public class OcrService : IOcrService
             if (process != null)
             {
                 await process.WaitForExitAsync();
-                
+
                 var error = await process.StandardError.ReadToEndAsync();
                 if (!string.IsNullOrEmpty(error))
                 {
@@ -146,7 +165,7 @@ public class OcrService : IOcrService
     private void ParseUcbReceipt(string text, OcrScanResponse result)
     {
         var textLower = text.ToLower();
-        
+
         decimal extractedAmount = 0;
         string? extractedDate = null;
         string? refNo = null;
@@ -200,83 +219,26 @@ public class OcrService : IOcrService
 
         result.Amount = extractedAmount;
         result.TransactionDate = extractedDate ?? string.Empty;
-        result.ReferenceNo = refNo ?? string.Empty;
-        result.TransferFor = purpose ?? string.Empty;
+        result.TransferFrom = refNo ?? string.Empty;
+        result.TransferTo = purpose ?? string.Empty;
         result.TransactionId = transactionId ?? string.Empty;
     }
 
     private void ParseDbblReceipt(string text, OcrScanResponse result)
     {
-        var textLower = text.ToLower();
         decimal extractedAmount = 0;
         string? extractedDate = null;
-        string? refNo = null;
-        string? purpose = null;
+        string? TransferFrom = null;
+        string? TransferTo = null;
         string? transactionId = null;
-
-        var prefixPatterns = new[]
-        {
-            @"BDT\s+(\d+\.\d{2})",
-            @"BDT\s+(\d+)",
-            @"BDT\s*[:\s]*(\d+\.\d{2})",
-            @"BDT\s*[:\s]*(\d+)"
-        };
-
-        foreach (var pattern in prefixPatterns)
-        {
-            var match = System.Text.RegularExpressions.Regex.Match(text, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            if (match.Success)
-            {
-                var num = decimal.Parse(match.Groups[1].Value);
-                if (num > 0 && num < 10000000)
-                {
-                    extractedAmount = num;
-                    break;
-                }
-            }
-        }
+        string? remarks = null;
 
         if (extractedAmount == 0)
         {
-            var suffixMatch = System.Text.RegularExpressions.Regex.Match(text, @"(\d+\.\d{2})\s*BDT", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            if (!suffixMatch.Success)
-            {
-                suffixMatch = System.Text.RegularExpressions.Regex.Match(text, @"(\d+)\s*BDT", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            }
-            if (suffixMatch.Success)
-            {
-                var num = decimal.Parse(suffixMatch.Groups[1].Value);
-                if (num > 0 && num < 10000000)
-                {
-                    extractedAmount = num;
-                }
-            }
+            extractedAmount = Convert.ToDecimal(System.Text.RegularExpressions.Regex.Matches(text, @"(?<=Total Payment BDT\s)[\d,]+(\.\d+)?")[0].Value.Replace(",", "").Split('.')[0]);
         }
 
-        if (extractedAmount == 0)
-        {
-            var numbers = System.Text.RegularExpressions.Regex.Matches(text, @"(\d+\.\d{2})")
-                .Select(m => decimal.Parse(m.Value))
-                .Where(n => n > 0 && n < 10000000)
-                .ToList();
-            if (numbers.Any())
-            {
-                extractedAmount = numbers.Max();
-            }
-            else
-            {
-                var intNumbers = System.Text.RegularExpressions.Regex.Matches(text, @"(\d+)")
-                    .Select(m => decimal.Parse(m.Value))
-                    .Where(n => n > 100 && n < 10000000)
-                    .ToList();
-                if (intNumbers.Any())
-                {
-                    extractedAmount = intNumbers.Max();
-                }
-            }
-        }
-
-        if(string.IsNullOrEmpty(transactionId))
+        if (string.IsNullOrEmpty(transactionId))
         {
             transactionId = System.Text.RegularExpressions.Regex.Matches(text, @"LID[A-Z0-9]+")[0].Value;
         }
@@ -287,12 +249,61 @@ public class OcrService : IOcrService
             extractedDate = ParseDate(dateMatch.Groups[1].Value);
         }
 
+        if (string.IsNullOrEmpty(TransferFrom))
+        {
+            var nexusId = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=NexusPay ID\s)\d+")[0].Value;
+            TransferFrom = !string.IsNullOrEmpty(nexusId) ? $"{nexusId}" : null;
+        }
+        if (string.IsNullOrEmpty(TransferTo))
+        {
+            var account = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=Card/Account\s)\d+")[0].Value;
+            TransferTo = !string.IsNullOrEmpty(account) ? $"{account}" : null;
+        }
+
+        var rValue = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=\()[A-Za-z]+(?=\))")[0].Value;
+        if (string.IsNullOrEmpty(remarks) && !string.IsNullOrEmpty(rValue))
+        {
+            remarks = "Transfer with : " + rValue;
+        }
+
+        result.Amount = extractedAmount;
+        result.TransactionDate = extractedDate ?? string.Empty;
+        result.TransferFrom = TransferFrom ?? string.Empty;
+        result.TransferTo = TransferTo ?? string.Empty;
+        result.Remarks = remarks ?? string.Empty;
+        result.TransactionId = transactionId ?? string.Empty;
+    }
+
+    private void ParseSblReceiptApply(string text, OcrScanResponse result)
+    {
+        var textLower = text.ToLower();
+
+        decimal extractedAmount = 0;
+        string? extractedDate = null;
+        string? TransferFrom = null;
+        string? TransferTo = null;
+        string? transactionId = null;
+
+        if (extractedAmount == 0)
+        {
+            extractedAmount = Convert.ToDecimal(System.Text.RegularExpressions.Regex.Matches(text, @"(?<=Amount Paid\s)\d+(\.\d+)?(?=\sBDT)")[0].Value);
+        }
+        if (string.IsNullOrEmpty(transactionId))
+        {
+            transactionId = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=Transaction ID\s)[A-Z0-9]+")[0].Value;
+        }
+
+        var dateMatch = System.Text.RegularExpressions.Regex.Match(text, @"(\d{1,2}[-]\d{1,2}[-]\d{2,4})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (dateMatch.Success)
+        {
+            extractedDate = ParseDate(dateMatch.Groups[1].Value);
+        }
+
         var refPatterns = new[]
         {
-            @"LID[:\s]*([a-z0-9]+)",
-            @"transaction\s*id[:\s]*(\d+)",
-            @"txn\s*id[:\s]*(\d+)",
-            @"ref\s*no[:\s]*(\d+)"
+            @"reference\s*no[:\s]*([a-z0-9]+)",
+            @"ref\s*no[:\s]*([a-z0-9]+)",
+            @"trx\s*id[:\s]*([a-z0-9]+)"
         };
 
         foreach (var pattern in refPatterns)
@@ -300,12 +311,12 @@ public class OcrService : IOcrService
             var match = System.Text.RegularExpressions.Regex.Match(text, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (match.Success)
             {
-                refNo = match.Groups[1].Value;
+                TransferFrom = match.Groups[1].Value;
                 break;
             }
         }
 
-        var purposeKeywords = new[] { "cash in", "cash out", "send money", "receive money", "payment", "deposit" };
+        var purposeKeywords = new[] { "cash deposit", "cash withdraw", "fund transfer", "payment", "send money", "receive" };
         foreach (var keyword in purposeKeywords)
         {
             if (textLower.Contains(keyword))
@@ -313,21 +324,71 @@ public class OcrService : IOcrService
                 var idx = textLower.IndexOf(keyword);
                 var start = Math.Max(0, idx - 30);
                 var end = Math.Min(text.Length, idx + keyword.Length + 30);
-                purpose = text.Substring(start, end - start).Trim();
+                TransferTo = text.Substring(start, end - start).Trim();
                 break;
             }
         }
 
         result.Amount = extractedAmount;
         result.TransactionDate = extractedDate ?? string.Empty;
-        result.ReferenceNo = refNo ?? string.Empty;
-        result.TransferFor = purpose ?? string.Empty;
+        result.TransferFrom = TransferFrom ?? string.Empty;
+        result.TransferTo = TransferTo ?? string.Empty;
         result.TransactionId = transactionId ?? string.Empty;
     }
-
     private void ParseEblReceipt(string text, OcrScanResponse result)
     {
-        ParseDbblReceipt(text, result);
+
+        decimal extractedAmount = 0;
+        string? extractedDate = null;
+        string? TransferFrom = null;
+        string? TransferTo = null;
+        string? transactionId = null;
+        string? remarks = null;
+
+        if (extractedAmount == 0)
+        {
+            extractedAmount = Convert.ToDecimal(System.Text.RegularExpressions.Regex.Matches(text, @"(?<=BDT\s)[\d,]+(\.\d+)?")[0].Value
+                 .Replace(",", "").Split('.')[0]);
+        }
+
+        if (string.IsNullOrEmpty(transactionId))
+        {
+            transactionId = System.Text.RegularExpressions.Regex.Matches(text, @"LID[A-Z0-9]+")[0].Value;
+        }
+
+        var dateMatch = System.Text.RegularExpressions.Regex.Match(text, @"(\d{1,2}[-](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-]\d{2,4})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (dateMatch.Success)
+        {
+            extractedDate = ParseDate(dateMatch.Groups[1].Value);
+        }
+
+        if (string.IsNullOrEmpty(TransferFrom))
+        {
+            var nexusId = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=NexusPay ID\s)\d+")[0].Value;
+            TransferFrom = !string.IsNullOrEmpty(nexusId) ? $"{nexusId}" : null;
+        }
+        if (string.IsNullOrEmpty(TransferTo))
+        {
+            var account = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=Card/Account\s)\d+")[0].Value;
+            TransferTo = !string.IsNullOrEmpty(account) ? $"{account}" : null;
+        }
+
+        var rValue = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=\()[A-Za-z]+(?=\))")[0].Value;
+        if (string.IsNullOrEmpty(remarks) && !string.IsNullOrEmpty(rValue))
+        {
+            remarks = "Transfer with : " + rValue;
+        }
+
+        result.Amount = extractedAmount;
+        result.TransactionDate = extractedDate ?? string.Empty;
+        result.TransferFrom = TransferFrom ?? string.Empty;
+        result.TransferTo = TransferTo ?? string.Empty;
+        result.Remarks = remarks ?? string.Empty;
+        result.TransactionId = transactionId ?? string.Empty;
+    }
+    private void ParseSblReceipt(string text, OcrScanResponse result)
+    {
+        ParseSblReceiptApply(text, result);
     }
 
     private void ParseGenericReceipt(string text, OcrScanResponse result)

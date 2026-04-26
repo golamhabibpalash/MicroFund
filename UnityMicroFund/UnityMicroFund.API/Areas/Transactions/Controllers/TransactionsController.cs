@@ -145,7 +145,7 @@ public class TransactionsController : ControllerBase
             var uploadsFolder = Path.Combine(_environment.ContentRootPath, "..", "uploads", "receipts");
             Directory.CreateDirectory(uploadsFolder);
 
-            var fileName = $"{transaction.RefNo}_{DateTime.UtcNow:yyyyMMddHHmmss}{extension}";
+            var fileName = $"{transaction.TransferFrom}_{DateTime.UtcNow:yyyyMMddHHmmss}{extension}";
             var filePath = Path.Combine(uploadsFolder, fileName);
 
             using (var stream = new FileStream(filePath, FileMode.Create))

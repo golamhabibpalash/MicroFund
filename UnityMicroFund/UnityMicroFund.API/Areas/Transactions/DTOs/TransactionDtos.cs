@@ -7,7 +7,7 @@ public class CreateTransactionDto
 {
     [Required]
     [MaxLength(200)]
-    public string TransferFor { get; set; } = string.Empty;
+    public string TransferTo { get; set; } = string.Empty;
 
     [Required]
     [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than 0")]
@@ -24,7 +24,9 @@ public class CreateTransactionDto
 
     public string? ReceiptType { get; set; }
 
-    public string? RefNo { get; set; }
+    public string? TransactionId { get; set; }
+
+    public string? TransferFrom { get; set; }
 
     public DateTime? TransactionDate { get; set; }
 }
@@ -32,7 +34,7 @@ public class CreateTransactionDto
 public class UpdateTransactionDto
 {
     [MaxLength(200)]
-    public string? TransferFor { get; set; }
+    public string? TransferTo { get; set; }
 
     [Range(0.01, double.MaxValue)]
     public decimal? Amount { get; set; }
@@ -57,8 +59,9 @@ public class ApproveTransactionDto
 public class TransactionResponseDto
 {
     public Guid Id { get; set; }
-    public string RefNo { get; set; } = string.Empty;
-    public string TransferFor { get; set; } = string.Empty;
+    public string TransactionId { get; set; } = string.Empty;
+    public string? TransferFrom { get; set; }
+    public string TransferTo { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public string Status { get; set; } = string.Empty;
     public string ApprovalStatus { get; set; } = string.Empty;

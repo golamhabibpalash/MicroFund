@@ -98,7 +98,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Amount).HasPrecision(18, 2);
             entity.Property(e => e.Status).HasConversion<string>();
             entity.Property(e => e.ApprovalStatus).HasConversion<string>();
-            entity.HasIndex(e => e.RefNo).IsUnique();
+            entity.HasIndex(e => e.TransactionId).IsUnique();
         });
 
         modelBuilder.Entity<ChatRoom>(entity =>

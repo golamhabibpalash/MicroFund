@@ -1,118 +1,12 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\",
-  "Documents": [
-    {
-      "AbsoluteMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|d:\\projects\\microfund\\unitymicrofund\\unitymicrofund.api\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
-      "RelativeMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|solutionrelative:appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|d:\\projects\\microfund\\unitymicrofund\\unitymicrofund.api\\areas\\auth\\services\\profileservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|solutionrelative:areas\\auth\\services\\profileservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|d:\\projects\\microfund\\unitymicrofund\\unitymicrofund.api\\areas\\profile\\controllers\\profilecontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|solutionrelative:areas\\profile\\controllers\\profilecontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|d:\\projects\\microfund\\unitymicrofund\\unitymicrofund.api\\areas\\members\\controllers\\memberscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|solutionrelative:areas\\members\\controllers\\memberscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|d:\\projects\\microfund\\unitymicrofund\\unitymicrofund.api\\areas\\auth\\services\\authservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|solutionrelative:areas\\auth\\services\\authservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|d:\\projects\\microfund\\unitymicrofund\\unitymicrofund.api\\areas\\auth\\controllers\\authcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{81F1C7F4-7B1D-D7BB-2AFE-34017BEB1EC5}|UnityMicroFund.API.csproj|solutionrelative:areas\\auth\\controllers\\authcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    }
-  ],
+  "Documents": [],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
       "VerticalTabListWidth": 256,
-      "DocumentGroups": [
-        {
-          "DockedWidth": 200,
-          "SelectedChildIndex": 0,
-          "Children": [
-            {
-              "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "appsettings.json",
-              "DocumentMoniker": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\appsettings.json",
-              "RelativeDocumentMoniker": "appsettings.json",
-              "ToolTip": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\appsettings.json",
-              "RelativeToolTip": "appsettings.json",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAACIAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
-              "WhenOpened": "2026-04-24T05:39:03.443Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "MembersController.cs",
-              "DocumentMoniker": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Members\\Controllers\\MembersController.cs",
-              "RelativeDocumentMoniker": "Areas\\Members\\Controllers\\MembersController.cs",
-              "ToolTip": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Members\\Controllers\\MembersController.cs",
-              "RelativeToolTip": "Areas\\Members\\Controllers\\MembersController.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABcAAAAEAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-11T13:50:24.659Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "ProfileService.cs",
-              "DocumentMoniker": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Auth\\Services\\ProfileService.cs",
-              "RelativeDocumentMoniker": "Areas\\Auth\\Services\\ProfileService.cs",
-              "ToolTip": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Auth\\Services\\ProfileService.cs",
-              "RelativeToolTip": "Areas\\Auth\\Services\\ProfileService.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABEAAAAEAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-11T12:52:35.291Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "AuthService.cs",
-              "DocumentMoniker": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Auth\\Services\\AuthService.cs",
-              "RelativeDocumentMoniker": "Areas\\Auth\\Services\\AuthService.cs",
-              "ToolTip": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Auth\\Services\\AuthService.cs",
-              "RelativeToolTip": "Areas\\Auth\\Services\\AuthService.cs",
-              "ViewState": "AgIAADsAAAAAAAAAAAAMwGgAAAAMAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-11T13:04:13.777Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "AuthController.cs",
-              "DocumentMoniker": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Auth\\Controllers\\AuthController.cs",
-              "RelativeDocumentMoniker": "Areas\\Auth\\Controllers\\AuthController.cs",
-              "ToolTip": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Auth\\Controllers\\AuthController.cs",
-              "RelativeToolTip": "Areas\\Auth\\Controllers\\AuthController.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAB8AAAAFAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-11T06:22:23.606Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "ProfileController.cs",
-              "DocumentMoniker": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Profile\\Controllers\\ProfileController.cs",
-              "RelativeDocumentMoniker": "Areas\\Profile\\Controllers\\ProfileController.cs",
-              "ToolTip": "D:\\Projects\\MicroFund\\UnityMicroFund\\UnityMicroFund.API\\Areas\\Profile\\Controllers\\ProfileController.cs",
-              "RelativeToolTip": "Areas\\Profile\\Controllers\\ProfileController.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAABYAAAAEAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-04-11T06:13:44.836Z"
-            }
-          ]
-        }
-      ]
+      "DocumentGroups": []
     }
   ]
 }
