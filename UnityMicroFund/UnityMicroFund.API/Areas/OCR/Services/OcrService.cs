@@ -168,8 +168,9 @@ public class OcrService : IOcrService
 
         decimal extractedAmount = 0;
         string? extractedDate = null;
-        string? refNo = null;
-        string? purpose = null;
+        string? transferFrom = null;
+        string? transferTo = null;
+        string? remarks = null;
         string? transactionId = null;
 
         if (extractedAmount == 0)
@@ -186,42 +187,30 @@ public class OcrService : IOcrService
         {
             extractedDate = ParseDate(dateMatch.Groups[1].Value);
         }
-
-        var refPatterns = new[]
+        if(string.IsNullOrEmpty(transferFrom))
         {
-            @"reference\s*no[:\s]*([a-z0-9]+)",
-            @"ref\s*no[:\s]*([a-z0-9]+)",
-            @"trx\s*id[:\s]*([a-z0-9]+)"
-        };
-
-        foreach (var pattern in refPatterns)
-        {
-            var match = System.Text.RegularExpressions.Regex.Match(text, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            if (match.Success)
-            {
-                refNo = match.Groups[1].Value;
-                break;
-            }
+            var nexusId = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=Source Account\s)\d+")[0].Value;
+            transferFrom = !string.IsNullOrEmpty(nexusId) ? $"{nexusId}" : null;
         }
-
-        var purposeKeywords = new[] { "cash deposit", "cash withdraw", "fund transfer", "payment", "send money", "receive" };
-        foreach (var keyword in purposeKeywords)
+        if (string.IsNullOrEmpty(transferTo))
+        {            var account = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=Account\s)\d+")[0].Value;
+             transferTo = !string.IsNullOrEmpty(account) ? $"{account}" : null;
+        }   
+        if(string.IsNullOrEmpty(remarks))
         {
-            if (textLower.Contains(keyword))
+            var rValue = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=\b)\bNPSB\b")[0].Value;
+            if (!string.IsNullOrEmpty(rValue))
             {
-                var idx = textLower.IndexOf(keyword);
-                var start = Math.Max(0, idx - 30);
-                var end = Math.Min(text.Length, idx + keyword.Length + 30);
-                purpose = text.Substring(start, end - start).Trim();
-                break;
+                remarks = "Transfer with : " + rValue;
             }
-        }
+        }   
 
         result.Amount = extractedAmount;
         result.TransactionDate = extractedDate ?? string.Empty;
-        result.TransferFrom = refNo ?? string.Empty;
-        result.TransferTo = purpose ?? string.Empty;
+        result.TransferFrom = transferFrom ?? string.Empty;
+        result.TransferTo = transferTo ?? string.Empty;
         result.TransactionId = transactionId ?? string.Empty;
+        result.Remarks = remarks ?? string.Empty;
     }
 
     private void ParseDbblReceipt(string text, OcrScanResponse result)
@@ -286,49 +275,27 @@ public class OcrService : IOcrService
 
         if (extractedAmount == 0)
         {
-            extractedAmount = Convert.ToDecimal(System.Text.RegularExpressions.Regex.Matches(text, @"(?<=Amount Paid\s)\d+(\.\d+)?(?=\sBDT)")[0].Value);
+            extractedAmount = Convert.ToDecimal(System.Text.RegularExpressions.Regex.Matches(text, @"(?<=BDT\s)[\d,]+(\.\d+)?")[0].Value.Replace(",", "").Split('.')[0]);
         }
         if (string.IsNullOrEmpty(transactionId))
         {
-            transactionId = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=Transaction ID\s)[A-Z0-9]+")[0].Value;
+            transactionId = "Not Found";
         }
 
-        var dateMatch = System.Text.RegularExpressions.Regex.Match(text, @"(\d{1,2}[-]\d{1,2}[-]\d{2,4})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        if (dateMatch.Success)
+        var dt = DateTime.ParseExact(System.Text.RegularExpressions.Regex.Match(text, @"\d{2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2}:\d{2} (AM|PM)").Value, "dd-MMM-yyyy hh:mm:ss tt", null);
+        extractedDate = dt.ToString("yy-MM-dd");
+
+        if (string.IsNullOrEmpty(TransferFrom))
         {
-            extractedDate = ParseDate(dateMatch.Groups[1].Value);
+            var tFrom = System.Text.RegularExpressions.Regex.Matches(text, @"\b\d{15}\b")[0].Value;
+            TransferFrom = !string.IsNullOrEmpty(tFrom) ? $"{tFrom}" : null;
         }
 
-        var refPatterns = new[]
+        if (string.IsNullOrEmpty(TransferTo))
         {
-            @"reference\s*no[:\s]*([a-z0-9]+)",
-            @"ref\s*no[:\s]*([a-z0-9]+)",
-            @"trx\s*id[:\s]*([a-z0-9]+)"
-        };
-
-        foreach (var pattern in refPatterns)
-        {
-            var match = System.Text.RegularExpressions.Regex.Match(text, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            if (match.Success)
-            {
-                TransferFrom = match.Groups[1].Value;
-                break;
-            }
+            TransferTo = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=No\.)\d+")[0].Value;
         }
-
-        var purposeKeywords = new[] { "cash deposit", "cash withdraw", "fund transfer", "payment", "send money", "receive" };
-        foreach (var keyword in purposeKeywords)
-        {
-            if (textLower.Contains(keyword))
-            {
-                var idx = textLower.IndexOf(keyword);
-                var start = Math.Max(0, idx - 30);
-                var end = Math.Min(text.Length, idx + keyword.Length + 30);
-                TransferTo = text.Substring(start, end - start).Trim();
-                break;
-            }
-        }
-
+        
         result.Amount = extractedAmount;
         result.TransactionDate = extractedDate ?? string.Empty;
         result.TransferFrom = TransferFrom ?? string.Empty;
@@ -353,7 +320,7 @@ public class OcrService : IOcrService
 
         if (string.IsNullOrEmpty(transactionId))
         {
-            transactionId = System.Text.RegularExpressions.Regex.Matches(text, @"LID[A-Z0-9]+")[0].Value;
+            transactionId = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=REF:\s*)\d+")[0].Value;
         }
 
         var dateMatch = System.Text.RegularExpressions.Regex.Match(text, @"(\d{1,2}[-](?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-]\d{2,4})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
@@ -364,16 +331,15 @@ public class OcrService : IOcrService
 
         if (string.IsNullOrEmpty(TransferFrom))
         {
-            var nexusId = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=NexusPay ID\s)\d+")[0].Value;
-            TransferFrom = !string.IsNullOrEmpty(nexusId) ? $"{nexusId}" : null;
+            var tFrom = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=Acc\s)\d+\*+\d+")[0].Value;
+            TransferFrom = !string.IsNullOrEmpty(tFrom) ? $"{tFrom}" : null;
         }
         if (string.IsNullOrEmpty(TransferTo))
         {
-            var account = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=Card/Account\s)\d+")[0].Value;
-            TransferTo = !string.IsNullOrEmpty(account) ? $"{account}" : null;
+            TransferTo = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=No\.)\d+")[0].Value;
         }
 
-        var rValue = System.Text.RegularExpressions.Regex.Matches(text, @"(?<=\()[A-Za-z]+(?=\))")[0].Value;
+        var rValue = System.Text.RegularExpressions.Regex.Matches(text, @"\bBEFTN\b")[0].Value;
         if (string.IsNullOrEmpty(remarks) && !string.IsNullOrEmpty(rValue))
         {
             remarks = "Transfer with : " + rValue;
