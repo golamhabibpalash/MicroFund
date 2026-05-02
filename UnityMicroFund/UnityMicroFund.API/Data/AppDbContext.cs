@@ -29,6 +29,7 @@ public class AppDbContext : DbContext
     public DbSet<ChatRoom> ChatRooms { get; set; }
     public DbSet<ChatMessage> ChatMessages { get; set; }
     public DbSet<ChatRoomMember> ChatRoomMembers { get; set; }
+    public DbSet<ParamBusConfig> ParamBusConfigs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -173,6 +174,42 @@ public class AppDbContext : DbContext
                 SettingValue = "50",
                 CreatedAt = now,
                 UpdatedAt = now
+            }
+        );
+
+        modelBuilder.Entity<ParamBusConfig>().HasData(
+            new ParamBusConfig
+            {
+                Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                Name = "CompanyName",
+                Value = "Unity MicroFund",
+                Description = "Company or organization name",
+                Status = true,
+                LastModifiedDate = now,
+                LastModifiedBy = "System",
+                LastModifiedColumn = "Value"
+            },
+            new ParamBusConfig
+            {
+                Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+                Name = "Currency",
+                Value = "BDT",
+                Description = "Default currency code",
+                Status = true,
+                LastModifiedDate = now,
+                LastModifiedBy = "System",
+                LastModifiedColumn = "Value"
+            },
+            new ParamBusConfig
+            {
+                Id = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"),
+                Name = "MinimumInvestment",
+                Value = "1000",
+                Description = "Minimum investment amount",
+                Status = true,
+                LastModifiedDate = now,
+                LastModifiedBy = "System",
+                LastModifiedColumn = "Value"
             }
         );
     }

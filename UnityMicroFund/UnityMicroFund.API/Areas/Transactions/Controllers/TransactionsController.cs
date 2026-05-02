@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UnityMicroFund.API.Areas.Transactions.DTOs;
 using UnityMicroFund.API.Areas.Transactions.Services;
+using UnityMicroFund.API.Infrastructure.ExceptionHandling;
 
 namespace UnityMicroFund.API.Areas.Transactions.Controllers;
 
@@ -57,6 +58,10 @@ public class TransactionsController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = $"Failed to create transaction: {ex.Message}" });
+        }
     }
 
     [HttpPut("{id}")]
@@ -94,6 +99,10 @@ public class TransactionsController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
+        }
+        catch (UnauthorizedException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
         }
     }
 

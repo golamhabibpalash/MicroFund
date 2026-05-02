@@ -170,7 +170,8 @@ public class AuthService : IAuthService
             return null;
         }
         
-        if (!user.IsActive || !user.IsApproved)
+        // Check if user is not approved
+        if (!user.IsApproved)
         {
             return new AuthResponseDto
             {
@@ -183,11 +184,32 @@ public class AuthService : IAuthService
                     IsActive = user.IsActive,
                     IsApproved = user.IsApproved
                 },
-                RequiresApproval = true
+                RequiresApproval = true,
+                Message = "Your account is pending approval. Please wait for admin approval."
             };
         }
         
-        if (!VerifyPassword(dto.Password, user.PasswordHash))
+        // Check if user is not active (but is approved)
+        if (!user.IsActive)
+        {
+            return new AuthResponseDto
+            {
+                User = new UserDto
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Email = user.Email,
+                    Role = user.Role.ToString(),
+                    IsActive = user.IsActive,
+                    IsApproved = user.IsApproved
+                },
+                RequiresApproval = true,
+                Message = "Your account has been deactivated. Please contact admin."
+            };
+        }
+        
+        // Check password
+        if (string.IsNullOrEmpty(user.PasswordHash) || !VerifyPassword(dto.Password, user.PasswordHash))
         {
             return null;
         }
@@ -303,7 +325,7 @@ public class AuthService : IAuthService
     public async Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordDto dto)
     {
         var user = await _context.Users.FindAsync(userId);
-        if (user == null || !VerifyPassword(dto.CurrentPassword, user.PasswordHash))
+        if (user == null || string.IsNullOrEmpty(user.PasswordHash) || !VerifyPassword(dto.CurrentPassword, user.PasswordHash))
         {
             return false;
         }
@@ -328,6 +350,25 @@ public class AuthService : IAuthService
             Email = user.Email,
             Role = user.Role.ToString()
         };
+    }
+
+    public async Task<User?> GetUserByEmailAsync(string email)
+    {
+        return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+    }
+
+    public async Task<bool> UpdateUserAsync(User user)
+    {
+        try
+        {
+            _context.Users.Update(user);
+            await _context.SaveChangesAsync();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public async Task<IEnumerable<UserDto>> GetAllUsersAsync()

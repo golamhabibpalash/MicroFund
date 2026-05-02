@@ -56,9 +56,9 @@ import { ChatInterfaceComponent } from '../chat/chat-interface.component';
           </a>
           <a routerLink="/payments" routerLinkActive="active" class="nav-item" (click)="closeSidebarOnMobile()">
             <span class="material-icons">payments</span>
-            <span>Payments</span>
+            <span>Transactions</span>
           </a>
-          <a routerLink="/accounts" routerLinkActive="active" class="nav-item" (click)="closeSidebarOnMobile()">
+          <a routerLink="/accounts" routerLinkActive="active" class="nav-item" *ngIf="isAdmin" (click)="closeSidebarOnMobile()">
             <span class="material-icons">account_balance</span>
             <span>Accounts</span>
           </a>
@@ -74,6 +74,10 @@ import { ChatInterfaceComponent } from '../chat/chat-interface.component';
           <a routerLink="/users" routerLinkActive="active" class="nav-item" *ngIf="isAdmin" (click)="closeSidebarOnMobile()">
             <span class="material-icons">admin_panel_settings</span>
             <span>User Management</span>
+          </a>
+          <a routerLink="/settings" routerLinkActive="active" class="nav-item" *ngIf="isAdmin" (click)="closeSidebarOnMobile()">
+            <span class="material-icons">settings</span>
+            <span>Business Config</span>
           </a>
         </nav>
         <div class="sidebar-footer">

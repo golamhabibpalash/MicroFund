@@ -1474,9 +1474,11 @@ export class PaymentsComponent implements OnInit {
           this.handleTransactionSuccess();
         }
       },
-      error: () => {
+      error: (err) => {
+        console.error('Transaction creation error:', err);
         this.isSubmitting = false;
-        this.toastService.error('Failed to create transaction. Please try again.');
+        const errorMessage = err.error?.message || 'Failed to create transaction. Please try again.';
+        this.toastService.error(errorMessage);
         this.cdr.detectChanges();
       }
     });

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Areas.Transactions.DTOs;
 using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Infrastructure.Email;
+using UnityMicroFund.API.Infrastructure.ExceptionHandling;
 using UnityMicroFund.API.Models;
 
 namespace UnityMicroFund.API.Areas.Transactions.Services;
@@ -17,7 +18,7 @@ public class TransactionService : ITransactionService
         _emailService = emailService;
     }
 
-    public async Task<IEnumerable<TransactionResponseDto>> GetTransactionsAsync(TransactionFilterDto filter)
+    public async Task<IEnumerable<TransactionResponseDto>> GetTransactionsAsync(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false)
     {
         var query = _context.Transactions
             .Include(t => t.TransferBy)
@@ -25,6 +26,11 @@ public class TransactionService : ITransactionService
             .Include(t => t.ApprovedByUser)
             .Include(t => t.Account)
             .AsQueryable();
+
+        if (!isAdmin && userId.HasValue)
+        {
+            query = query.Where(t => t.CreatedById == userId.Value);
+        }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
@@ -168,6 +174,22 @@ public class TransactionService : ITransactionService
             throw new InvalidOperationException("Transaction has already been processed");
         }
 
+        var approver = await _context.Users.FindAsync(approvedByUserId);
+        if (approver == null)
+        {
+            throw new UnauthorizedException("Approver user not found");
+        }
+
+        if (approver.Role != Models.UserRole.Admin)
+        {
+            throw new UnauthorizedException("Only admin users can approve transactions");
+        }
+
+        if (transaction.CreatedById == approvedByUserId)
+        {
+            throw new InvalidOperationException("You cannot approve your own transaction. Please ask another admin to approve.");
+        }
+
         transaction.ApprovalStatus = dto.IsApproved ? TransactionApprovalStatus.Approved : TransactionApprovalStatus.Rejected;
         transaction.ApprovedBy = approvedByUserId;
         transaction.ApprovedAt = DateTime.UtcNow;
@@ -201,7 +223,7 @@ public class TransactionService : ITransactionService
             await _emailService.SendTransactionApprovedEmailAsync(
                 transaction.CreatedBy.Email,
                 transaction.CreatedBy.Name,
-                transaction.TransferFrom,
+                transaction.TransferFrom ?? "Unknown",
                 transaction.Amount,
                 transaction.Account?.Name ?? "N/A",
                 statusText

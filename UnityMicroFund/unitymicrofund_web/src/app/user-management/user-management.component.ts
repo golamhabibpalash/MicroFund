@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -68,6 +68,7 @@ type TabType = 'users' | 'roles' | 'permissions';
                 <th>Email</th>
                 <th>Role</th>
                 <th>Status</th>
+                <th>Approved</th>
                 <th>Claims</th>
                 <th>Actions</th>
               </tr>
@@ -95,6 +96,11 @@ type TabType = 'users' | 'roles' | 'permissions';
                   </span>
                 </td>
                 <td>
+                  <span class="status-badge" [class.active]="user.isApproved" [class.inactive]="!user.isApproved">
+                    {{ user.isApproved ? 'Yes' : 'No' }}
+                  </span>
+                </td>
+                <td>
                   <div class="claims-cell">
                     <span class="claim-count">{{ user.claims?.length || 0 }} claims</span>
                     <button class="btn-icon" (click)="viewUserClaims(user)" title="View Claims">
@@ -117,7 +123,7 @@ type TabType = 'users' | 'roles' | 'permissions';
                 </td>
               </tr>
               <tr *ngIf="filteredUsers.length === 0">
-                <td colspan="6" class="empty-row">
+                <td colspan="7" class="empty-row">
                   <span class="material-icons">person_off</span>
                   <span>No users found</span>
                 </td>
@@ -290,6 +296,42 @@ type TabType = 'users' | 'roles' | 'permissions';
           <button class="btn btn-primary" (click)="updateUserRole()">
             <span class="material-icons">save</span>
             Update Role
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div class="modal-overlay" *ngIf="showEditUserModal" (click)="showEditUserModal = false">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Edit User</h2>
+          <button class="btn-close" (click)="showEditUserModal = false">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p class="user-info-text">
+            <strong>{{ selectedUser?.name }}</strong> ({{ selectedUser?.email }})
+          </p>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="editUserStatus" />
+              <span>Active</span>
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" [(ngModel)]="editUserApproved" />
+              <span>Approved</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" (click)="showEditUserModal = false">Cancel</button>
+          <button class="btn btn-primary" (click)="updateUserStatusAndApproval()">
+            <span class="material-icons">save</span>
+            Update
           </button>
         </div>
       </div>
@@ -583,12 +625,16 @@ export class UserManagementComponent implements OnInit {
   roles: Role[] = [];
   userSearchTerm = '';
   isLoadingUsers = false;
+  isLoadingUserDetail = false;
 
   showCreateUserModal = false;
   showEditRoleModal = false;
   showClaimsModal = false;
   selectedUser: User | null = null;
   selectedUserDetail: UserDetail | null = null;
+  showEditUserModal = false;
+  editUserStatus = false;
+  editUserApproved = false;
   selectedRole = 'Member';
   claimsTab: 'direct' | 'inherited' = 'direct';
 
@@ -615,7 +661,8 @@ export class UserManagementComponent implements OnInit {
 
   constructor(
     private userService: UserManagementService,
-    private roleService: RoleManagementService
+    private roleService: RoleManagementService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -630,9 +677,11 @@ export class UserManagementComponent implements OnInit {
         this.users = data;
         this.filterUsers();
         this.isLoadingUsers = false;
+        this.cdr.detectChanges();
       },
       error: () => {
         this.isLoadingUsers = false;
+        this.cdr.detectChanges();
       },
     });
   }
@@ -761,7 +810,36 @@ export class UserManagementComponent implements OnInit {
 
   createUser() {}
 
-  editUser(user: User) {}
+  editUser(user: User) {
+    this.selectedUser = user;
+    this.editUserStatus = user.isActive;
+    this.editUserApproved = user.isApproved;
+    this.showEditUserModal = true;
+  }
+
+  updateUserStatusAndApproval() {
+    if (!this.selectedUser) return;
+
+    this.userService.updateUserStatus(this.selectedUser.id, this.editUserStatus).subscribe({
+      next: () => {
+        if (!this.editUserApproved && this.selectedUser) {
+          this.userService.approveUser(this.selectedUser.id).subscribe({
+            next: () => {
+              this.loadUsers();
+              this.showEditUserModal = false;
+              this.cdr.detectChanges();
+            },
+            error: (err) => alert(err.error?.message || 'Error updating approval')
+          });
+        } else {
+          this.loadUsers();
+          this.showEditUserModal = false;
+          this.cdr.detectChanges();
+        }
+      },
+      error: (err) => alert(err.error?.message || 'Error updating status')
+    });
+  }
 
   editUserRole(user: User) {
     this.selectedUser = user;
@@ -799,6 +877,27 @@ export class UserManagementComponent implements OnInit {
 
 viewUserClaims(user: User) {
     this.selectedUser = user;
+    this.isLoadingUserDetail = true;
+    this.userService.getUserById(user.id).subscribe({
+      next: (detail: any) => {
+        this.selectedUserDetail = {
+          ...user,
+          directClaims: detail.directClaims || [],
+          inheritedClaims: detail.inheritedClaims || []
+        };
+        this.isLoadingUserDetail = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.selectedUserDetail = {
+          ...user,
+          directClaims: [],
+          inheritedClaims: []
+        };
+        this.isLoadingUserDetail = false;
+        this.cdr.detectChanges();
+      }
+    });
     this.showClaimsModal = true;
   }
 

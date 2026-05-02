@@ -26,4 +26,8 @@ export class UserManagementService {
   updateUserStatus(userId: string, isActive: boolean): Observable<{ message: string }> {
     return this.http.put<{ message: string }>(`${this.apiUrl}/${userId}/status`, { isActive });
   }
+
+  approveUser(userId: string): Observable<{ message: string }> {
+    return this.http.put<{ message: string }>(`${this.apiUrl}/${userId}/approve`, {});
+  }
 }

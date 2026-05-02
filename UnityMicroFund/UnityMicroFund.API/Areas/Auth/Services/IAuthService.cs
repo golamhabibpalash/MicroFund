@@ -12,5 +12,7 @@ public interface IAuthService
     Task<AuthResponseDto?> GoogleLoginOrRegisterAsync(string googleToken);
     Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordDto dto);
     Task<UserDto?> GetUserByIdAsync(Guid userId);
+    Task<User?> GetUserByEmailAsync(string email);
+    Task<bool> UpdateUserAsync(User user);
     Task<IEnumerable<UserDto>> GetAllUsersAsync();
 }

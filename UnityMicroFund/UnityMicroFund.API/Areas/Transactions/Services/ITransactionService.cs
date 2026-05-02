@@ -4,7 +4,7 @@ namespace UnityMicroFund.API.Areas.Transactions.Services;
 
 public interface ITransactionService
 {
-    Task<IEnumerable<TransactionResponseDto>> GetTransactionsAsync(TransactionFilterDto filter);
+    Task<IEnumerable<TransactionResponseDto>> GetTransactionsAsync(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false);
     Task<TransactionResponseDto?> GetTransactionByIdAsync(Guid id);
     Task<TransactionResponseDto> CreateTransactionAsync(CreateTransactionDto dto, Guid userId);
     Task<TransactionResponseDto?> UpdateTransactionAsync(Guid id, UpdateTransactionDto dto);

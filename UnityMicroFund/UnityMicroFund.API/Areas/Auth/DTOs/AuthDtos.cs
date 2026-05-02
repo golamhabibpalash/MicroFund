@@ -28,9 +28,9 @@ public class GoogleLoginDto
 
 public class AuthResponseDto
 {
-    public string AccessToken { get; set; } = string.Empty;
-    public string RefreshToken { get; set; } = string.Empty;
-    public DateTime ExpiresAt { get; set; }
+    public string? AccessToken { get; set; }
+    public string? RefreshToken { get; set; }
+    public DateTime? ExpiresAt { get; set; }
     public UserDto User { get; set; } = null!;
     public string? Message { get; set; }
     public bool RequiresApproval { get; set; }

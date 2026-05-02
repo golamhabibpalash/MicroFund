@@ -19,8 +19,6 @@ using UnityMicroFund.API.Areas.Transactions.Services;
 using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Infrastructure.Email;
 using UnityMicroFund.API.Areas.Tasks.Services;
-using UnityMicroFund.API.Areas.Transactions.Services;
-using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Infrastructure.ExceptionHandling;
 using UnityMicroFund.API.Infrastructure.Logging;
 using UnityMicroFund.API.Infrastructure.Middleware;
@@ -157,6 +155,7 @@ builder.Services.AddScoped<IOcrService, OcrService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IParamBusConfigService, ParamBusConfigService>();
 builder.Services.AddSignalR();
 
 var app = builder.Build();

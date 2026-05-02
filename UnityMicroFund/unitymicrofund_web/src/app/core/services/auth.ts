@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, BehaviorSubject, tap, catchError, throwError, of, map, switchMap } from 'rxjs';
+import { Observable, BehaviorSubject, tap, catchError, throwError, of, map, switchMap, finalize } from 'rxjs';
 import { Token } from './token';
 import { SmsService } from './sms.service';
 
@@ -50,10 +50,12 @@ export class Auth {
   }
 
   login(credentials: LoginCredentials): Observable<AuthResponse> {
-    console.log('Auth Service: Sending login request to', this.apiUrl + '/login');
+    console.log('Auth Service: Sending login request to', `${this.apiUrl}/login`);
     console.log('Auth Service: Credentials', { email: credentials.email });
     
-    return this.http.post<AuthResponse>(`${this.apiUrl}/login`, credentials).pipe(
+    return this.http.post<AuthResponse>(`${this.apiUrl}/login`, credentials, {
+      headers: { 'Content-Type': 'application/json' }
+    }).pipe(
       tap((response) => {
         console.log('Auth Service: Response received', response);
         console.log('Auth Service: accessToken exists:', !!response.accessToken);
@@ -75,6 +77,9 @@ export class Auth {
         console.error('Auth Service: Error status:', error.status);
         console.error('Auth Service: Error message:', error.error?.message);
         return throwError(() => error);
+      }),
+      finalize(() => {
+        console.log('Auth Service: Request completed');
       })
     );
   }

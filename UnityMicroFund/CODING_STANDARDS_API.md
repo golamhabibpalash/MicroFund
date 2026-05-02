@@ -131,7 +131,40 @@ public class AuthController : ControllerBase
 
 ### Principles
 
-- Controllers should be **thin** - delegate all business logic to services
+- Controllers should be **thin** - delegate ALL business logic to services
+- **NEVER write business logic in controllers** - only call service methods
+- Controllers should only handle: HTTP request/response, validation, authorization, route parameters
+- All data processing, database operations, and business rules go in Services
+- If you find yourself writing `if/else`, loops, or database queries in a controller - move it to a service
+
+### What Controllers Should Do
+
+```csharp
+// ✅ CORRECT - Controller only calls service
+[HttpPost]
+public async Task<IActionResult> CreateTransaction([FromBody] CreateTransactionDto dto)
+{
+    // Just call service, no logic here
+    var transaction = await _transactionService.CreateTransactionAsync(dto, userId);
+    return CreatedAtAction(nameof(GetTransaction), new { id = transaction.Id }, transaction);
+}
+
+// ❌ WRONG - Controller contains business logic
+[HttpPost]
+public async Task<IActionResult> CreateTransaction([FromBody] CreateTransactionDto dto)
+{
+    // This logic should be in a service!
+    if (string.IsNullOrWhiteSpace(dto.TransferTo))
+        return BadRequest(new { message = "TransferTo is required" });
+    
+    var account = await _context.Accounts.FindAsync(dto.AccountId);
+    if (account == null)
+        return NotFound(new { message = "Account not found" });
+    
+    // ... more logic
+}
+```
+
 - Use attribute routing consistently
 - Return appropriate HTTP status codes
 - Use proper DTOs for request/response
@@ -202,6 +235,9 @@ return NotFound(new { message = "Resource not found" });
 ---
 
 ## Service Guidelines
+
+### Core Principle
+**ALL business logic belongs in Services** - Controllers should only be thin wrappers that call service methods.
 
 ### Service Interface & Implementation
 

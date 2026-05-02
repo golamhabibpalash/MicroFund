@@ -16,6 +16,7 @@ import { RegisterComponent } from './auth/register/register.component';
 import { ForgotPasswordComponent } from './auth/forgot-password/forgot-password.component';
 import { LogsActivityComponent } from './logs/activity/logs-activity.component';
 import { LogsAuditComponent } from './logs/audit/logs-audit.component';
+import { BusinessConfigComponent } from './settings/business-config/business-config.component';
 
 const routes: Routes = [
   { path: '', redirectTo: '/auth/login', pathMatch: 'full' },
@@ -49,7 +50,7 @@ const routes: Routes = [
   {
     path: 'accounts',
     component: AdminLayoutComponent,
-    canActivate: [AuthGuard],
+    canActivate: [AuthGuard, AdminGuard],
     children: [{ path: '', component: AccountsComponent }],
   },
   {
@@ -78,6 +79,12 @@ const routes: Routes = [
     component: AdminLayoutComponent,
     canActivate: [AuthGuard, AdminGuard],
     children: [{ path: '', component: UserManagementComponent }],
+  },
+  {
+    path: 'settings',
+    component: AdminLayoutComponent,
+    canActivate: [AuthGuard, AdminGuard],
+    children: [{ path: '', component: BusinessConfigComponent }],
   },
   { path: '**', redirectTo: '/auth/login' },
 ];

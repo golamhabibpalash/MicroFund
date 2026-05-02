@@ -24,17 +24,20 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> GetAllUsers()
     {
         var users = await _context.Users
-            .Where(u => u.IsActive)
             .Select(u => new
             {
                 u.Id,
                 u.Name,
                 u.Email,
-                u.Role,
+                Role = u.Role.ToString(),
                 u.IsActive,
                 u.IsApproved,
                 u.CreatedAt,
-                u.UpdatedAt
+                u.UpdatedAt,
+                claims = _context.UserClaims
+                    .Where(c => c.UserId == u.Id)
+                    .Select(c => c.ClaimValue)
+                    .ToList()
             })
             .ToListAsync();
 
@@ -51,16 +54,36 @@ public class UsersController : ControllerBase
             return NotFound(new { message = "User not found" });
         }
 
+        var directClaims = await _context.UserClaims
+            .Where(c => c.UserId == id)
+            .Select(c => new
+            {
+                c.Id,
+                c.UserId,
+                c.ClaimType,
+                c.ClaimValue,
+                c.Description,
+                c.CreatedAt
+            })
+            .ToListAsync();
+
+        var roleClaims = await _context.RoleClaims
+            .Where(rc => rc.Role == user.Role)
+            .Select(rc => rc.ClaimValue)
+            .ToListAsync();
+
         return Ok(new
         {
             user.Id,
             user.Name,
             user.Email,
-            user.Role,
+            Role = user.Role.ToString(),
             user.IsActive,
             user.IsApproved,
             user.CreatedAt,
-            user.UpdatedAt
+            user.UpdatedAt,
+            directClaims,
+            inheritedClaims = roleClaims
         });
     }
 
@@ -197,14 +220,11 @@ public class UsersController : ControllerBase
             return NotFound(new { message = "User not found" });
         }
 
-        if (user.IsApproved)
-        {
-            return BadRequest(new { message = "User is already approved" });
-        }
-
-        user.IsApproved = true;
+        user.IsApproved = !user.IsApproved;
         user.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        var message = user.IsApproved ? "User approved successfully" : "User unapproved successfully";
 
         return Ok(new
         {
@@ -214,7 +234,7 @@ public class UsersController : ControllerBase
             user.Role,
             user.IsActive,
             user.IsApproved,
-            message = "User approved successfully"
+            message
         });
     }
 }

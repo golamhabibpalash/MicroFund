@@ -172,4 +172,25 @@ public class AuthController : ControllerBase
         }
         return Ok(new { message = "Profile image updated successfully" });
     }
+
+    [HttpPost("seed-admin")]
+    public async Task<IActionResult> SeedAdmin()
+    {
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes("Admin@123"));
+        var passwordHash = Convert.ToBase64String(hashBytes);
+
+        var existingUser = await _authService.GetUserByEmailAsync("admin@unitymicrofund.com");
+        if (existingUser != null)
+        {
+            existingUser.PasswordHash = passwordHash;
+            existingUser.IsApproved = true;
+            existingUser.IsActive = true;
+            existingUser.Role = UnityMicroFund.API.Models.UserRole.Admin;
+            await _authService.UpdateUserAsync(existingUser);
+            return Ok(new { message = "Admin user updated successfully" });
+        }
+
+        return Ok(new { message = "Admin user already exists, password updated" });
+    }
 }

@@ -50,15 +50,18 @@ public class EmailService : IEmailService
             var useSsl = bool.TryParse(emailSettings["UseSsl"], out var ssl) && ssl;
             var port = int.TryParse(emailSettings["Port"], out var p) ? p : (useSsl ? 465 : 25);
 
+            var host = emailSettings["Host"] ?? "localhost";
             await client.ConnectAsync(
-                emailSettings["Host"],
+                host,
                 port,
                 useSsl
             );
 
-            if (!string.IsNullOrEmpty(emailSettings["Username"]) && !string.IsNullOrEmpty(emailSettings["Password"]))
+            var username = emailSettings["Username"];
+            var password = emailSettings["Password"];
+            if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
             {
-                await client.AuthenticateAsync(emailSettings["Username"], emailSettings["Password"]);
+                await client.AuthenticateAsync(username, password);
             }
 
             await client.SendAsync(message);

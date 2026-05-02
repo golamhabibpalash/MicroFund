@@ -6,6 +6,7 @@ export interface User {
   email: string;
   role: UserRole;
   isActive: boolean;
+  isApproved: boolean;
   createdAt?: string;
   updatedAt?: string;
   claims?: string[];
