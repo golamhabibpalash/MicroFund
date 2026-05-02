@@ -184,10 +184,11 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
               <div class="form-group">
                 <label for="transactionId">Transaction ID</label>
                 <input type="text" id="transactionId" [(ngModel)]="transactionId" name="transactionId" 
-                       [placeholder]="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' ? 'From receipt' : 'Auto-generated'" />
+                       [placeholder]="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' || selectedReceiptType === 'SBL' ? 'From receipt' : 'Auto-generated'" />
                 <small class="hint" *ngIf="selectedReceiptType === 'DBBL'">DBBL Transaction ID from receipt</small>
                 <small class="hint" *ngIf="selectedReceiptType === 'UCB'">UCB Transaction ID from receipt</small>
                 <small class="hint" *ngIf="selectedReceiptType === 'EBL'">EBL Transaction ID from receipt</small>
+                <small class="hint" *ngIf="selectedReceiptType === 'SBL'">SBL Transaction ID from receipt</small>
               </div>
               <div class="form-group">
                 <label for="receiptTypeField">Receipt Type</label>
@@ -200,28 +201,7 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
               </div>
             </div>
             <div class="form-row">
-              <div class="form-group" *ngIf="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL'">
-                <label for="transactionDate">Transaction Date</label>
-                <input type="date" id="transactionDate" [(ngModel)]="transactionDate" name="transactionDate" />
-              </div>
-              <div class="form-group" *ngIf="!(selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL')">
-                <label for="accountId">Account *</label>
-                <select id="accountId" [(ngModel)]="newTransaction.accountId" name="accountId" required>
-                  <option value="">Select Account</option>
-                  <option *ngFor="let account of accounts" [value]="account.id">
-                    {{ account.name }} ({{ account.accountType }})
-                  </option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="status">Transaction Type *</label>
-                <select id="status" [(ngModel)]="newTransaction.status" name="status" required>
-                  <option value="Fund">Fund (Add to Account)</option>
-                  <option value="Refund">Refund (Deduct from Account)</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-group" *ngIf="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL'">
+<div class="form-group" *ngIf="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' || selectedReceiptType === 'SBL'">
               <label for="accountId">Account *</label>
               <select id="accountId" [(ngModel)]="newTransaction.accountId" name="accountId" required>
                 <option value="">Select Account</option>
@@ -229,6 +209,7 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
                   {{ account.name }} ({{ account.accountType }})
                 </option>
               </select>
+            </div>
             </div>
             <div class="form-row">
               <div class="form-group">

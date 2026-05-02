@@ -12,6 +12,7 @@ public class Transaction
 
     [Required]
     [MaxLength(50)]
+    [Column("TransactionId")]
     public string TransactionId { get; set; } = string.Empty;
 
     [MaxLength(200)]

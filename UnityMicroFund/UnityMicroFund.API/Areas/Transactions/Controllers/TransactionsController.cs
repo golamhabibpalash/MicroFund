@@ -172,6 +172,7 @@ public class TransactionsController : ControllerBase
             new { id = "DBBL", name = "DBBL (Dutch-Bangla Bank)", icon = "account_balance" },
             new { id = "UCB", name = "UCB (United Credit Bank)", icon = "account_balance" },
             new { id = "EBL", name = "EBL (Eastern Bank)", icon = "account_balance" },
+            new { id = "SBL", name = "SBL (Sonali Bank)", icon = "account_balance" },
             new { id = "bKash", name = "bKash", icon = "phone_android" },
             new { id = "Rocket", name = "Rocket", icon = "phone_android" },
             new { id = "Nagad", name = "Nagad", icon = "phone_android" },
