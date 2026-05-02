@@ -197,14 +197,45 @@ if (assetsPath != null)
     });
 }
 
-var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "..", "uploads");
+var uploadsPath = Path.Combine(builder.Environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "paymentReceipt");
 if (Directory.Exists(uploadsPath))
 {
     app.UseStaticFiles(new StaticFileOptions
     {
         FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
-        RequestPath = "/uploads"
+        RequestPath = "/assets/paymentReceipt"
     });
+
+    app.Map("/uploads/receipts", appBuilder =>
+    {
+        appBuilder.Run(async context =>
+        {
+            var fileName = context.Request.Path.Value?.Replace("/uploads/receipts/", "") ?? "";
+            if (!string.IsNullOrEmpty(fileName))
+            {
+                var filePath = Path.Combine(uploadsPath, fileName);
+                if (System.IO.File.Exists(filePath))
+                {
+                    context.Response.ContentType = GetContentType(fileName);
+                    await context.Response.SendFileAsync(filePath);
+                    return;
+                }
+            }
+            context.Response.StatusCode = 404;
+        });
+    });
+}
+
+static string GetContentType(string fileName)
+{
+    var ext = Path.GetExtension(fileName).ToLowerInvariant();
+    return ext switch
+    {
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".png" => "image/png",
+        ".pdf" => "application/pdf",
+        _ => "application/octet-stream"
+    };
 }
 
 app.UseDefaultFiles();

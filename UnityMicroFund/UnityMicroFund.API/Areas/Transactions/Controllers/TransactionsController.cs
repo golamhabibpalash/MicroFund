@@ -142,7 +142,7 @@ public class TransactionsController : ControllerBase
                 return NotFound(new { message = "Transaction not found" });
             }
 
-            var uploadsFolder = Path.Combine(_environment.ContentRootPath, "..", "uploads", "receipts");
+            var uploadsFolder = Path.Combine(_environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "paymentReceipt");
             Directory.CreateDirectory(uploadsFolder);
 
             var fileName = $"{transaction.TransferFrom}_{DateTime.UtcNow:yyyyMMddHHmmss}{extension}";
@@ -153,7 +153,7 @@ public class TransactionsController : ControllerBase
                 await file.CopyToAsync(stream);
             }
 
-            var receiptUrl = $"/uploads/receipts/{fileName}";
+            var receiptUrl = $"/assets/paymentReceipt/{fileName}";
             await _transactionService.UpdateReceiptUrlAsync(id, receiptUrl);
 
             return Ok(new { receiptUrl });
