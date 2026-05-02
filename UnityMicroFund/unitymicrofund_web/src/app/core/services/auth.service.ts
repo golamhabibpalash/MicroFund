@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface AuthUser {
   id: string;
@@ -24,7 +25,7 @@ export interface GoogleAuthResponse {
   providedIn: 'root'
 })
 export class AuthService {
-  private readonly apiUrl = '/api/auth';
+  private readonly apiUrl = `${environment.apiUrl}/auth`;
 
   constructor(private http: HttpClient) {}
 
@@ -37,6 +38,6 @@ export class AuthService {
   }
 
   getGoogleClientId(): string {
-    return 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+    return environment.googleClientId;
   }
 }

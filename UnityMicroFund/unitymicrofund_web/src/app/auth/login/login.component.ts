@@ -5,6 +5,7 @@ import { AuthService, GoogleAuthResponse } from '../../core/services/auth.servic
 import { Token } from '../../core/services/token';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { environment } from '../../../environments/environment';
 
 declare const google: any;
 
@@ -21,7 +22,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
   isLoading = false;
   isGoogleLoading = false;
 
-  private googleClientId = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+  private googleClientId = environment.googleClientId;
 
   constructor(
     private fb: FormBuilder,
