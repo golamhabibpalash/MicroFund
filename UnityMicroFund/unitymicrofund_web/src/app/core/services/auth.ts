@@ -1,13 +1,29 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, BehaviorSubject, tap, catchError, throwError, of, map, switchMap, finalize } from 'rxjs';
+import { Observable, BehaviorSubject, tap, catchError, throwError, map, of, switchMap } from 'rxjs';
 import { Token } from './token';
 import { SmsService } from './sms.service';
 
+interface AuthResponseDto {
+  AccessToken: string;
+  RefreshToken?: string;
+  ExpiresAt?: string;
+  User?: {
+    Id: string;
+    Name: string;
+    Email: string;
+    Role: string;
+    IsActive?: boolean;
+    IsApproved?: boolean;
+  };
+  Message?: string;
+  RequiresApproval?: boolean;
+}
+
 export interface AuthResponse {
-  accessToken: string;
+  accessToken?: string;
   refreshToken?: string;
-  expiresAt: number;
+  expiresAt?: number;
   user?: {
     id: string;
     name: string;
@@ -50,17 +66,19 @@ export class Auth {
   }
 
   login(credentials: LoginCredentials): Observable<AuthResponse> {
-    console.log('Auth Service: Sending login request to', `${this.apiUrl}/login`);
-    console.log('Auth Service: Credentials', { email: credentials.email });
-    
-    return this.http.post<AuthResponse>(`${this.apiUrl}/login`, credentials, {
+    return this.http.post<any>(`${this.apiUrl}/login`, credentials, {
       headers: { 'Content-Type': 'application/json' }
     }).pipe(
-      tap((response) => {
-        console.log('Auth Service: Response received', response);
-        console.log('Auth Service: accessToken exists:', !!response.accessToken);
-        if (response.accessToken) {
-          console.log('Auth Service: accessToken length:', response.accessToken.length);
+      map((response) => {
+        if (response.requiresApproval) {
+          return {
+            requiresApproval: true,
+            message: response.message || 'Your account is pending approval.',
+            user: response.user,
+          };
+        }
+
+        if (response.accessToken && response.accessToken.length > 0) {
           this.tokenService.saveToken(response.accessToken);
           if (response.refreshToken) {
             this.tokenService.saveRefreshToken(response.refreshToken);
@@ -69,17 +87,22 @@ export class Auth {
             this.tokenService.setTokenExpiry(new Date(response.expiresAt));
           }
           this.isAuthenticatedSubject.next(true);
-          console.log('Auth Service: Token saved successfully');
+
+          return {
+            accessToken: response.accessToken,
+            refreshToken: response.refreshToken,
+            expiresAt: response.expiresAt ? new Date(response.expiresAt).getTime() : undefined,
+            user: response.user,
+          };
         }
+
+        return { 
+          accessToken: '', 
+          message: response.message || 'Invalid email or password.' 
+        };
       }),
       catchError((error: HttpErrorResponse) => {
-        console.error('Auth Service: HTTP Error', error);
-        console.error('Auth Service: Error status:', error.status);
-        console.error('Auth Service: Error message:', error.error?.message);
         return throwError(() => error);
-      }),
-      finalize(() => {
-        console.log('Auth Service: Request completed');
       })
     );
   }
@@ -130,11 +153,17 @@ export class Auth {
   }
 
   googleLogin(token: string): Observable<AuthResponse> {
-    console.log('Auth Service: Sending Google login request');
-    return this.http.post<AuthResponse>(`${this.apiUrl}/google-login`, { token }).pipe(
-      tap((response) => {
-        console.log('Auth Service: Google login response received');
-        if (response.accessToken) {
+    return this.http.post<any>(`${this.apiUrl}/google-login`, { token }).pipe(
+      map((response) => {
+        if (response.requiresApproval) {
+          return {
+            requiresApproval: true,
+            message: response.message || 'Your account is pending approval.',
+            user: response.user,
+          };
+        }
+
+        if (response.accessToken && response.accessToken.length > 0) {
           this.tokenService.saveToken(response.accessToken);
           if (response.refreshToken) {
             this.tokenService.saveRefreshToken(response.refreshToken);
@@ -143,11 +172,18 @@ export class Auth {
             this.tokenService.setTokenExpiry(new Date(response.expiresAt));
           }
           this.isAuthenticatedSubject.next(true);
-          console.log('Auth Service: Google token saved successfully');
+
+          return {
+            accessToken: response.accessToken,
+            refreshToken: response.refreshToken,
+            expiresAt: response.expiresAt ? new Date(response.expiresAt).getTime() : undefined,
+            user: response.user,
+          };
         }
+
+        return { accessToken: '' };
       }),
       catchError((error: HttpErrorResponse) => {
-        console.error('Auth Service: Google login error', error);
         return throwError(() => error);
       })
     );
@@ -170,7 +206,7 @@ export class Auth {
           this.pendingResetCodes.set(phone, { code, expiresAt });
           this.smsService.sendOtp(phone).subscribe({
             next: () => console.log('OTP sent successfully'),
-            error: (err) => console.error('Failed to send OTP:', err),
+            error: (err: any) => console.error('Failed to send OTP:', err),
           });
         }
       }),

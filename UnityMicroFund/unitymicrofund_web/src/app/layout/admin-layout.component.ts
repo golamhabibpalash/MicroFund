@@ -4,11 +4,12 @@ import { CommonModule } from '@angular/common';
 import { filter } from 'rxjs/operators';
 import { UserService } from '../core/services/user';
 import { ChatInterfaceComponent } from '../chat/chat-interface.component';
+import { NotificationBellComponent } from '../shared/notification-bell/notification-bell.component';
 
 @Component({
   selector: 'app-admin-layout',
   standalone: true,
-  imports: [RouterModule, CommonModule, ChatInterfaceComponent],
+  imports: [RouterModule, CommonModule, ChatInterfaceComponent, NotificationBellComponent],
   template: `
     <div class="layout-container">
       <div class="sidebar-overlay" [class.show]="sidebarOpen" (click)="toggleSidebar()"></div>
@@ -93,6 +94,9 @@ import { ChatInterfaceComponent } from '../chat/chat-interface.component';
       </aside>
 
       <main class="main-content">
+        <div class="top-bar">
+          <app-notification-bell></app-notification-bell>
+        </div>
         <router-outlet (activate)="onRouteActivate()"></router-outlet>
       </main>
 
@@ -362,6 +366,13 @@ import { ChatInterfaceComponent } from '../chat/chat-interface.component';
       flex: 1;
       margin-left: 260px;
       padding: 24px;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      padding-bottom: 16px;
     }
 
     // Responsive Styles

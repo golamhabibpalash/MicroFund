@@ -19,7 +19,8 @@ import { LogsAuditComponent } from './logs/audit/logs-audit.component';
 import { BusinessConfigComponent } from './settings/business-config/business-config.component';
 
 const routes: Routes = [
-  { path: '', redirectTo: '/auth/login', pathMatch: 'full' },
+  { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
+  { path: 'login', component: LoginComponent },
   { path: 'auth/login', component: LoginComponent },
   { path: 'auth/register', component: RegisterComponent },
   { path: 'auth/forgot-password', component: ForgotPasswordComponent },
@@ -86,11 +87,11 @@ const routes: Routes = [
     canActivate: [AuthGuard, AdminGuard],
     children: [{ path: '', component: BusinessConfigComponent }],
   },
-  { path: '**', redirectTo: '/auth/login' },
+  { path: '**', redirectTo: '/dashboard' },
 ];
 
 @NgModule({
-  imports: [RouterModule.forRoot(routes, { onSameUrlNavigation: 'reload' })],
+  imports: [RouterModule.forRoot(routes)],
   exports: [RouterModule],
 })
 export class AppRoutingModule {}

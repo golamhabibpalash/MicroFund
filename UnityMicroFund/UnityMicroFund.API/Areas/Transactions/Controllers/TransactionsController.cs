@@ -26,7 +26,11 @@ public class TransactionsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetTransactions([FromQuery] TransactionFilterDto filter)
     {
-        var transactions = await _transactionService.GetTransactionsAsync(filter);
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Guid.Empty.ToString());
+        var userRole = User.FindFirstValue(ClaimTypes.Role) ?? User.FindFirstValue("role") ?? string.Empty;
+        var isAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+        
+        var transactions = await _transactionService.GetTransactionsAsync(filter, userId, isAdmin);
         return Ok(transactions);
     }
 

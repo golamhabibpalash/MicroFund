@@ -25,6 +25,8 @@ public class TransactionService : ITransactionService
             .Include(t => t.CreatedBy)
             .Include(t => t.ApprovedByUser)
             .Include(t => t.Account)
+            .Include(t => t.MemberTransactionMaps)
+                .ThenInclude(m => m.Member)
             .AsQueryable();
 
         if (!isAdmin && userId.HasValue)
@@ -110,6 +112,12 @@ public class TransactionService : ITransactionService
             throw new InvalidOperationException("Only approved/active members can create transactions");
         }
 
+        var memberExists = await _context.Members.AnyAsync(m => m.Id == dto.MemberId && m.IsActive);
+        if (!memberExists)
+        {
+            throw new ArgumentException("Invalid or inactive member");
+        }
+
         var transaction = new Transaction
         {
             TransactionId = string.IsNullOrWhiteSpace(dto.TransactionId) ? await GenerateTransactionIdAsync() : dto.TransactionId,
@@ -129,6 +137,17 @@ public class TransactionService : ITransactionService
         };
 
         _context.Transactions.Add(transaction);
+        await _context.SaveChangesAsync();
+
+        var memberTransactionMap = new MemberTransactionMap
+        {
+            MemberId = dto.MemberId,
+            TransactionId = transaction.Id,
+            CreatedBy = userId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.MemberTransactionMaps.Add(memberTransactionMap);
         await _context.SaveChangesAsync();
 
         return (await GetTransactionByIdAsync(transaction.Id))!;
@@ -284,6 +303,8 @@ public class TransactionService : ITransactionService
 
     private TransactionResponseDto MapToDto(Transaction t)
     {
+        var memberMap = t.MemberTransactionMaps?.FirstOrDefault();
+        
         return new TransactionResponseDto
         {
             Id = t.Id,
@@ -303,6 +324,8 @@ public class TransactionService : ITransactionService
             CreatedByName = t.CreatedBy?.Name ?? "Unknown",
             AccountId = t.AccountId,
             AccountName = t.Account?.Name ?? "Unknown",
+            MemberId = memberMap?.MemberId,
+            MemberName = memberMap?.Member?.Name,
             CreatedAt = t.CreatedAt,
             UpdatedAt = t.UpdatedAt,
             ReceiptUrl = t.ReceiptUrl,

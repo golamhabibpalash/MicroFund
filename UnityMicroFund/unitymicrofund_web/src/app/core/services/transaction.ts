@@ -48,6 +48,8 @@ export interface Transaction {
   createdByName: string;
   accountId: string;
   accountName: string;
+  memberId?: string;
+  memberName?: string;
   createdAt: string;
   updatedAt: string;
   receiptUrl?: string;
@@ -65,6 +67,7 @@ export interface CreateTransactionRequest {
   transactionId?: string;
   transferFrom?: string;
   transactionDate?: string;
+  memberId: string;
 }
 
 export interface ReceiptType {

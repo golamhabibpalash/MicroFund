@@ -6,7 +6,6 @@ import { Token } from '../../core/services/token';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { environment } from '../../../environments/environment';
-import { catchError } from 'rxjs/operators';
 
 declare const google: any;
 
@@ -19,7 +18,7 @@ declare const google: any;
 })
 export class LoginComponent implements OnInit, AfterViewInit {
   form: FormGroup;
-  error: string = '';
+  error = '';
   isLoading = false;
   isGoogleLoading = false;
 
@@ -70,20 +69,16 @@ export class LoginComponent implements OnInit, AfterViewInit {
         next: (res) => {
           this.isGoogleLoading = false;
           if (res.requiresApproval) {
-            this.error = 'Your registration is pending approval. You will be notified once an admin approves your account.';
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
+            this.error = 'Your registration is pending approval.';
+            this.tokenService.clearAll();
             this.cdr.detectChanges();
           } else if (res.accessToken) {
-            localStorage.setItem('token', res.accessToken);
-            localStorage.setItem('refreshToken', res.refreshToken);
-            this.tokenService.setUserApproved(res.user.isApproved);
-            window.location.href = '/dashboard';
+            this.navigateToDashboard();
           }
         },
-        error: (err) => {
+        error: () => {
           this.isGoogleLoading = false;
-          this.error = err.error?.message || err.error?.RequiresApproval || 'Google login failed. Please try again.';
+          this.error = 'Google login failed.';
           this.cdr.detectChanges();
         }
       });
@@ -99,7 +94,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
     }
   }
 
-  login() {
+  login(): void {
     if (this.form.invalid) return;
 
     this.error = '';
@@ -107,43 +102,41 @@ export class LoginComponent implements OnInit, AfterViewInit {
 
     this.authService.login(this.form.value).subscribe({
       next: (response: any) => {
-        console.log('Login response:', JSON.stringify(response));
         this.isLoading = false;
 
         if (response.requiresApproval) {
-          this.error = response.message || 'Your account is pending approval. You will be notified once an admin approves your account.';
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
+          this.error = response.message || 'Your account is pending approval.';
+          this.tokenService.clearAll();
           this.cdr.detectChanges();
           return;
         }
 
-        if (response.accessToken) {
-          localStorage.setItem('token', response.accessToken);
-          if (response.refreshToken) {
-            localStorage.setItem('refreshToken', response.refreshToken);
-          }
-          this.tokenService.setUserApproved(response.user?.isApproved ?? false);
-          window.location.href = '/dashboard';
+        if (response.accessToken && response.accessToken.length > 0) {
+          console.log('Login success, token saved, navigating to dashboard');
+          this.navigateToDashboard();
           return;
         }
 
-        this.error = 'Invalid email or password. Please try again.';
+        this.error = response.message || 'Invalid email or password.';
+        this.cdr.detectChanges();
       },
       error: (err: any) => {
-        console.error('Login error:', err);
         this.isLoading = false;
         if (err.name === 'TimeoutError') {
-          this.error = 'Request timed out. Please try again.';
+          this.error = 'Request timed out.';
         } else if (err.status === 401) {
-          this.error = err.error?.message || 'Invalid email or password';
+          this.error = 'Invalid email or password.';
         } else if (err.status === 0) {
-          this.error = 'Unable to connect to server. Please check if the backend is running.';
+          this.error = 'Server not running.';
         } else {
-          this.error = err.error?.message || 'Login failed. Please check your credentials.';
+          this.error = 'Login failed.';
         }
         this.cdr.detectChanges();
       },
     });
+  }
+
+  private navigateToDashboard(): void {
+    this.router.navigate(['/dashboard']);
   }
 }

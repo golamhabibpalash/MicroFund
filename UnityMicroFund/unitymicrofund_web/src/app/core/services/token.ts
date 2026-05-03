@@ -28,10 +28,15 @@ export class Token {
     }
   }
 
-  removeToken(): void {
+removeToken(): void {
     localStorage.removeItem(this.tokenKey);
+    localStorage.removeItem(this.refreshTokenKey);
     localStorage.removeItem(this.tokenExpiryKey);
     localStorage.removeItem(this.userApprovedKey);
+  }
+
+  clearAll(): void {
+    this.removeToken();
   }
 
   saveRefreshToken(token: string): void {

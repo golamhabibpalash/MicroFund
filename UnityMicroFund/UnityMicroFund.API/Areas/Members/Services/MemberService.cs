@@ -182,6 +182,7 @@ public class MemberService : IMemberService
         return new MemberResponseDto
         {
             Id = m.Id,
+            UserId = m.UserId ?? Guid.Empty,
             Name = m.Name,
             DateOfBirth = m.DateOfBirth,
             Gender = m.Gender.ToString(),

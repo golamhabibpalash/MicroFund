@@ -1,11 +1,22 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { Router, NavigationEnd } from '@angular/router';
+import { Subject, debounceTime } from 'rxjs';
 import { TransactionService, Account, Transaction, CreateTransactionRequest, ReceiptType, OcrScanResult } from '../core/services/transaction';
 import { ToastService } from '../core/services/toast.service';
+import { UserService } from '../core/services/user';
 import { filter } from 'rxjs/operators';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
+
+interface Member {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  isActive: boolean;
+}
 
 @Component({
   selector: 'app-payments',
@@ -57,24 +68,71 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
       <div class="content-section">
         <div class="section-header">
           <h2>All Transactions</h2>
+          <div class="table-controls">
+            <div class="search-box">
+              <span class="material-icons">search</span>
+              <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" placeholder="Search transactions..." />
+            </div>
+            <div class="filter-group">
+              <select [(ngModel)]="filterAccountId" (ngModelChange)="applyFilters()">
+                <option value="">All Accounts</option>
+                <option *ngFor="let account of accounts" [value]="account.id">
+                  {{ account.name }}
+                </option>
+              </select>
+              <select [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()">
+                <option value="">All Types</option>
+                <option value="Fund">Fund</option>
+                <option value="Refund">Refund</option>
+              </select>
+              <select [(ngModel)]="filterApprovalStatus" (ngModelChange)="applyFilters()">
+                <option value="">All Status</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+              <button class="btn-clear" *ngIf="hasActiveFilters()" (click)="clearFilters()">
+                <span class="material-icons">clear</span>
+                Clear
+              </button>
+            </div>
+          </div>
         </div>
         <div class="transactions-table">
           <table>
             <thead>
               <tr>
-                <th>Transaction Id</th>
-                <th>Transfer From</th>
-                <th>Transfer To</th>
-                <th>Amount</th>
+                <th class="sortable" (click)="sort('transactionId')">
+                  Transaction Id
+                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'transactionId'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
+                </th>
+                <th class="sortable" (click)="sort('transferFrom')">
+                  Transfer From
+                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'transferFrom'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
+                </th>
+                <th class="sortable" (click)="sort('transferTo')">
+                  Transfer To
+                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'transferTo'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
+                </th>
+                <th class="sortable" (click)="sort('amount')">
+                  Amount
+                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'amount'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
+                </th>
                 <th>Account</th>
                 <th>Type</th>
-                <th>Approval</th>
-                <th>Date</th>
+                <th class="sortable" (click)="sort('approvalStatus')">
+                  Approval
+                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'approvalStatus'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
+                </th>
+                <th class="sortable" (click)="sort('createdAt')">
+                  Date
+                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'createdAt'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
+                </th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let tx of transactions">
+              <tr *ngFor="let tx of paginatedTransactions">
                 <td class="transaction-id">{{ tx.transactionId }}</td>
                 <td class="transfer-from">{{ tx.transferFrom || '-' }}</td>
                 <td>{{ tx.transferTo }}</td>
@@ -107,11 +165,48 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="transactions.length === 0">
-                <td colspan="8" class="empty-row">No transactions found</td>
+              <tr *ngIf="paginatedTransactions.length === 0">
+                <td colspan="9" class="empty-row">No transactions found</td>
               </tr>
             </tbody>
           </table>
+        </div>
+        
+        <!-- Pagination -->
+        <div class="pagination" *ngIf="filteredTransactions.length > 0">
+          <div class="page-info">
+            Showing {{ (currentPage - 1) * pageSize + 1 }} to {{ Math.min(currentPage * pageSize, filteredTransactions.length) }} of {{ filteredTransactions.length }} entries
+          </div>
+          <div class="page-size-select">
+            <label>Rows per page:</label>
+            <select [(ngModel)]="pageSize" (ngModelChange)="onPageSizeChange()">
+              <option [value]="10">10</option>
+              <option [value]="25">25</option>
+              <option [value]="50">50</option>
+              <option [value]="100">100</option>
+            </select>
+          </div>
+          <div class="page-buttons">
+            <button class="btn-page" (click)="goToPage(1)" [disabled]="currentPage === 1" title="First">
+              <span class="material-icons">first_page</span>
+            </button>
+            <button class="btn-page" (click)="previousPage()" [disabled]="currentPage === 1" title="Previous">
+              <span class="material-icons">chevron_left</span>
+            </button>
+            <button *ngFor="let page of visiblePages" 
+                    class="btn-page" 
+                    [class.active]="page === currentPage"
+                    (click)="goToPage(page)"
+                    [disabled]="page === -1">
+              {{ page === -1 ? '...' : page }}
+            </button>
+            <button class="btn-page" (click)="nextPage()" [disabled]="currentPage === totalPages" title="Next">
+              <span class="material-icons">chevron_right</span>
+            </button>
+            <button class="btn-page" (click)="goToPage(totalPages)" [disabled]="currentPage === totalPages" title="Last">
+              <span class="material-icons">last_page</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -200,16 +295,34 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
                 </select>
               </div>
             </div>
-            <div class="form-row">
-<div class="form-group" *ngIf="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' || selectedReceiptType === 'SBL'">
-              <label for="accountId">Account *</label>
-              <select id="accountId" [(ngModel)]="newTransaction.accountId" name="accountId" required>
-                <option value="">Select Account</option>
-                <option *ngFor="let account of accounts" [value]="account.id">
-                  {{ account.name }} ({{ account.accountType }})
-                </option>
-              </select>
-            </div>
+<div class="form-row">
+              <div class="form-group" *ngIf="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' || selectedReceiptType === 'SBL'">
+                <label for="accountId">Account *</label>
+                <select id="accountId" [(ngModel)]="newTransaction.accountId" name="accountId" required>
+                  <option value="">Select Account</option>
+                  <option *ngFor="let account of accounts" [value]="account.id">
+                    {{ account.name }} ({{ account.accountType }})
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="memberId">Member *</label>
+                <select *ngIf="isAdmin" id="memberId" [(ngModel)]="newTransaction.memberId" name="memberId" required>
+                  <option value="">Select Member</option>
+                  <option *ngFor="let member of members" [value]="member.id">
+                    {{ member.name }} ({{ member.phone }})
+                  </option>
+                </select>
+                <input *ngIf="!isAdmin" type="text" [value]="loggedInMemberName" readonly class="readonly-input" />
+              </div>
+              <div class="form-group">
+                <label for="amount">Amount (BDT) *</label>
+                <div class="amount-input">
+                  <span class="currency-symbol">৳</span>
+                  <input type="number" id="amount" [(ngModel)]="newTransaction.amount" name="amount" 
+                         placeholder="0.00" step="0.01" min="0.01" required />
+                </div>
+              </div>
             </div>
             <div class="form-row">
               <div class="form-group">
@@ -221,14 +334,6 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
                 <label for="transferTo">Transfer To *</label>
                 <input type="text" id="transferTo" [(ngModel)]="newTransaction.transferTo" name="transferTo" 
                        placeholder="e.g., Monthly Investment, bKash Payment, Business Fund" required />
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="amount">Amount (BDT) *</label>
-              <div class="amount-input">
-                <span class="currency-symbol">৳</span>
-                <input type="number" id="amount" [(ngModel)]="newTransaction.amount" name="amount" 
-                       placeholder="0.00" step="0.01" min="0.01" required />
               </div>
             </div>
             <div class="form-group">
@@ -506,12 +611,175 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
       justify-content: space-between;
       align-items: center;
       margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 16px;
     }
 
     .section-header h2 {
       font-size: 18px;
       font-weight: 600;
       color: #1a1a2e;
+      margin: 0;
+    }
+
+    .table-controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #f5f6fa;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+
+    .search-box .material-icons {
+      font-size: 20px;
+      color: #666;
+    }
+
+    .search-box input {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: 14px;
+      width: 180px;
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .filter-group select {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+      cursor: pointer;
+    }
+
+    .filter-group select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .btn-clear {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 12px;
+      background: #ffebee;
+      color: #e74c3c;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .btn-clear:hover {
+      background: #ffcdd2;
+    }
+
+    .btn-clear .material-icons {
+      font-size: 16px;
+    }
+
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    th.sortable:hover {
+      background: #f5f6fa;
+    }
+
+    .sort-icon {
+      font-size: 16px;
+      vertical-align: middle;
+      margin-left: 4px;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0 0 0;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .page-info {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .page-size-select {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .page-size-select label {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .page-size-select select {
+      padding: 6px 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      background: white;
+    }
+
+    .page-buttons {
+      display: flex;
+      gap: 4px;
+    }
+
+    .btn-page {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 36px;
+      height: 36px;
+      padding: 0 8px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-page:hover:not(:disabled) {
+      border-color: #667eea;
+      color: #667eea;
+    }
+
+    .btn-page.active {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-color: transparent;
+      color: white;
+    }
+
+    .btn-page:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-page .material-icons {
+      font-size: 20px;
     }
 
     .transactions-table {
@@ -1086,6 +1354,17 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
       padding-left: 32px;
     }
 
+    .readonly-input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      background: #f5f6fa;
+      color: #333;
+      box-sizing: border-box;
+    }
+
     .receipt-type-selector {
       margin-bottom: 16px;
     }
@@ -1202,9 +1481,15 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
   `]
 })
 export class PaymentsComponent implements OnInit {
+  Math = Math;
+  
   accounts: Account[] = [];
+  members: Member[] = [];
   transactions: Transaction[] = [];
+  filteredTransactions: Transaction[] = [];
+  paginatedTransactions: Transaction[] = [];
   receiptTypes: ReceiptType[] = [];
+  
   showModal = false;
   showApproveModal = false;
   showViewModal = false;
@@ -1226,6 +1511,21 @@ export class PaymentsComponent implements OnInit {
   totalRefunded = 0;
   pendingCount = 0;
 
+  searchTerm = '';
+  filterAccountId = '';
+  filterStatus = '';
+  filterApprovalStatus = '';
+  sortColumn = 'createdAt';
+  sortDirection: 'asc' | 'desc' = 'desc';
+  currentPage = 1;
+  pageSize = 10;
+  totalPages = 1;
+
+  private searchSubject = new Subject<void>();
+  isAdmin = false;
+  loggedInMemberId = '';
+  loggedInMemberName = '';
+
   newTransaction: CreateTransactionRequest = {
     transferTo: '',
     amount: 0,
@@ -1233,17 +1533,22 @@ export class PaymentsComponent implements OnInit {
     remarks: '',
     accountId: '',
     receiptType: '',
-    transferFrom: ''
+    transferFrom: '',
+    memberId: ''
   };
   
   constructor(
+    private http: HttpClient,
     private transactionService: TransactionService,
     private toastService: ToastService,
+    private userService: UserService,
     private cdr: ChangeDetectorRef,
     private router: Router
   ) {}
 
   ngOnInit() {
+    this.setupSearchDebounce();
+    this.initializeUser();
     this.loadData();
     this.loadReceiptTypes();
     
@@ -1253,6 +1558,38 @@ export class PaymentsComponent implements OnInit {
       if (event.url.includes('/payments')) {
         this.loadData();
       }
+    });
+  }
+
+  private initializeUser() {
+    this.isAdmin = this.userService.isAdmin();
+    
+    if (!this.isAdmin) {
+      const userId = this.userService.getUserId();
+      const userName = this.userService.getUserName() || '';
+      
+      this.http.get<Member[]>(`/api/members?userId=${userId}`).subscribe({
+        next: (members) => {
+          if (members.length > 0) {
+            this.loggedInMemberId = members[0].id;
+            this.loggedInMemberName = members[0].name;
+            this.newTransaction.memberId = this.loggedInMemberId;
+          } else {
+            this.loggedInMemberName = userName;
+          }
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.loggedInMemberName = userName;
+          this.cdr.detectChanges();
+        }
+      });
+    }
+  }
+
+  private setupSearchDebounce() {
+    this.searchSubject.pipe(debounceTime(300)).subscribe(() => {
+      this.applyFiltersAndSort();
     });
   }
 
@@ -1282,7 +1619,20 @@ export class PaymentsComponent implements OnInit {
   loadData() {
     this.isLoading = true;
     this.loadAccounts();
+    this.loadMembers();
     this.loadTransactions();
+  }
+
+  loadMembers() {
+    this.http.get<Member[]>('/api/members?isActive=true').subscribe({
+      next: (members) => {
+        this.members = members;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   loadAccounts() {
@@ -1290,10 +1640,12 @@ export class PaymentsComponent implements OnInit {
       next: (accounts) => {
         this.accounts = accounts.filter(a => a.isActive);
         this.isLoading = false;
+        this.applyFiltersAndSort();
         this.cdr.detectChanges();
       },
       error: () => {
         this.isLoading = false;
+        this.applyFiltersAndSort();
         this.cdr.detectChanges();
       }
     });
@@ -1303,6 +1655,7 @@ export class PaymentsComponent implements OnInit {
     this.transactionService.getTransactions().subscribe({
       next: (transactions) => {
         this.transactions = transactions;
+        this.applyFiltersAndSort();
         this.calculateStats();
         this.cdr.detectChanges();
       },
@@ -1322,6 +1675,136 @@ export class PaymentsComponent implements OnInit {
       .reduce((sum, t) => sum + t.amount, 0);
     
     this.pendingCount = this.transactions.filter(t => t.approvalStatus === 'Pending').length;
+  }
+
+  onSearchChange() {
+    this.currentPage = 1;
+    this.searchSubject.next();
+  }
+
+  applyFilters() {
+    this.currentPage = 1;
+    this.applyFiltersAndSort();
+  }
+
+  hasActiveFilters(): boolean {
+    return !!(this.searchTerm || this.filterAccountId || this.filterStatus || this.filterApprovalStatus);
+  }
+
+  clearFilters() {
+    this.searchTerm = '';
+    this.filterAccountId = '';
+    this.filterStatus = '';
+    this.filterApprovalStatus = '';
+    this.currentPage = 1;
+    this.applyFiltersAndSort();
+  }
+
+  sort(column: string) {
+    if (this.sortColumn === column) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortColumn = column;
+      this.sortDirection = 'asc';
+    }
+    this.applyFiltersAndSort();
+  }
+
+  applyFiltersAndSort() {
+    let result = [...this.transactions];
+
+    if (this.searchTerm) {
+      const search = this.searchTerm.toLowerCase();
+      result = result.filter(t =>
+        t.transactionId.toLowerCase().includes(search) ||
+        (t.transferFrom && t.transferFrom.toLowerCase().includes(search)) ||
+        t.transferTo.toLowerCase().includes(search) ||
+        t.accountName.toLowerCase().includes(search) ||
+        (t.remarks && t.remarks.toLowerCase().includes(search))
+      );
+    }
+
+    if (this.filterAccountId) {
+      result = result.filter(t => t.accountId === this.filterAccountId);
+    }
+
+    if (this.filterStatus) {
+      result = result.filter(t => t.status === this.filterStatus);
+    }
+
+    if (this.filterApprovalStatus) {
+      result = result.filter(t => t.approvalStatus === this.filterApprovalStatus);
+    }
+
+    result.sort((a, b) => {
+      let aVal: any = a[this.sortColumn as keyof Transaction];
+      let bVal: any = b[this.sortColumn as keyof Transaction];
+
+      if (this.sortColumn === 'amount') {
+        aVal = Number(aVal);
+        bVal = Number(bVal);
+      } else if (typeof aVal === 'string') {
+        aVal = aVal?.toLowerCase() || '';
+        bVal = bVal?.toLowerCase() || '';
+      }
+
+      if (aVal < bVal) return this.sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return this.sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    this.filteredTransactions = result;
+    this.totalPages = Math.ceil(this.filteredTransactions.length / this.pageSize) || 1;
+    if (this.currentPage > this.totalPages) this.currentPage = 1;
+    this.updatePaginatedTransactions();
+  }
+
+  updatePaginatedTransactions() {
+    const start = (this.currentPage - 1) * this.pageSize;
+    const end = start + this.pageSize;
+    this.paginatedTransactions = this.filteredTransactions.slice(start, end);
+  }
+
+  onPageSizeChange() {
+    this.currentPage = 1;
+    this.totalPages = Math.ceil(this.filteredTransactions.length / this.pageSize) || 1;
+    this.updatePaginatedTransactions();
+  }
+
+  get visiblePages(): number[] {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    
+    if (this.totalPages <= maxVisible) {
+      for (let i = 1; i <= this.totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (this.currentPage > 2) pages.push(-1);
+      
+      const start = Math.max(2, this.currentPage - 1);
+      const end = Math.min(this.totalPages - 1, this.currentPage + 1);
+      
+      for (let i = start; i <= end; i++) pages.push(i);
+      
+      if (this.currentPage < this.totalPages - 1) pages.push(-1);
+      pages.push(this.totalPages);
+    }
+    return pages;
+  }
+
+  goToPage(page: number) {
+    if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
+      this.currentPage = page;
+      this.updatePaginatedTransactions();
+    }
+  }
+
+  previousPage() {
+    this.goToPage(this.currentPage - 1);
+  }
+
+  nextPage() {
+    this.goToPage(this.currentPage + 1);
   }
 
   openTransactionModal() {
@@ -1452,7 +1935,7 @@ export class PaymentsComponent implements OnInit {
     }, 150);
   }
   createTransaction() {
-    if (!this.newTransaction.accountId || !this.newTransaction.transferTo || !this.newTransaction.amount) {
+    if (!this.newTransaction.accountId || !this.newTransaction.memberId || !this.newTransaction.transferTo || !this.newTransaction.amount) {
       this.toastService.warning('Please fill in all required fields');
       return;
     }
@@ -1586,7 +2069,8 @@ export class PaymentsComponent implements OnInit {
       remarks: '',
       accountId: '',
       receiptType: '',
-      transferFrom: ''
+      transferFrom: '',
+      memberId: ''
     };
     this.transactionDate = '';
     this.transactionId = '';

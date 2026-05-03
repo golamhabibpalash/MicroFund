@@ -29,6 +29,9 @@ public class CreateTransactionDto
     public string? TransferFrom { get; set; }
 
     public DateTime? TransactionDate { get; set; }
+
+    [Required]
+    public Guid MemberId { get; set; }
 }
 
 public class UpdateTransactionDto
@@ -75,6 +78,8 @@ public class TransactionResponseDto
     public string CreatedByName { get; set; } = string.Empty;
     public Guid AccountId { get; set; }
     public string AccountName { get; set; } = string.Empty;
+    public Guid? MemberId { get; set; }
+    public string? MemberName { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public string? ReceiptUrl { get; set; }

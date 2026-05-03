@@ -183,6 +183,7 @@ public class UpdateMemberDto
 public class MemberResponseDto
 {
     public Guid Id { get; set; }
+    public Guid UserId { get; set; }
     public string Name { get; set; } = string.Empty;
     public DateTime DateOfBirth { get; set; }
     public string Gender { get; set; } = string.Empty;

@@ -125,4 +125,5 @@ public class Member
 
     public virtual ICollection<Contribution> Contributions { get; set; } = new List<Contribution>();
     public virtual ICollection<MemberInvestment> MemberInvestments { get; set; } = new List<MemberInvestment>();
+    public virtual ICollection<MemberTransactionMap> MemberTransactionMaps { get; set; } = new List<MemberTransactionMap>();
 }

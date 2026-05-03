@@ -70,4 +70,6 @@ public class Transaction
     public string? ReceiptType { get; set; }
 
     public DateTime? TransactionDate { get; set; }
+
+    public virtual ICollection<MemberTransactionMap> MemberTransactionMaps { get; set; } = new List<MemberTransactionMap>();
 }

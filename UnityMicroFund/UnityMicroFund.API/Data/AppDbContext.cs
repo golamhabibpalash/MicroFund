@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<Investment> Investments { get; set; }
     public DbSet<Contribution> Contributions { get; set; }
     public DbSet<MemberInvestment> MemberInvestments { get; set; }
+    public DbSet<MemberTransactionMap> MemberTransactionMaps { get; set; }
     public DbSet<GroupSetting> GroupSettings { get; set; }
     public DbSet<User> Users { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
@@ -62,6 +63,11 @@ public class AppDbContext : DbContext
             entity.Property(e => e.SharePercentage).HasPrecision(5, 2);
             entity.Property(e => e.ShareValue).HasPrecision(18, 2);
             entity.HasIndex(e => new { e.MemberId, e.InvestmentId }).IsUnique();
+        });
+
+        modelBuilder.Entity<MemberTransactionMap>(entity =>
+        {
+            entity.HasIndex(e => new { e.MemberId, e.TransactionId }).IsUnique();
         });
 
         modelBuilder.Entity<GroupSetting>(entity =>
@@ -142,6 +148,7 @@ public class AppDbContext : DbContext
                 PasswordHash = passwordHash,
                 Role = UserRole.Admin,
                 IsActive = true,
+                IsApproved = true,
                 CreatedAt = now,
                 UpdatedAt = now
             }
