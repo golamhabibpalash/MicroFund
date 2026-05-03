@@ -55,15 +55,13 @@ export class NotificationService {
   loadUnreadCount(): void {
     const token = this.tokenService.getToken();
     if (!token) {
-      window.location.href = '/auth/login';
+      console.log('NotificationService: No token found, skipping unread count load');
       return;
     }
     this.getUnreadCount().subscribe({
       next: (response) => this.unreadCount$.next(response.count),
       error: (err) => {
-        if (err.status === 401) {
-          window.location.href = '/auth/login';
-        }
+        console.error('NotificationService: Failed to load unread count', err);
         this.unreadCount$.next(0);
       }
     });

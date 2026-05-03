@@ -20,7 +20,7 @@ public class MemberService : IMemberService
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            query = query.Where(m => m.Name.Contains(search) || m.Phone.Contains(search) || m.Email != null && m.Email.Contains(search));
+            query = query.Where(m => m.Name.Contains(search) || m.Phone.Contains(search) || (m.Email != null && m.Email.Contains(search)));
         }
 
         if (isActive.HasValue)

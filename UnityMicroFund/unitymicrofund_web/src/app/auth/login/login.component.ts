@@ -137,6 +137,9 @@ export class LoginComponent implements OnInit, AfterViewInit {
   }
 
   private navigateToDashboard(): void {
-    this.router.navigate(['/dashboard']);
+    console.log('Navigating to dashboard...');
+    this.router.navigate(['/dashboard']).then(success => {
+      console.log('Navigation success:', success);
+    });
   }
 }

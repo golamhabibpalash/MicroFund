@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { NotificationService, Notification } from '../../core/services/notification';
 
 @Component({
@@ -225,7 +225,10 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
   isOpen = false;
   private refreshInterval: any;
 
-  constructor(private notificationService: NotificationService) {}
+  constructor(
+    private notificationService: NotificationService,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
     this.loadNotifications();
@@ -252,7 +255,7 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
     console.log('NotificationBell - Token exists:', !!token);
     
     if (!token) {
-      window.location.href = '/auth/login';
+      console.log('NotificationBell: No token found, skipping notification load');
       return;
     }
     
@@ -262,9 +265,6 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         console.error('Notifications load error:', err);
-        if (err.status === 401) {
-          window.location.href = '/auth/login';
-        }
       }
     });
   }

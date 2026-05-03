@@ -285,6 +285,15 @@ public class TransactionService : ITransactionService
             {
                 nextNumber = lastNumber + 1;
             }
+            else
+            {
+                return $"{prefix}{nextNumber:D6}";
+            }
+        }
+
+        if (nextNumber < 1)
+        {
+            nextNumber = 1;
         }
 
         return $"{prefix}{nextNumber:D6}";

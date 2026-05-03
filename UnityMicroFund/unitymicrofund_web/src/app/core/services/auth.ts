@@ -78,20 +78,24 @@ export class Auth {
           };
         }
 
-        if (response.accessToken && response.accessToken.length > 0) {
-          this.tokenService.saveToken(response.accessToken);
-          if (response.refreshToken) {
-            this.tokenService.saveRefreshToken(response.refreshToken);
+        const token = response.accessToken || response.AccessToken;
+        const refreshToken = response.refreshToken || response.RefreshToken;
+        const expiresAt = response.expiresAt || response.ExpiresAt;
+
+        if (token && token.length > 0) {
+          this.tokenService.saveToken(token);
+          if (refreshToken) {
+            this.tokenService.saveRefreshToken(refreshToken);
           }
-          if (response.expiresAt) {
-            this.tokenService.setTokenExpiry(new Date(response.expiresAt));
+          if (expiresAt) {
+            this.tokenService.setTokenExpiry(new Date(expiresAt));
           }
           this.isAuthenticatedSubject.next(true);
 
           return {
-            accessToken: response.accessToken,
-            refreshToken: response.refreshToken,
-            expiresAt: response.expiresAt ? new Date(response.expiresAt).getTime() : undefined,
+            accessToken: token,
+            refreshToken: refreshToken,
+            expiresAt: expiresAt ? new Date(expiresAt).getTime() : undefined,
             user: response.user,
           };
         }
@@ -108,18 +112,29 @@ export class Auth {
   }
 
   register(data: Record<string, unknown>): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/register-with-member`, data).pipe(
-      tap((response) => {
-        if (response.accessToken) {
-          this.tokenService.saveToken(response.accessToken);
+    return this.http.post<any>(`${this.apiUrl}/register-with-member`, data).pipe(
+      map((response) => {
+        const token = response.accessToken || response.AccessToken;
+        const refreshToken = response.refreshToken || response.RefreshToken;
+        const expiresAt = response.expiresAt || response.ExpiresAt;
+
+        if (token) {
+          this.tokenService.saveToken(token);
         }
-        if (response.refreshToken) {
-          this.tokenService.saveRefreshToken(response.refreshToken);
+        if (refreshToken) {
+          this.tokenService.saveRefreshToken(refreshToken);
         }
-        if (response.expiresAt) {
-          this.tokenService.setTokenExpiry(new Date(response.expiresAt));
+        if (expiresAt) {
+          this.tokenService.setTokenExpiry(new Date(expiresAt));
         }
         this.isAuthenticatedSubject.next(true);
+
+        return {
+          accessToken: token || '',
+          refreshToken: refreshToken,
+          expiresAt: expiresAt ? new Date(expiresAt).getTime() : undefined,
+          user: response.user,
+        };
       }),
     );
   }
@@ -163,20 +178,24 @@ export class Auth {
           };
         }
 
-        if (response.accessToken && response.accessToken.length > 0) {
-          this.tokenService.saveToken(response.accessToken);
-          if (response.refreshToken) {
-            this.tokenService.saveRefreshToken(response.refreshToken);
+        const loginToken = response.accessToken || response.AccessToken;
+        const refreshToken = response.refreshToken || response.RefreshToken;
+        const expiresAt = response.expiresAt || response.ExpiresAt;
+
+        if (loginToken && loginToken.length > 0) {
+          this.tokenService.saveToken(loginToken);
+          if (refreshToken) {
+            this.tokenService.saveRefreshToken(refreshToken);
           }
-          if (response.expiresAt) {
-            this.tokenService.setTokenExpiry(new Date(response.expiresAt));
+          if (expiresAt) {
+            this.tokenService.setTokenExpiry(new Date(expiresAt));
           }
           this.isAuthenticatedSubject.next(true);
 
           return {
-            accessToken: response.accessToken,
-            refreshToken: response.refreshToken,
-            expiresAt: response.expiresAt ? new Date(response.expiresAt).getTime() : undefined,
+            accessToken: loginToken,
+            refreshToken: refreshToken,
+            expiresAt: expiresAt ? new Date(expiresAt).getTime() : undefined,
             user: response.user,
           };
         }

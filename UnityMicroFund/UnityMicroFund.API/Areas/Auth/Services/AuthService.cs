@@ -209,7 +209,7 @@ public class AuthService : IAuthService
         }
         
         // Check password
-        if (string.IsNullOrEmpty(user.PasswordHash) || !VerifyPassword(dto.Password, user.PasswordHash))
+        if (string.IsNullOrEmpty(user.PasswordHash) || string.IsNullOrEmpty(dto.Password) || !VerifyPassword(dto.Password, user.PasswordHash))
         {
             return null;
         }

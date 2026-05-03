@@ -552,6 +552,6 @@ export class AdminLayoutComponent implements OnInit {
 
   logout() {
     localStorage.clear();
-    window.location.href = '/auth/login';
+    this.router.navigate(['/auth/login']);
   }
 }
