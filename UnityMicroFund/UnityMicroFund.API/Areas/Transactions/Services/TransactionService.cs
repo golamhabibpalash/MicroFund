@@ -68,6 +68,11 @@ public class TransactionService : ITransactionService
             query = query.Where(t => t.CreatedAt <= filter.ToDate.Value);
         }
 
+        if (filter.MemberId.HasValue)
+        {
+            query = query.Where(t => t.MemberTransactionMaps.Any(m => m.MemberId == filter.MemberId.Value));
+        }
+
         var transactions = await query
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();

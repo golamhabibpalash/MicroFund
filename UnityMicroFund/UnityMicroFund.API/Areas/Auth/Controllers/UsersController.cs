@@ -200,7 +200,7 @@ public class UsersController : ControllerBase
 
     [HttpPut("{id}/approve")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> ApproveUser(Guid id)
+    public async Task<IActionResult> ApproveUser(Guid id, [FromBody] ApproveDto? dto)
     {
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (currentUserId == null || !Guid.TryParse(currentUserId, out var currentId))
@@ -220,7 +220,8 @@ public class UsersController : ControllerBase
             return NotFound(new { message = "User not found" });
         }
 
-        user.IsApproved = !user.IsApproved;
+        var isApproved = dto?.IsApproved ?? true;
+        user.IsApproved = isApproved;
         user.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
@@ -247,4 +248,9 @@ public class UserRoleUpdateDto
 public class UpdateStatusDto
 {
     public bool IsActive { get; set; }
+}
+
+public class ApproveDto
+{
+    public bool IsApproved { get; set; } = true;
 }

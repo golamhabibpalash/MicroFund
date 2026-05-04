@@ -7,7 +7,8 @@ public enum NotificationType
     RegistrationApproval,
     PaymentApproved,
     InvestmentUpdate,
-    SystemAlert
+    SystemAlert,
+    UserAdded
 }
 
 public class Notification

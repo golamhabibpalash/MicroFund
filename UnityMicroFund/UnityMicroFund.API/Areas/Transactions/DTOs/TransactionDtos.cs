@@ -95,4 +95,5 @@ public class TransactionFilterDto
     public string? ApprovalStatus { get; set; }
     public DateTime? FromDate { get; set; }
     public DateTime? ToDate { get; set; }
+    public Guid? MemberId { get; set; }
 }

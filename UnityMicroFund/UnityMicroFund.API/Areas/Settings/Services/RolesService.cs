@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Areas.Auth.Models;
 using UnityMicroFund.API.Areas.Settings.DTOs;
+using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Models;
 
@@ -42,10 +43,12 @@ public interface IRolesService
 public class RolesService : IRolesService
 {
     private readonly AppDbContext _context;
+    private readonly INotificationService _notificationService;
 
-    public RolesService(AppDbContext context)
+    public RolesService(AppDbContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<IEnumerable<UserDto>> GetAllUsersAsync()
@@ -122,6 +125,19 @@ public class RolesService : IRolesService
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
+
+        var admins = await _context.Users.Where(u => u.Role == UserRole.Admin && u.IsActive).ToListAsync();
+        foreach (var admin in admins)
+        {
+            await _notificationService.CreateNotificationAsync(
+                "New User Added",
+                $"User {user.Name} ({user.Email}) has been added as {user.Role}.",
+                NotificationType.UserAdded,
+                admin.Id,
+                user.Id,
+                user.Id
+            );
+        }
 
         return new UserDto
         {

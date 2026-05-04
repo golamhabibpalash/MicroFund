@@ -820,25 +820,79 @@ export class UserManagementComponent implements OnInit {
   updateUserStatusAndApproval() {
     if (!this.selectedUser) return;
 
-    this.userService.updateUserStatus(this.selectedUser.id, this.editUserStatus).subscribe({
-      next: () => {
-        if (!this.editUserApproved && this.selectedUser) {
-          this.userService.approveUser(this.selectedUser.id).subscribe({
+    const originalUser = this.users.find(u => u.id === this.selectedUser!.id);
+    if (!originalUser) {
+      this.showEditUserModal = false;
+      return;
+    }
+
+    const prevActive = originalUser.isActive;
+    const prevApproved = originalUser.isApproved;
+    const newActive = this.editUserStatus;
+    const newApproved = this.editUserApproved;
+
+    if (prevActive === newActive && prevApproved === newApproved) {
+      this.showEditUserModal = false;
+      return;
+    }
+
+    const statusChanged = prevActive !== newActive;
+    const approvalChanged = prevApproved !== newApproved;
+
+    if (statusChanged && approvalChanged) {
+      this.userService.updateUserStatus(this.selectedUser!.id, newActive).subscribe({
+        next: () => {
+          originalUser.isActive = newActive;
+          this.userService.approveUser(this.selectedUser!.id, newApproved).subscribe({
             next: () => {
+              originalUser.isApproved = newApproved;
               this.loadUsers();
               this.showEditUserModal = false;
               this.cdr.detectChanges();
             },
-            error: (err) => alert(err.error?.message || 'Error updating approval')
+            error: (err) => {
+              alert(err.error?.message || 'Failed to update approval');
+              this.loadUsers();
+              this.showEditUserModal = false;
+              this.cdr.detectChanges();
+            }
           });
-        } else {
-          this.loadUsers();
+        },
+        error: (err) => {
+          alert(err.error?.message || 'Failed to update status');
           this.showEditUserModal = false;
           this.cdr.detectChanges();
         }
-      },
-      error: (err) => alert(err.error?.message || 'Error updating status')
-    });
+      });
+    } else if (statusChanged) {
+      this.userService.updateUserStatus(this.selectedUser!.id, newActive).subscribe({
+        next: () => {
+          originalUser.isActive = newActive;
+          this.loadUsers();
+          this.showEditUserModal = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          alert(err.error?.message || 'Failed to update status');
+          this.showEditUserModal = false;
+          this.cdr.detectChanges();
+        }
+      });
+    } else if (approvalChanged) {
+      this.userService.approveUser(this.selectedUser!.id, newApproved).subscribe({
+        next: () => {
+          originalUser.isApproved = newApproved;
+          this.loadUsers();
+          this.showEditUserModal = false;
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          alert(err.error?.message || 'Failed to update approval');
+          this.showEditUserModal = false;
+          this.cdr.detectChanges();
+        }
+      });
+    }
   }
 
   editUserRole(user: User) {
