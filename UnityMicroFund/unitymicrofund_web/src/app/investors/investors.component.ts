@@ -4,6 +4,7 @@ import { RouterModule, Router } from '@angular/router';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Token } from '../core/services/token';
+import { UserService } from '../core/services/user';
 import { ChangeDetectorRef } from '@angular/core';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 
@@ -267,12 +268,12 @@ interface Member {
                 <th>Email</th>
                 <th>Phone</th>
                 <th>Monthly Amount</th>
-                <th>Contributions</th>
-                <th>Installments</th>
+                <th *ngIf="isAdmin">Contributions</th>
+                <th *ngIf="isAdmin">Installments</th>
                 <th>Share %</th>
                 <th>Status</th>
                 <th>Joined</th>
-                <th>Action</th>
+                <th *ngIf="isAdmin">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -284,8 +285,8 @@ interface Member {
                 <td>{{ member.email }}</td>
                 <td>{{ member.phone }}</td>
                 <td class="amount">{{ member.monthlyAmount | bdtCurrency }}</td>
-                <td class="contributions">{{ member.totalContributions | bdtCurrency }}</td>
-                <td>{{ member.totalInstallmentsPaid }}</td>
+                <td *ngIf="isAdmin" class="contributions">{{ member.totalContributions | bdtCurrency }}</td>
+                <td *ngIf="isAdmin">{{ member.totalInstallmentsPaid }}</td>
                 <td class="share">{{ member.sharePercentage | number:'1.1-1' }}%</td>
                 <td>
                   <span class="status-badge" [class.active]="member.isActive" [class.inactive]="!member.isActive">
@@ -293,7 +294,7 @@ interface Member {
                   </span>
                 </td>
                 <td class="date">{{ member.joinDate | date:'mediumDate' }}</td>
-                <td>
+                <td *ngIf="isAdmin">
                   <button class="btn-action" (click)="viewProfile(member)" title="View Profile">
                     <span class="material-icons">person</span>
                   </button>
@@ -306,7 +307,7 @@ interface Member {
                 </td>
               </tr>
               <tr *ngIf="filteredMembers.length === 0">
-                <td colspan="10" class="empty-row">
+                <td [attr.colspan]="isAdmin ? 10 : 7" class="empty-row">
                   <span class="material-icons">people</span>
                   <span>No investors found</span>
                 </td>
@@ -335,11 +336,11 @@ interface Member {
               <span class="stat-label">Monthly</span>
               <span class="stat-value">{{ member.monthlyAmount | bdtCurrency }}</span>
             </div>
-            <div class="stat">
+            <div class="stat" *ngIf="isAdmin">
               <span class="stat-label">Contributed</span>
               <span class="stat-value">{{ member.totalContributions | bdtCurrency }}</span>
             </div>
-            <div class="stat">
+            <div class="stat" *ngIf="isAdmin">
               <span class="stat-label">Installments</span>
               <span class="stat-value">{{ member.totalInstallmentsPaid }}</span>
             </div>
@@ -350,7 +351,7 @@ interface Member {
           </div>
           <div class="member-footer">
             <span class="join-date">Since {{ member.joinDate | date:'MMM yyyy' }}</span>
-            <div class="card-actions">
+            <div class="card-actions" *ngIf="isAdmin">
               <button class="btn-action" (click)="viewProfile(member)" title="View Profile">
                 <span class="material-icons">person</span>
               </button>
@@ -515,15 +516,18 @@ export class InvestorsComponent implements OnInit {
   selectedMember: Member | null = null;
   editingMember: Member | null = null;
   isSaving = false;
+  isAdmin = false;
 
   constructor(
     private http: HttpClient,
     private tokenService: Token,
+    private userService: UserService,
     private cdr: ChangeDetectorRef,
     private router: Router
   ) {}
 
   ngOnInit() {
+    this.isAdmin = this.userService.isAdmin();
     this.loadMembers();
   }
 

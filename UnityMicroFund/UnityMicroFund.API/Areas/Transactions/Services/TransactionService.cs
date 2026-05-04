@@ -31,7 +31,7 @@ public class TransactionService : ITransactionService
 
         if (!isAdmin && userId.HasValue)
         {
-            query = query.Where(t => t.CreatedById == userId.Value);
+            query = query.Where(t => t.CreatedById == userId.Value || t.MemberTransactionMaps.Any(m => m.MemberId == userId.Value));
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))

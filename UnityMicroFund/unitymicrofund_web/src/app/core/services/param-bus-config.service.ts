@@ -48,6 +48,10 @@ export class ParamBusConfigService {
     return this.http.get<ParamBusConfig>(`${this.apiUrl}/${id}`);
   }
 
+  getByName(name: string): Observable<ParamBusConfig> {
+    return this.http.get<ParamBusConfig>(`${this.apiUrl}/name/${name}`);
+  }
+
   create(config: CreateParamBusConfig): Observable<ParamBusConfig> {
     return this.http.post<ParamBusConfig>(this.apiUrl, config);
   }

@@ -217,6 +217,17 @@ public class AppDbContext : DbContext
                 LastModifiedDate = now,
                 LastModifiedBy = "System",
                 LastModifiedColumn = "Value"
+            },
+            new ParamBusConfig
+            {
+                Id = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd"),
+                Name = "PrimaryFundingAccount",
+                Value = "",
+                Description = "Primary funding account ID for transactions",
+                Status = true,
+                LastModifiedDate = now,
+                LastModifiedBy = "System",
+                LastModifiedColumn = "Value"
             }
         );
     }

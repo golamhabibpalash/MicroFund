@@ -116,6 +116,11 @@ removeToken(): void {
     return decoded?.email || null;
   }
 
+  getUserRole(): string | null {
+    const decoded = this.decodeToken();
+    return decoded?.role || null;
+  }
+
   getUserName(): string | null {
     const decoded = this.decodeToken();
     if (!decoded) return null;

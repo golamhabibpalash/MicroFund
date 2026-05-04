@@ -28,9 +28,10 @@ public class TransactionsController : ControllerBase
     {
         var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Guid.Empty.ToString());
         var userRole = User.FindFirstValue(ClaimTypes.Role) ?? User.FindFirstValue("role") ?? string.Empty;
-        var isAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+        var isAdminOrManager = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) || 
+                              userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
         
-        var transactions = await _transactionService.GetTransactionsAsync(filter, userId, isAdmin);
+        var transactions = await _transactionService.GetTransactionsAsync(filter, userId, isAdminOrManager);
         return Ok(transactions);
     }
 

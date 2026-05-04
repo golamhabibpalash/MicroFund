@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UnityMicroFund.API.Areas.Tasks.Services;
@@ -96,7 +97,8 @@ public class NotificationController : ControllerBase
 
     private Guid? GetUserId()
     {
-        var userIdClaim = User.FindFirst("UserId")?.Value;
+        var userIdClaim = User.FindFirst("memberId")?.Value 
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return Guid.TryParse(userIdClaim, out var userId) ? userId : null;
     }
 }

@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -7,6 +7,7 @@ import { Subject, debounceTime } from 'rxjs';
 import { TransactionService, Account, Transaction, CreateTransactionRequest, ReceiptType, OcrScanResult } from '../core/services/transaction';
 import { ToastService } from '../core/services/toast.service';
 import { UserService } from '../core/services/user';
+import { ParamBusConfigService, ParamBusConfig } from '../core/services/param-bus-config.service';
 import { filter } from 'rxjs/operators';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 
@@ -74,6 +75,12 @@ interface Member {
               <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" placeholder="Search transactions..." />
             </div>
             <div class="filter-group">
+              <select *ngIf="isAdmin" [(ngModel)]="filterMemberId" (ngModelChange)="applyFilters()">
+                <option value="">All Members</option>
+                <option *ngFor="let member of members" [value]="member.id">
+                  {{ member.name }}
+                </option>
+              </select>
               <select [(ngModel)]="filterAccountId" (ngModelChange)="applyFilters()">
                 <option value="">All Accounts</option>
                 <option *ngFor="let account of accounts" [value]="account.id">
@@ -91,6 +98,12 @@ interface Member {
                 <option value="Approved">Approved</option>
                 <option value="Rejected">Rejected</option>
               </select>
+              <div class="date-filter">
+                <span class="material-icons">date_range</span>
+                <input type="date" [(ngModel)]="filterFromDate" (ngModelChange)="applyFilters()" placeholder="From Date" />
+                <span class="date-separator">to</span>
+                <input type="date" [(ngModel)]="filterToDate" (ngModelChange)="applyFilters()" placeholder="To Date" />
+              </div>
               <button class="btn-clear" *ngIf="hasActiveFilters()" (click)="clearFilters()">
                 <span class="material-icons">clear</span>
                 Clear
@@ -105,6 +118,10 @@ interface Member {
                 <th class="sortable" (click)="sort('transactionId')">
                   Transaction Id
                   <span class="material-icons sort-icon" *ngIf="sortColumn === 'transactionId'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
+                </th>
+                <th class="sortable" (click)="sort('memberName')">
+                  Member
+                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'memberName'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
                 </th>
                 <th class="sortable" (click)="sort('transferFrom')">
                   Transfer From
@@ -134,6 +151,7 @@ interface Member {
             <tbody>
               <tr *ngFor="let tx of paginatedTransactions">
                 <td class="transaction-id">{{ tx.transactionId }}</td>
+                <td class="member-name">{{ tx.memberName || tx.createdByName || '-' }}</td>
                 <td class="transfer-from">{{ tx.transferFrom || '-' }}</td>
                 <td>{{ tx.transferTo }}</td>
                 <td class="amount">{{ tx.amount | bdtCurrency }}</td>
@@ -166,7 +184,7 @@ interface Member {
                 </td>
               </tr>
               <tr *ngIf="paginatedTransactions.length === 0">
-                <td colspan="9" class="empty-row">No transactions found</td>
+                <td colspan="10" class="empty-row">No transactions found</td>
               </tr>
             </tbody>
           </table>
@@ -688,6 +706,38 @@ interface Member {
       background: #ffcdd2;
     }
 
+    .date-filter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #f5f6fa;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+
+    .date-filter .material-icons {
+      font-size: 18px;
+      color: #666;
+    }
+
+    .date-filter input[type="date"] {
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      color: #333;
+      outline: none;
+    }
+
+    .date-filter input[type="date"]::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+    }
+
+    .date-separator {
+      color: #999;
+      font-size: 12px;
+    }
+
     .btn-clear .material-icons {
       font-size: 16px;
     }
@@ -1147,6 +1197,8 @@ interface Member {
       .table-container { overflow-x: auto; }
       .transactions-table { min-width: 600px; }
       .modal-content { margin: 12px; max-width: calc(100% - 24px); }
+      .date-filter { flex-wrap: wrap; width: 100%; }
+      .date-filter input[type="date"] { width: 100%; }
     }
     @media (max-width: 576px) {
       .stats-card { padding: 16px; }
@@ -1512,9 +1564,12 @@ export class PaymentsComponent implements OnInit {
   pendingCount = 0;
 
   searchTerm = '';
+  filterMemberId = '';
   filterAccountId = '';
   filterStatus = '';
   filterApprovalStatus = '';
+  filterFromDate = '';
+  filterToDate = '';
   sortColumn = 'createdAt';
   sortDirection: 'asc' | 'desc' = 'desc';
   currentPage = 1;
@@ -1525,6 +1580,7 @@ export class PaymentsComponent implements OnInit {
   isAdmin = false;
   loggedInMemberId = '';
   loggedInMemberName = '';
+  primaryFundingAccountId = '';
 
   newTransaction: CreateTransactionRequest = {
     transferTo: '',
@@ -1551,6 +1607,7 @@ export class PaymentsComponent implements OnInit {
     this.initializeUser();
     this.loadData();
     this.loadReceiptTypes();
+    this.loadPrimaryFundingAccount();
     
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
@@ -1639,6 +1696,9 @@ export class PaymentsComponent implements OnInit {
     this.transactionService.getAccounts().subscribe({
       next: (accounts) => {
         this.accounts = accounts.filter(a => a.isActive);
+        if (!this.isAdmin && this.primaryFundingAccountId) {
+          this.newTransaction.accountId = this.primaryFundingAccountId;
+        }
         this.isLoading = false;
         this.applyFiltersAndSort();
         this.cdr.detectChanges();
@@ -1647,6 +1707,19 @@ export class PaymentsComponent implements OnInit {
         this.isLoading = false;
         this.applyFiltersAndSort();
         this.cdr.detectChanges();
+      }
+    });
+  }
+
+  loadPrimaryFundingAccount() {
+    this.http.get<ParamBusConfig>('/api/paramBusConfig/name/PrimaryFundingAccount').subscribe({
+      next: (config) => {
+        if (config && config.value) {
+          this.primaryFundingAccountId = config.value;
+        }
+      },
+      error: () => {
+        // Silently fail - primary funding account is optional
       }
     });
   }
@@ -1688,7 +1761,8 @@ export class PaymentsComponent implements OnInit {
   }
 
   hasActiveFilters(): boolean {
-    return !!(this.searchTerm || this.filterAccountId || this.filterStatus || this.filterApprovalStatus);
+    if (!this.isAdmin) return !!this.searchTerm || !!this.filterAccountId || !!this.filterStatus || !!this.filterApprovalStatus || !!this.filterFromDate || !!this.filterToDate;
+    return !!(this.searchTerm || this.filterMemberId || this.filterAccountId || this.filterStatus || this.filterApprovalStatus || !!this.filterFromDate || !!this.filterToDate);
   }
 
   clearFilters() {
@@ -1696,6 +1770,11 @@ export class PaymentsComponent implements OnInit {
     this.filterAccountId = '';
     this.filterStatus = '';
     this.filterApprovalStatus = '';
+    this.filterFromDate = '';
+    this.filterToDate = '';
+    if (this.isAdmin) {
+      this.filterMemberId = '';
+    }
     this.currentPage = 1;
     this.applyFiltersAndSort();
   }
@@ -1717,11 +1796,16 @@ export class PaymentsComponent implements OnInit {
       const search = this.searchTerm.toLowerCase();
       result = result.filter(t =>
         t.transactionId.toLowerCase().includes(search) ||
+        (t.memberName && t.memberName.toLowerCase().includes(search)) ||
         (t.transferFrom && t.transferFrom.toLowerCase().includes(search)) ||
         t.transferTo.toLowerCase().includes(search) ||
         t.accountName.toLowerCase().includes(search) ||
         (t.remarks && t.remarks.toLowerCase().includes(search))
       );
+    }
+
+    if (this.filterMemberId && this.isAdmin) {
+      result = result.filter(t => t.memberId === this.filterMemberId);
     }
 
     if (this.filterAccountId) {
@@ -1734,6 +1818,18 @@ export class PaymentsComponent implements OnInit {
 
     if (this.filterApprovalStatus) {
       result = result.filter(t => t.approvalStatus === this.filterApprovalStatus);
+    }
+
+    if (this.filterFromDate || this.filterToDate) {
+      const fromDate = this.filterFromDate ? new Date(this.filterFromDate) : null;
+      const toDate = this.filterToDate ? new Date(this.filterToDate) : null;
+      toDate?.setHours(23, 59,59,999);
+      result = result.filter(t => {
+        const txDate = new Date(t.createdAt);
+        if (fromDate && txDate < fromDate) return false;
+        if (toDate && txDate > toDate) return false;
+        return true;
+      });
     }
 
     result.sort((a, b) => {
@@ -1809,6 +1905,12 @@ export class PaymentsComponent implements OnInit {
 
   openTransactionModal() {
     this.showModal = true;
+    if (!this.isAdmin && this.primaryFundingAccountId) {
+      this.newTransaction.accountId = this.primaryFundingAccountId;
+    } else if (!this.isAdmin && this.accounts.length > 0) {
+      this.newTransaction.accountId = this.accounts[0].id;
+    }
+    this.resetForm();
   }
 
   closeModal() {

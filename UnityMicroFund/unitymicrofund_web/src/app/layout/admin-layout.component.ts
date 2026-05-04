@@ -3,6 +3,7 @@ import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { filter } from 'rxjs/operators';
 import { UserService } from '../core/services/user';
+import { Token } from '../core/services/token';
 import { ChatInterfaceComponent } from '../chat/chat-interface.component';
 import { NotificationBellComponent } from '../shared/notification-bell/notification-bell.component';
 
@@ -95,6 +96,10 @@ import { NotificationBellComponent } from '../shared/notification-bell/notificat
 
       <main class="main-content">
         <div class="top-bar">
+          <div class="user-info">
+            <span class="user-name">{{ userName }}</span>
+            <span class="user-role-badge-small">{{ userRole }}</span>
+          </div>
           <app-notification-bell></app-notification-bell>
         </div>
         <router-outlet (activate)="onRouteActivate()"></router-outlet>
@@ -370,9 +375,33 @@ import { NotificationBellComponent } from '../shared/notification-bell/notificat
 
     .top-bar {
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
       align-items: center;
-      padding-bottom: 16px;
+      padding: 16px 24px;
+      background: white;
+      border-bottom: 1px solid #eee;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .user-name {
+      font-weight: 600;
+      color: #1a1a2e;
+      font-size: 14px;
+    }
+
+    .user-role-badge-small {
+      padding: 2px 8px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
     }
 
     // Responsive Styles
@@ -481,6 +510,23 @@ import { NotificationBellComponent } from '../shared/notification-bell/notificat
       .user-role-badge {
         justify-content: center;
       }
+
+      .top-bar {
+        padding: 12px 16px;
+      }
+
+      .user-info {
+        gap: 6px;
+      }
+
+      .user-name {
+        font-size: 13px;
+      }
+
+      .user-role-badge-small {
+        font-size: 9px;
+        padding: 2px 6px;
+      }
     }
 
     @media (max-width: 400px) {
@@ -503,10 +549,12 @@ export class AdminLayoutComponent implements OnInit {
   constructor(
     private cdr: ChangeDetectorRef,
     private userService: UserService,
+    private tokenService: Token,
     private router: Router
   ) {}
 
   userRole: string | null = null;
+  userName: string | null = null;
   isAdmin = false;
   sidebarOpen = false;
 
@@ -523,6 +571,7 @@ export class AdminLayoutComponent implements OnInit {
 
   checkUserRole() {
     this.userRole = this.userService.getRole();
+    this.userName = this.tokenService.getUserName();
     this.isAdmin = this.userService.isAdmin();
   }
 
