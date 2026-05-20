@@ -311,6 +311,9 @@ API_SRC_DIR="${REPO_DIR}/UnityMicroFund/UnityMicroFund.API"
 API_SRC="${API_SRC_DIR}/UnityMicroFund.API.csproj"
 
 info "Restoring packages..."
+# Clean stale build artifacts to avoid cache conflicts
+rm -rf "${API_SRC_DIR}/obj" "${API_SRC_DIR}/bin"
+chown -R root:root "${API_SRC_DIR}"
 dotnet restore "${API_SRC}" -q
 
 info "Publishing release build..."
