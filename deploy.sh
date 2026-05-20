@@ -232,6 +232,7 @@ mkdir -p "${APP_DIR}"
 
 if [[ -d "${REPO_DIR}/.git" ]]; then
     warn "Repository exists — pulling latest ${GIT_BRANCH}..."
+    git config --global --add safe.directory "${REPO_DIR}" 2>/dev/null || true
     git -C "${REPO_DIR}" fetch --all -q
     git -C "${REPO_DIR}" reset --hard "origin/${GIT_BRANCH}" -q
     git -C "${REPO_DIR}" clean -fd -q
