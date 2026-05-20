@@ -288,7 +288,7 @@ PYSCRIPT
 
 info "Installing npm dependencies..."
 cd "${WEB_SRC}"
-npm ci --silent
+npm install --prefer-offline 2>&1 | tail -5
 
 info "Building Angular production bundle..."
 ng build --configuration production
