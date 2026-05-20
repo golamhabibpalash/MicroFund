@@ -189,6 +189,40 @@ label {
   }
 }
 
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  .form-control {
+    padding-right: 44px;
+  }
+
+  .password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: #667eea;
+    }
+
+    svg {
+      pointer-events: none;
+    }
+  }
+}
+
 .error-message {
   font-size: 13px;
   color: #e74c3c;
