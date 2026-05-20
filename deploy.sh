@@ -396,7 +396,7 @@ After=network.target mariadb.service
 Requires=mariadb.service
 
 [Service]
-Type=notify
+Type=simple
 WorkingDirectory=${API_DIR}
 ExecStart=/usr/bin/dotnet ${API_DIR}/UnityMicroFund.API.dll
 Restart=always
