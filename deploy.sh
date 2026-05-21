@@ -319,12 +319,24 @@ mkdir -p "${API_DIR}"
 dotnet restore "${API_SRC}" --verbosity quiet
 
 info "Publishing release build..."
+set +e
 dotnet publish "${API_SRC}" \
     --configuration Release \
     --output "${API_DIR}" \
     --no-self-contained \
     --runtime linux-x64 \
-    --verbosity quiet
+    --verbosity minimal 2>&1 | grep -v "Creating directory"
+PUBLISH_EXIT=$?
+set -e
+
+if [[ $PUBLISH_EXIT -ne 0 ]] && [[ ! -f "${API_DIR}/UnityMicroFund.API.dll" ]]; then
+    error ".NET API publish failed"
+fi
+
+# Verify the publish succeeded
+if [[ ! -f "${API_DIR}/UnityMicroFund.API.dll" ]]; then
+    error ".NET API publish failed — check logs above"
+fi
 
 # Copy Tesseract training data if present in source
 if [[ -d "${API_SRC_DIR}/tessdata" ]]; then
