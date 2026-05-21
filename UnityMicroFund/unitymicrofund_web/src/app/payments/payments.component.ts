@@ -1627,78 +1627,27 @@ export class PaymentsComponent implements OnInit {
     console.log('initializeUser: isAdmin =', this.isAdmin);
     
     if (!this.isAdmin) {
-      const userEmail = this.userService.getUserEmail();
-      const userId = this.userService.getUserId();
-      const userName = this.userService.getUserName() || '';
-      console.log('initializeUser: userEmail =', userEmail, 'userId =', userId);
-      
-      this.findMemberByCriteria(userEmail, userId, userName);
+      this.loadCurrentUserMember();
     }
   }
 
-  private findMemberByCriteria(email: string | null, userId: string | null, fallbackName: string) {
-    if (email) {
-      this.http.get<Member[]>(`/api/members?email=${encodeURIComponent(email)}&isActive=true`).subscribe({
-        next: (members) => {
-          console.log('findMemberByCriteria (email): found =', members.length);
-          if (members.length > 0) {
-            this.setMemberFromResult(members);
-          } else if (userId) {
-            this.findMemberByUserId(userId, fallbackName);
-          } else {
-            this.memberLoadFailed = true;
-            this.loggedInMemberName = fallbackName;
-            this.cdr.detectChanges();
-          }
-        },
-        error: (err) => {
-          console.error('findMemberByCriteria (email): error', err);
-          if (userId) {
-            this.findMemberByUserId(userId, fallbackName);
-          } else {
-            this.memberLoadFailed = true;
-            this.loggedInMemberName = fallbackName;
-            this.cdr.detectChanges();
-          }
-        }
-      });
-    } else if (userId) {
-      this.findMemberByUserId(userId, fallbackName);
-    } else {
-      this.memberLoadFailed = true;
-      this.loggedInMemberName = fallbackName;
-      this.cdr.detectChanges();
-    }
-  }
-
-  private findMemberByUserId(userId: string, fallbackName: string) {
-    this.http.get<Member[]>(`/api/members?userId=${userId}`).subscribe({
-      next: (members) => {
-        console.log('findMemberByUserId: found =', members.length);
-        if (members.length > 0) {
-          this.setMemberFromResult(members);
-        } else {
-          this.memberLoadFailed = true;
-          this.loggedInMemberName = fallbackName;
-          this.cdr.detectChanges();
-        }
+  private loadCurrentUserMember() {
+    this.http.get<{ id: string; name: string; email?: string }>('/api/members/me').subscribe({
+      next: (member) => {
+        console.log('loadCurrentUserMember: success', member);
+        this.loggedInMemberId = member.id;
+        this.loggedInMemberName = member.name;
+        this.memberLoadFailed = false;
+        this.newTransaction.memberId = member.id;
+        this.cdr.detectChanges();
       },
       error: (err) => {
-        console.error('findMemberByUserId: error', err);
+        console.error('loadCurrentUserMember: error', err.status, err.error);
         this.memberLoadFailed = true;
-        this.loggedInMemberName = fallbackName;
+        this.loggedInMemberName = this.userService.getUserName() || '';
         this.cdr.detectChanges();
       }
     });
-  }
-
-  private setMemberFromResult(members: Member[]) {
-    this.memberLoadFailed = false;
-    this.loggedInMemberId = members[0].id;
-    this.loggedInMemberName = members[0].name;
-    this.newTransaction.memberId = this.loggedInMemberId;
-    console.log('setMemberFromResult: memberId =', this.loggedInMemberId);
-    this.cdr.detectChanges();
   }
 
   private setupSearchDebounce() {
@@ -1967,10 +1916,9 @@ export class PaymentsComponent implements OnInit {
       const accountId = this.primaryFundingAccountId || (this.accounts[0]?.id ?? '');
       this.newTransaction.accountId = accountId;
       if (!this.loggedInMemberId) {
-        const userEmail = this.userService.getUserEmail();
-        const userId = this.userService.getUserId();
-        const userName = this.userService.getUserName() || '';
-        this.findMemberByCriteria(userEmail, userId, userName);
+        this.loadCurrentUserMember();
+      } else {
+        this.newTransaction.memberId = this.loggedInMemberId;
       }
     }
   }
