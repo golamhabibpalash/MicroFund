@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/UnityMicroFund.API/UnityMicroFund.API.csproj": {}
+    "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/Application/UnityMicroFund/UnityMicroFund.API/UnityMicroFund.API.csproj": {}
   },
   "projects": {
-    "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/UnityMicroFund.API/UnityMicroFund.API.csproj": {
+    "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/Application/UnityMicroFund/UnityMicroFund.API/UnityMicroFund.API.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/UnityMicroFund.API/UnityMicroFund.API.csproj",
+        "projectUniqueName": "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/Application/UnityMicroFund/UnityMicroFund.API/UnityMicroFund.API.csproj",
         "projectName": "UnityMicroFund.API",
-        "projectPath": "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/UnityMicroFund.API/UnityMicroFund.API.csproj",
+        "projectPath": "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/Application/UnityMicroFund/UnityMicroFund.API/UnityMicroFund.API.csproj",
         "packagesPath": "/Users/golamhabibpalash/.nuget/packages/",
-        "outputPath": "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/UnityMicroFund.API/obj/",
+        "outputPath": "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/Application/UnityMicroFund/UnityMicroFund.API/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/Users/golamhabibpalash/.nuget/NuGet/NuGet.Config"

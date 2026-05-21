@@ -1,5 +1,6 @@
-using MimeKit;
 using MailKit.Net.Smtp;
+using MailKit.Security;
+using MimeKit;
 using Microsoft.Extensions.Configuration;
 
 namespace UnityMicroFund.API.Infrastructure.Email;
@@ -47,16 +48,13 @@ public class EmailService : IEmailService
             };
 
             using var client = new SmtpClient();
-            
-            var useSsl = bool.TryParse(emailSettings["UseSsl"], out var ssl) && ssl;
-            var port = int.TryParse(emailSettings["Port"], out var p) ? p : (useSsl ? 465 : 25);
 
+            var port = int.TryParse(emailSettings["Port"], out var p) ? p : 587;
             var host = emailSettings["Host"] ?? "localhost";
-            await client.ConnectAsync(
-                host,
-                port,
-                useSsl
-            );
+
+            // SecureSocketOptions.Auto lets MailKit pick the right mode:
+            //   port 465 → SslOnConnect, port 587 → StartTls, port 25 → None
+            await client.ConnectAsync(host, port, SecureSocketOptions.Auto);
 
             var username = emailSettings["Username"];
             var password = emailSettings["Password"];
@@ -72,7 +70,8 @@ public class EmailService : IEmailService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send email to {Email}", toEmail);
+            _logger.LogError(ex, "Failed to send email to {Email}. Host={Host} Port={Port}",
+                toEmail, _configuration["Email:Host"], _configuration["Email:Port"]);
         }
     }
 

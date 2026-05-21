@@ -48,7 +48,7 @@ GOOGLE_CLIENT_SECRET=""                          # replace with your Google OAut
 EMAIL_HOST="smtp.gmail.com"
 EMAIL_PORT="587"
 EMAIL_USERNAME="unitymicrofund@gmail.com"
-EMAIL_PASSWORD=""                                 # replace with your SMTP password
+EMAIL_PASSWORD="MyPassword@3497#Hard"                                 # replace with your SMTP password
 EMAIL_FROM="unitymicrofund@gmail.com"
 
 # =============================================================================
