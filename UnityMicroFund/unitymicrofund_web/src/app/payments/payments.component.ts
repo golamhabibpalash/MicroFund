@@ -331,7 +331,10 @@ interface Member {
                     {{ member.name }} ({{ member.phone }})
                   </option>
                 </select>
-                <input *ngIf="!isAdmin" type="text" [value]="loggedInMemberName" readonly class="readonly-input" />
+                <div *ngIf="!isAdmin" class="readonly-input" style="padding: 0.75rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem;">
+                  {{ loggedInMemberName || 'Loading...' }}
+                </div>
+                <input type="hidden" [ngModel]="newTransaction.memberId" name="memberIdNonAdmin" *ngIf="!isAdmin" />
               </div>
               <div class="form-group">
                 <label for="amount">Amount (BDT) *</label>
@@ -1620,28 +1623,35 @@ export class PaymentsComponent implements OnInit {
 
   private initializeUser() {
     this.isAdmin = this.userService.isAdmin();
+    console.log('initializeUser: isAdmin =', this.isAdmin);
     
     if (!this.isAdmin) {
       const userEmail = this.userService.getUserEmail();
       const userName = this.userService.getUserName() || '';
+      console.log('initializeUser: userEmail =', userEmail, 'userName =', userName);
       
       if (!userEmail) {
         this.loggedInMemberName = userName;
+        console.log('initializeUser: no email found');
         return;
       }
       
       this.http.get<Member[]>(`/api/members?email=${encodeURIComponent(userEmail)}&isActive=true`).subscribe({
         next: (members) => {
+          console.log('initializeUser: members found =', members.length, members);
           if (members.length > 0) {
             this.loggedInMemberId = members[0].id;
             this.loggedInMemberName = members[0].name;
             this.newTransaction.memberId = this.loggedInMemberId;
+            console.log('initializeUser: set memberId =', this.loggedInMemberId);
           } else {
             this.loggedInMemberName = userName;
+            console.log('initializeUser: no member found for email');
           }
           this.cdr.detectChanges();
         },
-        error: () => {
+        error: (err) => {
+          console.error('initializeUser: error fetching member by email', err);
           this.loggedInMemberName = userName;
           this.cdr.detectChanges();
         }
@@ -2045,11 +2055,19 @@ export class PaymentsComponent implements OnInit {
     const t = this.newTransaction;
 
     // Auto-fill memberId for non-admin if not already set
-    if (!this.isAdmin && !t.memberId && this.loggedInMemberId) {
-      t.memberId = this.loggedInMemberId;
+    if (!this.isAdmin) {
+      if (!t.memberId && this.loggedInMemberId) {
+        t.memberId = this.loggedInMemberId;
+      }
+      if (!t.memberId) {
+        this.toastService.warning('Member not found. Please contact administrator.');
+        return;
+      }
+    } else if (!t.memberId) {
+      this.toastService.warning('Please select a Member');
+      return;
     }
 
-    if (!t.memberId) { this.toastService.warning('Please select a Member'); return; }
     if (!t.transferTo) { this.toastService.warning('Please enter Transfer To'); return; }
     if (!t.amount || t.amount <= 0) { this.toastService.warning('Please enter a valid Amount greater than 0'); return; }
 
