@@ -2037,10 +2037,20 @@ export class PaymentsComponent implements OnInit {
     }, 150);
   }
   createTransaction() {
-    if (!this.newTransaction.accountId || !this.newTransaction.memberId || !this.newTransaction.transferTo || !this.newTransaction.amount) {
-      this.toastService.warning('Please fill in all required fields');
-      return;
+    const t = this.newTransaction;
+
+    // Auto-fill memberId for non-admin if not already set
+    if (!this.isAdmin && !t.memberId && this.loggedInMemberId) {
+      t.memberId = this.loggedInMemberId;
     }
+
+    if (!t.memberId) { this.toastService.warning('Please select a Member'); return; }
+    if (!t.transferTo) { this.toastService.warning('Please enter Transfer To'); return; }
+    if (!t.amount || t.amount <= 0) { this.toastService.warning('Please enter a valid Amount greater than 0'); return; }
+
+    const receiptType = this.selectedReceiptType;
+    const requiresAccount = receiptType === 'DBBL' || receiptType === 'UCB' || receiptType === 'EBL' || receiptType === 'SBL';
+    if (requiresAccount && !t.accountId) { this.toastService.warning('Please select an Account'); return; }
 
     const transactionData: CreateTransactionRequest = {
       ...this.newTransaction,
