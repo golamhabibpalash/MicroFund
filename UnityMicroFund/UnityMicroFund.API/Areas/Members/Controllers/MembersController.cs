@@ -38,7 +38,7 @@ public class MembersController : ControllerBase
         
         if (!string.IsNullOrEmpty(email))
         {
-            members = members.Where(m => m.Email == email);
+            members = members.Where(m => m.Email != null && m.Email.Equals(email, StringComparison.OrdinalIgnoreCase));
         }
         
         var membersList = members.ToList();

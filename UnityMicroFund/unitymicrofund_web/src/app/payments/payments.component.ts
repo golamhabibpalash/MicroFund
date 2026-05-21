@@ -1627,36 +1627,73 @@ export class PaymentsComponent implements OnInit {
     
     if (!this.isAdmin) {
       const userEmail = this.userService.getUserEmail();
+      const userId = this.userService.getUserId();
       const userName = this.userService.getUserName() || '';
-      console.log('initializeUser: userEmail =', userEmail, 'userName =', userName);
+      console.log('initializeUser: userEmail =', userEmail, 'userId =', userId);
       
-      if (!userEmail) {
-        this.loggedInMemberName = userName;
-        console.log('initializeUser: no email found');
-        return;
-      }
-      
-      this.http.get<Member[]>(`/api/members?email=${encodeURIComponent(userEmail)}&isActive=true`).subscribe({
+      this.findMemberByCriteria(userEmail, userId, userName);
+    }
+  }
+
+  private findMemberByCriteria(email: string | null, userId: string | null, fallbackName: string) {
+    // Try email first
+    if (email) {
+      this.http.get<Member[]>(`/api/members?email=${encodeURIComponent(email)}&isActive=true`).subscribe({
         next: (members) => {
-          console.log('initializeUser: members found =', members.length, members);
+          console.log('findMemberByCriteria (email): found =', members.length);
           if (members.length > 0) {
-            this.loggedInMemberId = members[0].id;
-            this.loggedInMemberName = members[0].name;
-            this.newTransaction.memberId = this.loggedInMemberId;
-            console.log('initializeUser: set memberId =', this.loggedInMemberId);
+            this.setMemberFromResult(members);
+          } else if (userId) {
+            // Fallback to userId
+            this.findMemberByUserId(userId, fallbackName);
           } else {
-            this.loggedInMemberName = userName;
-            console.log('initializeUser: no member found for email');
+            this.loggedInMemberName = fallbackName;
+            this.cdr.detectChanges();
           }
-          this.cdr.detectChanges();
         },
         error: (err) => {
-          console.error('initializeUser: error fetching member by email', err);
-          this.loggedInMemberName = userName;
-          this.cdr.detectChanges();
+          console.error('findMemberByCriteria (email): error', err);
+          if (userId) {
+            this.findMemberByUserId(userId, fallbackName);
+          } else {
+            this.loggedInMemberName = fallbackName;
+            this.cdr.detectChanges();
+          }
         }
       });
+    } else if (userId) {
+      this.findMemberByUserId(userId, fallbackName);
+    } else {
+      this.loggedInMemberName = fallbackName;
+      this.cdr.detectChanges();
     }
+  }
+
+  private findMemberByUserId(userId: string, fallbackName: string) {
+    this.http.get<Member[]>(`/api/members?userId=${userId}`).subscribe({
+      next: (members) => {
+        console.log('findMemberByUserId: found =', members.length);
+        if (members.length > 0) {
+          this.setMemberFromResult(members);
+        } else {
+          this.loggedInMemberName = fallbackName;
+          this.cdr.detectChanges();
+        }
+      },
+      error: (err) => {
+        console.error('findMemberByUserId: error', err);
+        this.loggedInMemberName = fallbackName;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private setMemberFromResult(members: Member[]) {
+    this.loggedInMemberId = members[0].id;
+    this.loggedInMemberName = members[0].name;
+    this.newTransaction.memberId = this.loggedInMemberId;
+    console.log('setMemberFromResult: memberId =', this.loggedInMemberId);
+    this.cdr.detectChanges();
   }
 
   private setupSearchDebounce() {
