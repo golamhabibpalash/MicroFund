@@ -19,6 +19,7 @@ export class RegisterComponent {
   totalSteps: number = 4;
   showPassword = false;
   showConfirmPassword = false;
+  isLoading = false;
 
   togglePasswordVisibility() {
     this.showPassword = !this.showPassword;
@@ -132,12 +133,16 @@ export class RegisterComponent {
     }
 
     this.error = '';
+    this.success = '';
+    this.isLoading = true;
+
     this.authService.register({ ...memberData, password }).subscribe({
       next: () => {
         this.success = 'Registration successful! Redirecting to login...';
         setTimeout(() => this.router.navigate(['/auth/login']), 2000);
       },
       error: (err) => {
+        this.isLoading = false;
         this.error = err.error?.message || 'Registration failed. Please try again.';
       },
     });

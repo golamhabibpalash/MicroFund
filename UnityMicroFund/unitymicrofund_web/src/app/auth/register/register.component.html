@@ -559,7 +559,7 @@
       <div class="success-message" *ngIf="success">{{ success }}</div>
 
       <div class="button-group">
-        <button type="button" class="btn-prev" *ngIf="currentStep > 1" (click)="prevStep()">
+        <button type="button" class="btn-prev" *ngIf="currentStep > 1" (click)="prevStep()" [disabled]="isLoading">
           Previous
         </button>
 
@@ -568,7 +568,7 @@
           class="btn-next"
           *ngIf="currentStep < totalSteps"
           (click)="nextStep()"
-          [disabled]="!isStepValid(currentStep)"
+          [disabled]="!isStepValid(currentStep) || isLoading"
         >
           Next
         </button>
@@ -577,9 +577,10 @@
           type="submit"
           class="btn-submit"
           *ngIf="currentStep === totalSteps"
-          [disabled]="form.invalid"
+          [disabled]="form.invalid || isLoading"
         >
-          Create Account
+          <span *ngIf="!isLoading">Create Account</span>
+          <span *ngIf="isLoading" class="spinner"></span>
         </button>
       </div>
     </form>
