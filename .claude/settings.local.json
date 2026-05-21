@@ -9,7 +9,8 @@
       "Bash(dotnet build *)",
       "Bash(xargs cat)",
       "Bash(npx ng *)",
-      "Bash(dotnet ef migrations *)"
+      "Bash(dotnet ef migrations *)",
+      "Bash(npm run *)"
     ]
   }
 }
