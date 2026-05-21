@@ -316,17 +316,15 @@ rm -rf "${API_SRC_DIR}/obj" "${API_SRC_DIR}/bin" "${API_DIR}"
 # Ensure source directory is writable
 chown -R root:root "${API_SRC_DIR}"
 mkdir -p "${API_DIR}"
-dotnet restore "${API_SRC}" -q
+dotnet restore "${API_SRC}" --verbosity quiet
 
 info "Publishing release build..."
-dotnet build "${API_SRC}" --configuration Release --no-restore -q
 dotnet publish "${API_SRC}" \
     --configuration Release \
     --output "${API_DIR}" \
-    --no-build \
     --no-self-contained \
     --runtime linux-x64 \
-    -q
+    --verbosity quiet
 
 # Copy Tesseract training data if present in source
 if [[ -d "${API_SRC_DIR}/tessdata" ]]; then
