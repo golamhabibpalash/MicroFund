@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,35 @@ public class MembersController : ControllerBase
     {
         _memberService = memberService;
         _context = context;
+    }
+
+    [HttpGet("me")]
+    public async Task<IActionResult> GetCurrentUserMember()
+    {
+        var userEmail = User.FindFirstValue(ClaimTypes.Email);
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        Guid.TryParse(userIdStr, out var userId);
+
+        Member? member = null;
+
+        if (!string.IsNullOrEmpty(userEmail))
+        {
+            member = await _context.Members
+                .FirstOrDefaultAsync(m => m.IsActive &&
+                    m.Email != null &&
+                    m.Email.ToLower() == userEmail.ToLower());
+        }
+
+        if (member == null && userId != Guid.Empty)
+        {
+            member = await _context.Members
+                .FirstOrDefaultAsync(m => m.IsActive && m.UserId == userId);
+        }
+
+        if (member == null)
+            return NotFound(new { message = "No member record is linked to your account. Please contact your administrator." });
+
+        return Ok(new { id = member.Id, name = member.Name, email = member.Email });
     }
 
     [HttpGet]

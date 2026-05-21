@@ -1623,77 +1623,27 @@ export class PaymentsComponent implements OnInit {
 
   private initializeUser() {
     this.isAdmin = this.userService.isAdmin();
-    console.log('initializeUser: isAdmin =', this.isAdmin);
-    
     if (!this.isAdmin) {
-      const userEmail = this.userService.getUserEmail();
-      const userId = this.userService.getUserId();
-      const userName = this.userService.getUserName() || '';
-      console.log('initializeUser: userEmail =', userEmail, 'userId =', userId);
-      
-      this.findMemberByCriteria(userEmail, userId, userName);
+      this.loadCurrentUserMember();
     }
   }
 
-  private findMemberByCriteria(email: string | null, userId: string | null, fallbackName: string) {
-    // Try email first
-    if (email) {
-      this.http.get<Member[]>(`/api/members?email=${encodeURIComponent(email)}&isActive=true`).subscribe({
-        next: (members) => {
-          console.log('findMemberByCriteria (email): found =', members.length);
-          if (members.length > 0) {
-            this.setMemberFromResult(members);
-          } else if (userId) {
-            // Fallback to userId
-            this.findMemberByUserId(userId, fallbackName);
-          } else {
-            this.loggedInMemberName = fallbackName;
-            this.cdr.detectChanges();
-          }
-        },
-        error: (err) => {
-          console.error('findMemberByCriteria (email): error', err);
-          if (userId) {
-            this.findMemberByUserId(userId, fallbackName);
-          } else {
-            this.loggedInMemberName = fallbackName;
-            this.cdr.detectChanges();
-          }
+  private loadCurrentUserMember() {
+    this.http.get<{ id: string; name: string; email?: string }>('/api/members/me').subscribe({
+      next: (member) => {
+        this.loggedInMemberId = member.id;
+        this.loggedInMemberName = member.name;
+        // Apply to the form if the modal is already open
+        if (this.showModal) {
+          this.newTransaction.memberId = member.id;
         }
-      });
-    } else if (userId) {
-      this.findMemberByUserId(userId, fallbackName);
-    } else {
-      this.loggedInMemberName = fallbackName;
-      this.cdr.detectChanges();
-    }
-  }
-
-  private findMemberByUserId(userId: string, fallbackName: string) {
-    this.http.get<Member[]>(`/api/members?userId=${userId}`).subscribe({
-      next: (members) => {
-        console.log('findMemberByUserId: found =', members.length);
-        if (members.length > 0) {
-          this.setMemberFromResult(members);
-        } else {
-          this.loggedInMemberName = fallbackName;
-          this.cdr.detectChanges();
-        }
+        this.cdr.detectChanges();
       },
-      error: (err) => {
-        console.error('findMemberByUserId: error', err);
-        this.loggedInMemberName = fallbackName;
+      error: () => {
+        // Member not linked to this account — user will see an error on submit
         this.cdr.detectChanges();
       }
     });
-  }
-
-  private setMemberFromResult(members: Member[]) {
-    this.loggedInMemberId = members[0].id;
-    this.loggedInMemberName = members[0].name;
-    this.newTransaction.memberId = this.loggedInMemberId;
-    console.log('setMemberFromResult: memberId =', this.loggedInMemberId);
-    this.cdr.detectChanges();
   }
 
   private setupSearchDebounce() {
@@ -1957,12 +1907,14 @@ export class PaymentsComponent implements OnInit {
 
   openTransactionModal() {
     this.showModal = true;
-    if (!this.isAdmin && this.primaryFundingAccountId) {
-      this.newTransaction.accountId = this.primaryFundingAccountId;
-    } else if (!this.isAdmin && this.accounts.length > 0) {
-      this.newTransaction.accountId = this.accounts[0].id;
-    }
     this.resetForm();
+    if (!this.isAdmin) {
+      const accountId = this.primaryFundingAccountId || (this.accounts[0]?.id ?? '');
+      this.newTransaction.accountId = accountId;
+      if (!this.loggedInMemberId) {
+        this.loadCurrentUserMember();
+      }
+    }
   }
 
   closeModal() {
@@ -2234,7 +2186,6 @@ export class PaymentsComponent implements OnInit {
   }
 
   resetForm() {
-    const preservedMemberId = !this.isAdmin ? this.newTransaction.memberId : '';
     this.newTransaction = {
       transferTo: '',
       amount: 0,
@@ -2243,7 +2194,7 @@ export class PaymentsComponent implements OnInit {
       accountId: '',
       receiptType: '',
       transferFrom: '',
-      memberId: preservedMemberId || ''
+      memberId: !this.isAdmin ? (this.loggedInMemberId || '') : ''
     };
     this.transactionDate = '';
     this.transactionId = '';
