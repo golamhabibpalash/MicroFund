@@ -70,12 +70,12 @@ const STORAGE_KEY = 'umf_nav_expanded';
     ]),
   ],
   template: `
-    <nav class="sidenav" role="navigation" aria-label="Main navigation">
+    <nav class="sidenav" role="navigation" aria-label="Main navigation" [class.is-collapsed]="collapsed">
       <ul class="nav-list" role="list">
         <ng-container *ngFor="let mod of visibleModules; trackBy: trackById">
 
           <!-- Optional divider -->
-          <li *ngIf="mod.dividerBefore" class="nav-divider" role="separator" aria-hidden="true"></li>
+          <li *ngIf="mod.dividerBefore && !collapsed" class="nav-divider" role="separator" aria-hidden="true"></li>
 
           <li class="nav-module" [class.is-active]="isModuleActive(mod)" [class.is-expanded]="isExpanded(mod.id)">
 
@@ -91,7 +91,7 @@ const STORAGE_KEY = 'umf_nav_expanded';
                 tabindex="0"
                 (keydown)="onItemKeydown($event, null, null)">
                 <span class="nav-icon material-icons" aria-hidden="true">{{ mod.icon }}</span>
-                <span class="nav-label">{{ mod.label }}</span>
+                <span class="nav-label" *ngIf="!collapsed">{{ mod.label }}</span>
               </a>
             </ng-container>
 
@@ -109,10 +109,11 @@ const STORAGE_KEY = 'umf_nav_expanded';
                 tabindex="0"
                 (keydown)="onItemKeydown($event, mod, null)">
                 <span class="nav-icon material-icons" aria-hidden="true">{{ mod.icon }}</span>
-                <span class="nav-label">{{ mod.label }}</span>
+                <span class="nav-label" *ngIf="!collapsed">{{ mod.label }}</span>
                 <span
                   class="nav-chevron material-icons"
                   [class.rotated]="isExpanded(mod.id)"
+                  *ngIf="!collapsed"
                   aria-hidden="true">
                   chevron_right
                 </span>
@@ -124,7 +125,8 @@ const STORAGE_KEY = 'umf_nav_expanded';
                 [id]="'navgroup-' + mod.id"
                 [@expandCollapse]="isExpanded(mod.id) ? 'expanded' : 'collapsed'"
                 role="group"
-                [attr.aria-label]="mod.label + ' submenu'">
+                [attr.aria-label]="mod.label + ' submenu'"
+                *ngIf="!collapsed">
                 <a
                   *ngFor="let child of visibleChildren(mod); trackBy: trackByRoute"
                   class="nav-child-link"
@@ -163,6 +165,10 @@ const STORAGE_KEY = 'umf_nav_expanded';
       padding: 12px 0 20px;
       scrollbar-width: thin;
       scrollbar-color: rgba(255,255,255,0.15) transparent;
+    }
+
+    .sidenav.is-collapsed {
+      padding: 12px 0;
     }
 
     .sidenav::-webkit-scrollbar { width: 4px; }
@@ -205,6 +211,11 @@ const STORAGE_KEY = 'umf_nav_expanded';
         border-color 0.18s ease;
       position: relative;
       outline: none;
+      justify-content: center;
+    }
+
+    .sidenav:not(.is-collapsed) .nav-trigger {
+      justify-content: flex-start;
     }
 
     .nav-trigger:focus-visible {
@@ -328,6 +339,7 @@ export class SideNavComponent implements OnInit, OnChanges, OnDestroy {
   @Input() modules: NavModule[] = [];
   @Input() userRole = '';
   @Input() policy: NavPolicy = { ...DEFAULT_NAV_POLICY };
+  @Input() collapsed = false;
 
   /** Emitted on any navigation click so the parent can close a mobile drawer. */
   @Output() navigated = new EventEmitter<void>();

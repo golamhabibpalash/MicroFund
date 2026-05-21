@@ -105,11 +105,14 @@ const NAV_POLICY: NavPolicy = {
       </header>
 
       <!-- Sidebar -->
-      <aside class="sidebar" [class.open]="sidebarOpen" role="complementary" aria-label="Sidebar">
+      <aside class="sidebar" [class.open]="sidebarOpen" [class.collapsed]="sidebarCollapsed" role="complementary" aria-label="Sidebar">
 
-        <!-- Logo -->
+        <!-- Logo / Toggle -->
         <div class="logo-section">
-          <div class="logo-wrapper">
+          <button class="logo-toggle" (click)="toggleSidebarCollapse()" [attr.aria-label]="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+            <span class="material-icons">{{ sidebarCollapsed ? 'menu' : 'chevron_left' }}</span>
+          </button>
+          <div class="logo-wrapper" [class.hidden]="sidebarCollapsed">
             <div class="logo-glow"></div>
             <div class="logo-inner">
               <div class="logo-icon-container">
@@ -131,23 +134,30 @@ const NAV_POLICY: NavPolicy = {
           </div>
         </div>
 
+        <!-- Collapsed user badge -->
+        <div class="collapsed-user-badge" *ngIf="sidebarCollapsed" [title]="userName || ''">
+          <span class="material-icons">person</span>
+          <span class="user-initial">{{ userName ? userName.charAt(0).toUpperCase() : '?' }}</span>
+        </div>
+
         <!-- Navigation -->
         <app-side-nav
           [modules]="navModules"
           [userRole]="userRole || ''"
           [policy]="navPolicy"
+          [collapsed]="sidebarCollapsed"
           (navigated)="closeSidebarOnMobile()">
         </app-side-nav>
 
         <!-- Footer -->
         <div class="sidebar-footer">
-          <div class="user-role-badge" *ngIf="userRole">
+          <div class="user-role-badge" *ngIf="userRole && !sidebarCollapsed">
             <span class="role-icon material-icons" aria-hidden="true">{{ getRoleIcon() }}</span>
             <span class="role-name">{{ userRole }}</span>
           </div>
           <button (click)="logout()" class="logout-btn" aria-label="Log out">
             <span class="material-icons" aria-hidden="true">logout</span>
-            <span>Logout</span>
+            <span *ngIf="!sidebarCollapsed">Logout</span>
           </button>
         </div>
 
@@ -189,19 +199,68 @@ const NAV_POLICY: NavPolicy = {
       height: 100vh;
       z-index: 100;
       overflow: hidden;
+      transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .sidebar.collapsed {
+      width: 68px;
     }
 
     /* ── Logo section ───────────────────────────────────── */
     .logo-section {
       flex-shrink: 0;
       border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      padding: 8px;
+    }
+
+    .logo-toggle {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      color: rgba(255,255,255,0.8);
+      cursor: pointer;
+      transition: background 0.18s, color 0.18s;
+    }
+
+    .logo-toggle:hover {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+
+    .logo-toggle .material-icons {
+      font-size: 22px;
+      transition: transform 0.25s;
+    }
+
+    .sidebar.collapsed .logo-toggle .material-icons {
+      transform: rotate(180deg);
     }
 
     .logo-wrapper {
       position: relative;
-      padding: 22px 20px;
+      padding: 14px 12px;
       background: linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%);
       overflow: hidden;
+      border-radius: 10px;
+      margin-left: 4px;
+      flex: 1;
+      transition: opacity 0.2s, max-width 0.25s;
+    }
+
+    .logo-wrapper.hidden {
+      opacity: 0;
+      max-width: 0;
+      padding: 0;
+      margin: 0;
+      pointer-events: none;
     }
 
     .logo-glow {
@@ -314,11 +373,50 @@ const NAV_POLICY: NavPolicy = {
       50%       { transform: translateY(-8px) scale(1.4); opacity: 1; }
     }
 
+    /* ── Collapsed user badge ───────────────────────────── */
+    .collapsed-user-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 12px 0;
+      flex-shrink: 0;
+    }
+
+    .collapsed-user-badge .material-icons {
+      font-size: 24px;
+      color: rgba(255,255,255,0.5);
+    }
+
+    .collapsed-user-badge .user-initial {
+      position: absolute;
+      bottom: 8px;
+      right: 18px;
+      width: 18px;
+      height: 18px;
+      background: #FFD700;
+      color: #0C4C7D;
+      border-radius: 50%;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     /* ── Sidebar footer ─────────────────────────────────── */
     .sidebar-footer {
       flex-shrink: 0;
       padding: 16px 20px;
       border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .sidebar.collapsed .sidebar-footer {
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
     }
 
     .user-role-badge {
@@ -369,6 +467,11 @@ const NAV_POLICY: NavPolicy = {
       flex: 1;
       margin-left: 260px;
       min-width: 0;
+      transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .sidebar.collapsed ~ .main-content {
+      margin-left: 68px;
     }
 
     .top-bar {
@@ -455,6 +558,7 @@ const NAV_POLICY: NavPolicy = {
         transform: translateX(-100%);
         transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
         z-index: 150;
+        width: 260px !important;
       }
 
       .sidebar.open { transform: translateX(0); }
@@ -475,7 +579,7 @@ const NAV_POLICY: NavPolicy = {
       }
 
       .main-content {
-        margin-left: 0;
+        margin-left: 0 !important;
         margin-top: 50px;
       }
 
@@ -500,6 +604,7 @@ export class AdminLayoutComponent implements OnInit {
   userRole: string | null = null;
   userName: string | null = null;
   sidebarOpen = false;
+  sidebarCollapsed = false;
 
   constructor(
     private cdr: ChangeDetectorRef,
@@ -536,6 +641,7 @@ export class AdminLayoutComponent implements OnInit {
 
   toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }
   closeSidebar()  { this.sidebarOpen = false; }
+  toggleSidebarCollapse() { this.sidebarCollapsed = !this.sidebarCollapsed; }
 
   closeSidebarOnMobile() {
     if (window.innerWidth <= 992) this.sidebarOpen = false;
