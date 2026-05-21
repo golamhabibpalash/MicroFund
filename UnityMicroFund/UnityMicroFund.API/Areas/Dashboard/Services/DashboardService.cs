@@ -85,25 +85,26 @@ public class DashboardService : IDashboardService
             .Take(8)
             .ToList();
 
-        var topInvestors = await _context.Members
-            .Where(m => m.IsActive)
+        var topInvestorData = await _context.Contributions
+            .Where(c => c.Status == ContributionStatus.Paid)
+            .GroupBy(c => c.MemberId)
+            .Select(g => new { MemberId = g.Key, Total = g.Sum(c => c.Amount) })
+            .OrderByDescending(x => x.Total)
+            .Take(5)
             .ToListAsync();
 
-        var topInvestorDtos = topInvestors
-            .Select(m =>
+        var memberIds = topInvestorData.Select(x => x.MemberId).ToList();
+        var members = await _context.Members
+            .Where(m => memberIds.Contains(m.Id))
+            .ToDictionaryAsync(m => m.Id);
+
+        var topInvestorDtos = topInvestorData
+            .Select(x => new TopInvestorDto
             {
-                var totalContrib = _context.Contributions
-                    .Where(c => c.MemberId == m.Id && c.Status == ContributionStatus.Paid)
-                    .Sum(c => c.Amount);
-                return new TopInvestorDto
-                {
-                    MemberName = m.Name,
-                    TotalContributions = totalContrib,
-                    SharePercentage = totalPool > 0 ? totalContrib / totalPool * 100 : 0
-                };
+                MemberName = members.TryGetValue(x.MemberId, out var m) ? m.Name : "Unknown",
+                TotalContributions = x.Total,
+                SharePercentage = totalPool > 0 ? x.Total / totalPool * 100 : 0
             })
-            .OrderByDescending(t => t.TotalContributions)
-            .Take(5)
             .ToList();
 
         var monthlyTrend = new MonthlyTrendDto();
