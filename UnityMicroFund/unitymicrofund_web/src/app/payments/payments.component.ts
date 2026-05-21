@@ -1622,10 +1622,15 @@ export class PaymentsComponent implements OnInit {
     this.isAdmin = this.userService.isAdmin();
     
     if (!this.isAdmin) {
-      const userId = this.userService.getUserId();
+      const userEmail = this.userService.getUserEmail();
       const userName = this.userService.getUserName() || '';
       
-      this.http.get<Member[]>(`/api/members?userId=${userId}`).subscribe({
+      if (!userEmail) {
+        this.loggedInMemberName = userName;
+        return;
+      }
+      
+      this.http.get<Member[]>(`/api/members?email=${encodeURIComponent(userEmail)}&isActive=true`).subscribe({
         next: (members) => {
           if (members.length > 0) {
             this.loggedInMemberId = members[0].id;

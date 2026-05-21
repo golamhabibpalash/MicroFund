@@ -26,13 +26,19 @@ public class MembersController : ControllerBase
     public async Task<IActionResult> GetMembers(
         [FromQuery] string? search = null,
         [FromQuery] bool? isActive = null,
-        [FromQuery] Guid? userId = null)
+        [FromQuery] Guid? userId = null,
+        [FromQuery] string? email = null)
     {
         var members = await _memberService.GetMembersAsync(search, isActive);
         
         if (userId.HasValue)
         {
             members = members.Where(m => m.UserId == userId.Value);
+        }
+        
+        if (!string.IsNullOrEmpty(email))
+        {
+            members = members.Where(m => m.Email == email);
         }
         
         var membersList = members.ToList();
