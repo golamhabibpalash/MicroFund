@@ -1967,7 +1967,10 @@ export class PaymentsComponent implements OnInit {
       const accountId = this.primaryFundingAccountId || (this.accounts[0]?.id ?? '');
       this.newTransaction.accountId = accountId;
       if (!this.loggedInMemberId) {
-        this.loadCurrentUserMember();
+        const userEmail = this.userService.getUserEmail();
+        const userId = this.userService.getUserId();
+        const userName = this.userService.getUserName() || '';
+        this.findMemberByCriteria(userEmail, userId, userName);
       }
     }
   }
