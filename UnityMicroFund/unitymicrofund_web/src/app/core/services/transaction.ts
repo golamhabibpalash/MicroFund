@@ -62,7 +62,7 @@ export interface CreateTransactionRequest {
   amount: number;
   status: 'Fund' | 'Refund';
   remarks?: string;
-  accountId: string;
+  accountId?: string;
   receiptType?: string;
   transactionId?: string;
   transferFrom?: string;

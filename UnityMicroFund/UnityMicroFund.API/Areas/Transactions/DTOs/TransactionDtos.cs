@@ -19,8 +19,7 @@ public class CreateTransactionDto
     [MaxLength(500)]
     public string? Remarks { get; set; }
 
-    [Required]
-    public Guid AccountId { get; set; }
+    public Guid? AccountId { get; set; }
 
     public string? ReceiptType { get; set; }
 
@@ -76,8 +75,8 @@ public class TransactionResponseDto
     public string TransferByName { get; set; } = string.Empty;
     public Guid CreatedById { get; set; }
     public string CreatedByName { get; set; } = string.Empty;
-    public Guid AccountId { get; set; }
-    public string AccountName { get; set; } = string.Empty;
+    public Guid? AccountId { get; set; }
+    public string? AccountName { get; set; }
     public Guid? MemberId { get; set; }
     public string? MemberName { get; set; }
     public DateTime CreatedAt { get; set; }

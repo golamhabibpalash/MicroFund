@@ -53,8 +53,7 @@ public class Transaction
     [ForeignKey(nameof(CreatedById))]
     public virtual User? CreatedBy { get; set; }
 
-    [Required]
-    public Guid AccountId { get; set; }
+    public Guid? AccountId { get; set; }
 
     [ForeignKey(nameof(AccountId))]
     public virtual Account? Account { get; set; }

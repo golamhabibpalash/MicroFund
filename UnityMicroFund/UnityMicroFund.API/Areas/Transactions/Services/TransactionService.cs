@@ -99,10 +99,19 @@ public class TransactionService : ITransactionService
             throw new ArgumentException("Invalid transaction status. Must be 'Fund' or 'Refund'");
         }
 
-        var accountExists = await _context.Accounts.AnyAsync(a => a.Id == dto.AccountId && a.IsActive);
-        if (!accountExists)
+        var requiresAccount = dto.ReceiptType is "DBBL" or "UCB" or "EBL" or "SBL";
+        if (requiresAccount && !dto.AccountId.HasValue)
         {
-            throw new ArgumentException("Invalid or inactive account");
+            throw new ArgumentException("Account is required for bank transactions");
+        }
+
+        if (dto.AccountId.HasValue)
+        {
+            var accountExists = await _context.Accounts.AnyAsync(a => a.Id == dto.AccountId.Value && a.IsActive);
+            if (!accountExists)
+            {
+                throw new ArgumentException("Invalid or inactive account");
+            }
         }
 
         var user = await _context.Users.FindAsync(userId);
@@ -112,9 +121,14 @@ public class TransactionService : ITransactionService
         }
 
         var member = await _context.Members.FirstOrDefaultAsync(m => m.UserId == userId);
-        if (member == null || !member.IsActive)
+        if (member == null && user.Role != Models.UserRole.Admin)
         {
-            throw new InvalidOperationException("Only approved/active members can create transactions");
+            throw new InvalidOperationException("Only approved members or administrators can create transactions");
+        }
+
+        if (member != null && !member.IsActive)
+        {
+            throw new InvalidOperationException("Your member account is inactive");
         }
 
         var memberExists = await _context.Members.AnyAsync(m => m.Id == dto.MemberId && m.IsActive);
