@@ -331,8 +331,8 @@ interface Member {
                     {{ member.name }} ({{ member.phone }})
                   </option>
                 </select>
-                <div *ngIf="!isAdmin" class="readonly-input" style="padding: 0.75rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem;">
-                  {{ loggedInMemberName || 'Loading...' }}
+                <div *ngIf="!isAdmin" class="readonly-input" [style.color]="memberLoadFailed ? '#e74c3c' : '#333'" style="padding: 0.75rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem;">
+                  {{ memberLoadFailed ? 'No member record — contact administrator' : (loggedInMemberName || 'Loading...') }}
                 </div>
                 <input type="hidden" [ngModel]="newTransaction.memberId" name="memberIdNonAdmin" *ngIf="!isAdmin" />
               </div>
@@ -1583,6 +1583,7 @@ export class PaymentsComponent implements OnInit {
   isAdmin = false;
   loggedInMemberId = '';
   loggedInMemberName = '';
+  memberLoadFailed = false;
   primaryFundingAccountId = '';
 
   newTransaction: CreateTransactionRequest = {
@@ -1633,14 +1634,14 @@ export class PaymentsComponent implements OnInit {
       next: (member) => {
         this.loggedInMemberId = member.id;
         this.loggedInMemberName = member.name;
-        // Apply to the form if the modal is already open
+        this.memberLoadFailed = false;
         if (this.showModal) {
           this.newTransaction.memberId = member.id;
         }
         this.cdr.detectChanges();
       },
       error: () => {
-        // Member not linked to this account — user will see an error on submit
+        this.memberLoadFailed = true;
         this.cdr.detectChanges();
       }
     });
@@ -2043,13 +2044,16 @@ export class PaymentsComponent implements OnInit {
   createTransaction() {
     const t = this.newTransaction;
 
-    // Auto-fill memberId for non-admin if not already set
     if (!this.isAdmin) {
+      if (this.memberLoadFailed) {
+        this.toastService.warning('Your account is not linked to a member record. Please contact your administrator.');
+        return;
+      }
       if (!t.memberId && this.loggedInMemberId) {
         t.memberId = this.loggedInMemberId;
       }
       if (!t.memberId) {
-        this.toastService.warning('Member not found. Please contact administrator.');
+        this.toastService.warning('Still loading your member profile. Please wait a moment and try again.');
         return;
       }
     } else if (!t.memberId) {

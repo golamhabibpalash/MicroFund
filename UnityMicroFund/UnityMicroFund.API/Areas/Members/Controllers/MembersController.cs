@@ -97,7 +97,7 @@ public class MembersController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetMember(Guid id)
     {
         var member = await _memberService.GetMemberByIdAsync(id);
