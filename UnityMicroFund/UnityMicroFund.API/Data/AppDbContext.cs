@@ -3,6 +3,8 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Models;
 using UnityMicroFund.API.Areas.Auth.Models;
+using UnityMicroFund.API.Areas.Logging.Configuration;
+using UnityMicroFund.API.Areas.Logging.Models;
 
 namespace UnityMicroFund.API.Data;
 
@@ -31,6 +33,7 @@ public class AppDbContext : DbContext
     public DbSet<ChatMessage> ChatMessages { get; set; }
     public DbSet<ChatRoomMember> ChatRoomMembers { get; set; }
     public DbSet<ParamBusConfig> ParamBusConfigs { get; set; }
+    public DbSet<LogEntry> LogEntries { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -122,6 +125,8 @@ public class AppDbContext : DbContext
         {
             entity.HasIndex(e => new { e.ChatRoomId, e.MemberId }).IsUnique();
         });
+
+        modelBuilder.ApplyConfiguration(new LogEntryConfiguration());
 
         SeedData(modelBuilder);
     }

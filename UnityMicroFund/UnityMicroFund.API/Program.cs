@@ -22,6 +22,12 @@ using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Infrastructure.ExceptionHandling;
 using UnityMicroFund.API.Infrastructure.Logging;
 using UnityMicroFund.API.Infrastructure.Middleware;
+using UnityMicroFund.API.Areas.Logging.CQRS;
+using UnityMicroFund.API.Areas.Logging.CQRS.Commands;
+using UnityMicroFund.API.Areas.Logging.CQRS.Queries;
+using UnityMicroFund.API.Areas.Logging.DTOs;
+using UnityMicroFund.API.Areas.Logging.Repository;
+using UnityMicroFund.API.Areas.Logging.Services;
 
 // Add Homebrew library paths for Tesseract OCR (macOS)
 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -156,6 +162,13 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IParamBusConfigService, ParamBusConfigService>();
+
+// Logging CQRS
+builder.Services.AddScoped<ILogRepository, LogRepository>();
+builder.Services.AddScoped<ICommandHandler<CreateLogEntryCommand, Guid>, CreateLogEntryHandler>();
+builder.Services.AddScoped<IQueryHandler<GetLogsQuery, PagedResult<LogEntryDto>>, GetLogsHandler>();
+builder.Services.AddScoped<ILogManager, LogManager>();
+
 builder.Services.AddSignalR();
 
 var app = builder.Build();

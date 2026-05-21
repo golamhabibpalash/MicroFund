@@ -6,7 +6,10 @@
       "Bash(python3 -c \"import sys,json; a=json.load\\(sys.stdin\\); p=a['projects']['unitymicrofund_web']['architect']['build']; print\\(json.dumps\\(p.get\\('configurations',{}\\), indent=2\\)[:1200]\\)\")",
       "Bash(chmod +x /Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/Application/deploy.sh)",
       "Bash(openssl rand *)",
-      "Bash(dotnet build *)"
+      "Bash(dotnet build *)",
+      "Bash(xargs cat)",
+      "Bash(npx ng *)",
+      "Bash(dotnet ef migrations *)"
     ]
   }
 }
