@@ -614,6 +614,53 @@ type TabType = 'users' | 'roles' | 'permissions';
     .quick-perm-btn .material-icons { font-size: 16px; }
 
     .material-icons { font-size: 20px; }
+
+    @media (max-width: 1200px) {
+      .roles-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+      .permissions-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+    }
+
+    @media (max-width: 992px) {
+      .content-header { flex-direction: column; align-items: stretch; gap: 12px; }
+      .search-box input { width: 100%; }
+      .tabs { flex-wrap: wrap; }
+      .tab-btn { flex: 1; justify-content: center; padding: 10px 16px; font-size: 13px; }
+    }
+
+    @media (max-width: 768px) {
+      .page-header h1 { font-size: 24px; }
+      .roles-grid { grid-template-columns: 1fr; }
+      .permissions-grid { grid-template-columns: 1fr; }
+      .data-table { font-size: 13px; }
+      .data-table th, .data-table td { padding: 10px 12px; }
+      .user-avatar { width: 36px; height: 36px; font-size: 12px; }
+      .modal { width: 95vw; }
+      .add-claim-row { flex-direction: column; }
+    }
+
+    @media (max-width: 576px) {
+      .page-header h1 { font-size: 20px; }
+      .subtitle { font-size: 13px; }
+      .tab-btn { padding: 8px 12px; font-size: 12px; }
+      .tab-btn .material-icons { font-size: 16px; }
+      .btn { padding: 8px 14px; font-size: 13px; }
+      .btn-sm { padding: 6px 12px; font-size: 12px; }
+      .search-box { padding: 8px 12px; }
+      .search-box input { font-size: 13px; }
+      .role-card { padding: 16px; }
+      .role-icon { width: 40px; height: 40px; }
+      .permissions-actions { flex-direction: column; }
+      .permissions-actions .btn { width: 100%; justify-content: center; }
+    }
+
+    @media (max-width: 480px) {
+      .data-table th:nth-child(3),
+      .data-table td:nth-child(3) { display: none; }
+      .user-info .id { display: none; }
+      .modal-header { padding: 16px; }
+      .modal-body { padding: 16px; }
+      .modal-footer { padding: 12px 16px; }
+    }
   `],
   standalone: true,
   imports: [CommonModule, FormsModule],

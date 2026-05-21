@@ -431,11 +431,29 @@ interface MonthlyTrend {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .charts-grid { grid-template-columns: 1fr; }
       .bottom-grid { grid-template-columns: 1fr 1fr; }
+      .welcome-content h1 { font-size: 26px; }
     }
     @media (max-width: 768px) {
       .stats-grid { grid-template-columns: 1fr; }
       .bottom-grid { grid-template-columns: 1fr; }
       .welcome-content h1 { font-size: 24px; }
+      .welcome-content p { font-size: 14px; }
+      .quick-actions-grid { grid-template-columns: repeat(2, 1fr); }
+      .action-item { padding: 12px; }
+      .action-icon { width: 40px; height: 40px; }
+      .pending-alert { flex-direction: column; text-align: center; gap: 8px; }
+    }
+    @media (max-width: 576px) {
+      .dashboard-content { padding: 16px; }
+      .welcome-content { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .welcome-content h1 { font-size: 20px; }
+      .quick-actions-grid { grid-template-columns: 1fr; }
+      .action-item { flex-direction: column; text-align: center; gap: 8px; }
+    }
+    @media (max-width: 480px) {
+      .dashboard-content { padding: 12px; }
+      .welcome-content h1 { font-size: 18px; }
+      .section-title { font-size: 16px; }
     }
 
     .material-icons { font-size: 20px; }

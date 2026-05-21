@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using UnityMicroFund.API.Areas.Chat.DTOs;
@@ -16,50 +17,69 @@ public class ChatHub : Hub
     }
 
     public async Task JoinRoom(string roomId)
-    {
-        await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
-    }
+        => await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
 
     public async Task LeaveRoom(string roomId)
-    {
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomId);
-    }
+        => await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomId);
 
     public async Task SendMessage(SendMessageDto dto)
     {
-        var senderId = GetCurrentMemberId();
-        var message = await _chatService.SendMessageAsync(dto, senderId);
-
+        var memberId = GetCachedMemberId();
+        var message = await _chatService.SendMessageAsync(dto, memberId);
         await Clients.Group(dto.ChatRoomId.ToString()).SendAsync("ReceiveMessage", message);
     }
 
     public async Task MarkRead(string roomId)
     {
-        var memberId = GetCurrentMemberId();
+        var memberId = GetCachedMemberId();
         await _chatService.MarkAsReadAsync(Guid.Parse(roomId), memberId);
     }
 
     public override async Task OnConnectedAsync()
     {
-        var memberId = GetCurrentMemberId();
-        var rooms = await _chatService.GetRoomsForMemberAsync(memberId);
+        var userId = GetCurrentUserId();
 
-        foreach (var room in rooms)
+        // Resolve Member.Id once and cache it for this connection's lifetime
+        if (Guid.TryParse(userId, out var userGuid))
         {
-            await Groups.AddToGroupAsync(Context.ConnectionId, room.Id.ToString());
+            var memberId = await _chatService.GetMemberIdByUserIdAsync(userGuid);
+            Context.Items["memberId"] = memberId;
+
+            if (memberId != Guid.Empty)
+            {
+                var rooms = await _chatService.GetRoomsForMemberAsync(memberId);
+                foreach (var room in rooms)
+                    await Groups.AddToGroupAsync(Context.ConnectionId, room.Id.ToString());
+            }
         }
+
+        // Track presence and broadcast
+        OnlineTracker.Connect(Context.ConnectionId, userId);
+        await Clients.Others.SendAsync("UserOnline", userId);
+
+        // Give the new client the current online list immediately
+        await Clients.Caller.SendAsync("OnlineList", OnlineTracker.OnlineUserIds);
 
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        var userId = GetCurrentUserId();
+
+        if (OnlineTracker.Disconnect(Context.ConnectionId, out _) && !string.IsNullOrEmpty(userId))
+            await Clients.Others.SendAsync("UserOffline", userId);
+
         await base.OnDisconnectedAsync(exception);
     }
 
-    private Guid GetCurrentMemberId()
+    private string GetCurrentUserId()
+        => Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+
+    private Guid GetCachedMemberId()
     {
-        var memberIdClaim = Context.User?.FindFirst("member_id")?.Value;
-        return Guid.TryParse(memberIdClaim, out var memberId) ? memberId : Guid.Empty;
+        if (Context.Items.TryGetValue("memberId", out var cached) && cached is Guid guid)
+            return guid;
+        return Guid.Empty;
     }
 }

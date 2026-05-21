@@ -37,7 +37,8 @@ export interface ChatMessage {
 }
 
 export interface Member {
-  id: string;
+  id: string;       // Member.Id
+  userId?: string;  // User.Id — used for online presence check
   name: string;
   email?: string;
   phone?: string;
@@ -45,21 +46,22 @@ export interface Member {
   isActive: boolean;
 }
 
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class ChatService {
   private readonly apiUrl = '/api/chat';
   private hubConnection: signalR.HubConnection | null = null;
-  
+
   private messageReceivedSubject = new Subject<ChatMessage>();
   public messageReceived$ = this.messageReceivedSubject.asObservable();
-  
+
   private connectionStatusSubject = new BehaviorSubject<boolean>(false);
   public connectionStatus$ = this.connectionStatusSubject.asObservable();
-  
+
   private unreadCountSubject = new BehaviorSubject<number>(0);
   public unreadCount$ = this.unreadCountSubject.asObservable();
+
+  private onlineUserIdsSubject = new BehaviorSubject<Set<string>>(new Set());
+  public onlineUserIds$ = this.onlineUserIdsSubject.asObservable();
 
   constructor(
     private http: HttpClient,
@@ -68,15 +70,10 @@ export class ChatService {
   ) {}
 
   async startConnection(): Promise<void> {
-    if (this.hubConnection?.state === signalR.HubConnectionState.Connected) {
-      return;
-    }
+    if (this.hubConnection?.state === signalR.HubConnectionState.Connected) return;
 
     const token = this.tokenService.getToken();
-    if (!token) {
-      console.warn('No token available for chat connection');
-      return;
-    }
+    if (!token) return;
 
     this.hubConnection = new signalR.HubConnectionBuilder()
       .withUrl('/chat', { accessTokenFactory: () => token })
@@ -89,9 +86,7 @@ export class ChatService {
     try {
       await this.hubConnection.start();
       this.connectionStatusSubject.next(true);
-      console.log('Chat connection started');
-    } catch (error) {
-      console.error('Failed to start chat connection:', error);
+    } catch {
       this.connectionStatusSubject.next(false);
     }
   }
@@ -102,25 +97,44 @@ export class ChatService {
     this.hubConnection.on('ReceiveMessage', (message: ChatMessage) => {
       this.ngZone.run(() => {
         this.messageReceivedSubject.next(message);
-        this.updateUnreadCount();
+        this.refreshUnreadCount();
+      });
+    });
+
+    this.hubConnection.on('OnlineList', (userIds: string[]) => {
+      this.ngZone.run(() => {
+        this.onlineUserIdsSubject.next(new Set(userIds));
+      });
+    });
+
+    this.hubConnection.on('UserOnline', (userId: string) => {
+      this.ngZone.run(() => {
+        const current = new Set(this.onlineUserIdsSubject.value);
+        current.add(userId);
+        this.onlineUserIdsSubject.next(current);
+      });
+    });
+
+    this.hubConnection.on('UserOffline', (userId: string) => {
+      this.ngZone.run(() => {
+        const current = new Set(this.onlineUserIdsSubject.value);
+        current.delete(userId);
+        this.onlineUserIdsSubject.next(current);
       });
     });
 
     this.hubConnection.onreconnecting(() => {
-      this.ngZone.run(() => {
-        this.connectionStatusSubject.next(false);
-      });
+      this.ngZone.run(() => this.connectionStatusSubject.next(false));
     });
 
     this.hubConnection.onreconnected(() => {
-      this.ngZone.run(() => {
-        this.connectionStatusSubject.next(true);
-      });
+      this.ngZone.run(() => this.connectionStatusSubject.next(true));
     });
 
     this.hubConnection.onclose(() => {
       this.ngZone.run(() => {
         this.connectionStatusSubject.next(false);
+        this.onlineUserIdsSubject.next(new Set());
       });
     });
   }
@@ -130,34 +144,28 @@ export class ChatService {
       await this.hubConnection.stop();
       this.hubConnection = null;
       this.connectionStatusSubject.next(false);
+      this.onlineUserIdsSubject.next(new Set());
     }
   }
 
   async joinRoom(roomId: string): Promise<void> {
-    if (this.hubConnection?.state === signalR.HubConnectionState.Connected) {
+    if (this.hubConnection?.state === signalR.HubConnectionState.Connected)
       await this.hubConnection.invoke('JoinRoom', roomId);
-    }
   }
 
   async leaveRoom(roomId: string): Promise<void> {
-    if (this.hubConnection?.state === signalR.HubConnectionState.Connected) {
+    if (this.hubConnection?.state === signalR.HubConnectionState.Connected)
       await this.hubConnection.invoke('LeaveRoom', roomId);
-    }
   }
 
   async sendMessage(roomId: string, content: string): Promise<void> {
-    if (this.hubConnection?.state === signalR.HubConnectionState.Connected) {
-      await this.hubConnection.invoke('SendMessage', {
-        chatRoomId: roomId,
-        content: content
-      });
-    }
+    if (this.hubConnection?.state === signalR.HubConnectionState.Connected)
+      await this.hubConnection.invoke('SendMessage', { chatRoomId: roomId, content });
   }
 
   async markAsRead(roomId: string): Promise<void> {
-    if (this.hubConnection?.state === signalR.HubConnectionState.Connected) {
+    if (this.hubConnection?.state === signalR.HubConnectionState.Connected)
       await this.hubConnection.invoke('MarkRead', roomId);
-    }
   }
 
   getRooms(): Observable<ChatRoom[]> {
@@ -166,14 +174,6 @@ export class ChatService {
 
   getRoom(roomId: string): Observable<ChatRoom> {
     return this.http.get<ChatRoom>(`${this.apiUrl}/rooms/${roomId}`);
-  }
-
-  createRoom(name: string, description: string, memberIds: string[]): Observable<ChatRoom> {
-    return this.http.post<ChatRoom>(`${this.apiUrl}/rooms`, {
-      name,
-      description,
-      memberIds
-    });
   }
 
   getMessages(roomId: string, skip = 0, take = 50): Observable<ChatMessage[]> {
@@ -188,13 +188,16 @@ export class ChatService {
     return this.http.get<Member[]>('/api/members?isActive=true');
   }
 
-  private updateUnreadCount(): void {
+  isUserOnline(userId: string | undefined): boolean {
+    if (!userId || userId === '00000000-0000-0000-0000-000000000000') return false;
+    return this.onlineUserIdsSubject.value.has(userId);
+  }
+
+  private refreshUnreadCount(): void {
     this.getRooms().subscribe({
       next: (rooms) => {
-        const totalUnread = rooms.reduce((sum, room) => sum + room.unreadCount, 0);
-        this.ngZone.run(() => {
-          this.unreadCountSubject.next(totalUnread);
-        });
+        const total = rooms.reduce((sum, r) => sum + r.unreadCount, 0);
+        this.ngZone.run(() => this.unreadCountSubject.next(total));
       },
       error: () => {}
     });

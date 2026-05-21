@@ -27,33 +27,60 @@ import { CommonModule } from '@angular/common';
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 32px;
+      margin-bottom: 24px;
+      gap: 16px;
+      flex-wrap: wrap;
     }
-    .header-content { display: flex; align-items: center; gap: 24px; }
-    .title-section { display: flex; align-items: center; gap: 16px; }
+    .header-content { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .title-section { display: flex; align-items: center; gap: 12px; }
     .icon-wrapper {
-      width: 56px;
-      height: 56px;
-      border-radius: 16px;
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
       background: linear-gradient(135deg, #667eea, #764ba2);
       color: white;
+      flex-shrink: 0;
     }
-    .icon-wrapper .material-icons { font-size: 28px; }
+    .icon-wrapper .material-icons { font-size: 24px; }
     .title-text h1 {
-      font-size: 28px;
+      font-size: 24px;
       font-weight: 700;
       color: #1a1a2e;
       margin: 0;
+      line-height: 1.2;
     }
     .title-text p {
       font-size: 14px;
       color: #666;
       margin: 4px 0 0 0;
     }
-    .header-actions { display: flex; gap: 12px; }
+    .header-actions { display: flex; gap: 10px; flex-wrap: wrap; flex-shrink: 0; }
+
+    @media (max-width: 768px) {
+      .page-header { margin-bottom: 20px; }
+      .icon-wrapper { width: 42px; height: 42px; border-radius: 10px; }
+      .icon-wrapper .material-icons { font-size: 22px; }
+      .title-text h1 { font-size: 22px; }
+    }
+
+    @media (max-width: 576px) {
+      .page-header { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 16px; }
+      .header-content { gap: 12px; }
+      .icon-wrapper { width: 38px; height: 38px; }
+      .icon-wrapper .material-icons { font-size: 20px; }
+      .title-text h1 { font-size: 20px; }
+      .title-text p { font-size: 13px; }
+      .header-actions { justify-content: stretch; }
+      .header-actions ::ng-deep button, .header-actions ::ng-deep .btn { flex: 1; justify-content: center; }
+    }
+
+    @media (max-width: 480px) {
+      .title-text h1 { font-size: 18px; }
+      .title-text p { font-size: 12px; }
+    }
   `],
   standalone: true,
   imports: [CommonModule]

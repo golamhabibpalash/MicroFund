@@ -25,30 +25,30 @@ import { CommonModule } from '@angular/common';
   styles: [`
     .stat-card {
       background: white;
-      border-radius: 20px;
-      padding: 24px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-      transition: all 0.3s ease;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+      transition: all 0.25s ease;
       display: flex;
-      gap: 20px;
+      gap: 16px;
     }
     .stat-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 40px rgba(102, 126, 234, 0.15);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
     }
     .stat-card.primary {
       background: linear-gradient(135deg, var(--accent-color, #667eea), var(--accent-color-2, #764ba2));
       color: white;
     }
-    .stat-card.primary .stat-label { color: rgba(255,255,255,0.8); }
+    .stat-card.primary .stat-label { color: rgba(255,255,255,0.85); }
     .stat-card.primary .stat-value { color: white; }
     .stat-card.primary .stat-detail { color: rgba(255,255,255,0.7); }
-    .stat-card.primary .stat-trend { background: rgba(255,255,255,0.2); }
+    .stat-card.primary .stat-trend { background: rgba(255,255,255,0.2); color: #fff; }
     .stat-icon-wrapper { position: relative; }
     .stat-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 16px;
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -59,46 +59,83 @@ import { CommonModule } from '@angular/common';
       background: linear-gradient(135deg, var(--accent-color, #667eea), var(--accent-color-2, #667eea));
       color: white;
     }
-    .stat-icon .material-icons { font-size: 28px; }
+    .stat-icon .material-icons { font-size: 24px; }
     .stat-glow {
       position: absolute;
-      top: -20px;
-      right: -20px;
-      width: 80px;
-      height: 80px;
+      top: -16px;
+      right: -16px;
+      width: 64px;
+      height: 64px;
       background: rgba(255,255,255,0.1);
       border-radius: 50%;
-      filter: blur(20px);
+      filter: blur(16px);
     }
-    .stat-content { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .stat-content { flex: 1; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
     .stat-label {
-      font-size: 13px;
+      font-size: 12px;
       color: #666;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .stat-value {
-      font-size: 28px;
+      font-size: 24px;
       font-weight: 700;
       color: #1a1a2e;
-      margin: 4px 0;
+      margin: 2px 0;
+      line-height: 1.2;
+      word-break: break-word;
     }
     .stat-detail { font-size: 12px; color: #999; }
     .stat-trend {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      font-size: 12px;
-      padding: 4px 8px;
-      border-radius: 20px;
-      margin-top: 8px;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 16px;
+      margin-top: 6px;
       background: #e8f5e9;
       color: #27ae60;
       font-weight: 500;
+      width: fit-content;
     }
     .stat-trend.negative { background: #ffebee; color: #e74c3c; }
     .stat-trend .material-icons { font-size: 14px; }
+
+    @media (max-width: 1200px) {
+      .stat-card { padding: 16px; gap: 14px; }
+      .stat-icon { width: 44px; height: 44px; }
+      .stat-icon .material-icons { font-size: 22px; }
+      .stat-value { font-size: 22px; }
+    }
+
+    @media (max-width: 768px) {
+      .stat-card { padding: 14px; gap: 12px; border-radius: 12px; }
+      .stat-icon { width: 40px; height: 40px; border-radius: 10px; }
+      .stat-icon .material-icons { font-size: 20px; }
+      .stat-value { font-size: 20px; }
+      .stat-label { font-size: 11px; }
+    }
+
+    @media (max-width: 576px) {
+      .stat-card { padding: 12px; gap: 10px; flex-direction: row; }
+      .stat-icon { width: 36px; height: 36px; border-radius: 8px; }
+      .stat-icon .material-icons { font-size: 18px; }
+      .stat-value { font-size: 18px; margin: 2px 0; }
+      .stat-label { font-size: 10px; }
+      .stat-trend { font-size: 10px; padding: 2px 6px; }
+    }
+
+    @media (max-width: 480px) {
+      .stat-card { padding: 10px; gap: 8px; }
+      .stat-icon { width: 32px; height: 32px; }
+      .stat-icon .material-icons { font-size: 16px; }
+      .stat-value { font-size: 16px; }
+    }
   `],
   standalone: true,
   imports: [CommonModule]

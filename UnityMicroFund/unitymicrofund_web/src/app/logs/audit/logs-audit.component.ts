@@ -313,6 +313,31 @@ import { AuditLog, PagedResult } from '../../core/models/log.model';
     .diff-panel.new .diff-title { background: #e8f5e9; color: #27ae60; }
     .diff-title .material-icons { font-size: 16px; }
     .diff-json { margin: 0; padding: 14px; font-family: monospace; font-size: 11px; background: #fafafa; white-space: pre-wrap; word-break: break-all; max-height: 400px; overflow-y: auto; }
+
+    @media (max-width: 992px) {
+      .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .header-actions { width: 100%; justify-content: stretch; }
+    }
+
+    @media (max-width: 768px) {
+      .filter-bar { flex-direction: column; align-items: stretch; }
+      .search-box { min-width: auto; }
+      .filter-bar select { width: 100%; }
+      .page-header h1 { font-size: 22px; }
+      .diff-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 576px) {
+      .page-header h1 { font-size: 20px; }
+      .btn { padding: 8px 14px; font-size: 13px; }
+      .data-table { font-size: 12px; }
+      .data-table th, .data-table td { padding: 8px 10px; }
+    }
+
+    @media (max-width: 480px) {
+      .data-table th:nth-child(4),
+      .data-table td:nth-child(4) { display: none; }
+    }
   `]
 })
 export class LogsAuditComponent implements OnInit, OnDestroy {

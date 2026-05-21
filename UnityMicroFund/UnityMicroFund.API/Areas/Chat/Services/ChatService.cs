@@ -7,6 +7,7 @@ namespace UnityMicroFund.API.Areas.Chat.Services;
 
 public interface IChatService
 {
+    Task<Guid> GetMemberIdByUserIdAsync(Guid userId);
     Task<List<ChatRoomDto>> GetRoomsForMemberAsync(Guid memberId);
     Task<ChatRoomDto?> GetRoomAsync(Guid roomId, Guid memberId);
     Task<ChatRoomDto> CreateRoomAsync(CreateChatRoomDto dto, Guid createdBy);
@@ -23,6 +24,16 @@ public class ChatService : IChatService
     public ChatService(AppDbContext context)
     {
         _context = context;
+    }
+
+    public async Task<Guid> GetMemberIdByUserIdAsync(Guid userId)
+    {
+        var member = await _context.Members
+            .AsNoTracking()
+            .Where(m => m.UserId == userId)
+            .Select(m => new { m.Id })
+            .FirstOrDefaultAsync();
+        return member?.Id ?? Guid.Empty;
     }
 
     public async Task<List<ChatRoomDto>> GetRoomsForMemberAsync(Guid memberId)

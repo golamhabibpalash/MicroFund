@@ -111,6 +111,23 @@ import { ToastService } from '../../core/services/toast.service';
     input:checked + .slider { background-color: #4caf50; }
     input:checked + .slider:before { transform: translateX(20px); }
     .no-data { text-align: center; padding: 40px; color: #999; }
+
+    @media (max-width: 992px) {
+      .config-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+    }
+
+    @media (max-width: 768px) {
+      .config-container { padding: 12px; }
+      .config-table { font-size: 13px; }
+      .config-table th, .config-table td { padding: 8px 10px; }
+      .header-left h2 { font-size: 20px; }
+    }
+
+    @media (max-width: 576px) {
+      .config-table th:nth-child(3),
+      .config-table td:nth-child(3) { display: none; }
+      .btn-edit, .btn-toggle, .btn-save, .btn-cancel { padding: 5px 10px; font-size: 12px; margin-right: 4px; }
+    }
   `]
 })
 export class BusinessConfigComponent implements OnInit, AfterViewInit, OnDestroy {

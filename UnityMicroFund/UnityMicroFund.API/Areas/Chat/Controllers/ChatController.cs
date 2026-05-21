@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UnityMicroFund.API.Areas.Chat.DTOs;
+using UnityMicroFund.API.Areas.Chat.Hubs;
 using UnityMicroFund.API.Areas.Chat.Services;
 
 namespace UnityMicroFund.API.Areas.Chat.Controllers;
@@ -17,45 +19,42 @@ public class ChatController : ControllerBase
         _chatService = chatService;
     }
 
+    [HttpGet("online")]
+    public IActionResult GetOnlineUsers()
+        => Ok(OnlineTracker.OnlineUserIds);
+
     [HttpGet("rooms")]
     public async Task<IActionResult> GetRooms()
     {
-        var memberId = GetCurrentMemberId();
+        var memberId = await GetCurrentMemberIdAsync();
         if (memberId == Guid.Empty)
-        {
-            return Unauthorized(new { message = "Invalid member" });
-        }
-        
+            return Unauthorized(new { message = "No member record linked to your account" });
+
         var rooms = await _chatService.GetRoomsForMemberAsync(memberId);
         return Ok(rooms);
     }
 
-    [HttpGet("rooms/{roomId}")]
+    [HttpGet("rooms/{roomId:guid}")]
     public async Task<IActionResult> GetRoom(Guid roomId)
     {
-        var memberId = GetCurrentMemberId();
+        var memberId = await GetCurrentMemberIdAsync();
         if (memberId == Guid.Empty)
-        {
-            return Unauthorized(new { message = "Invalid member" });
-        }
-        
+            return Unauthorized(new { message = "No member record linked to your account" });
+
         var room = await _chatService.GetRoomAsync(roomId, memberId);
         if (room == null)
-        {
             return NotFound(new { message = "Chat room not found" });
-        }
+
         return Ok(room);
     }
 
     [HttpPost("rooms")]
     public async Task<IActionResult> CreateRoom([FromBody] CreateChatRoomDto dto)
     {
-        var memberId = GetCurrentMemberId();
+        var memberId = await GetCurrentMemberIdAsync();
         if (memberId == Guid.Empty)
-        {
-            return Unauthorized(new { message = "Invalid member" });
-        }
-        
+            return Unauthorized(new { message = "No member record linked to your account" });
+
         try
         {
             var room = await _chatService.CreateRoomAsync(dto, memberId);
@@ -67,75 +66,51 @@ public class ChatController : ControllerBase
         }
     }
 
-    [HttpGet("rooms/{roomId}/messages")]
+    [HttpGet("rooms/{roomId:guid}/messages")]
     public async Task<IActionResult> GetMessages(
         Guid roomId,
         [FromQuery] int skip = 0,
         [FromQuery] int take = 50)
     {
-        var memberId = GetCurrentMemberId();
+        var memberId = await GetCurrentMemberIdAsync();
         if (memberId == Guid.Empty)
-        {
-            return Unauthorized(new { message = "Invalid member" });
-        }
-        
+            return Unauthorized(new { message = "No member record linked to your account" });
+
         var messages = await _chatService.GetMessagesAsync(roomId, memberId, skip, take);
         return Ok(messages);
     }
 
-    [HttpPost("messages")]
-    public async Task<IActionResult> SendMessage([FromBody] SendMessageDto dto)
-    {
-        var memberId = GetCurrentMemberId();
-        if (memberId == Guid.Empty)
-        {
-            return Unauthorized(new { message = "Invalid member" });
-        }
-        
-        try
-        {
-            var message = await _chatService.SendMessageAsync(dto, memberId);
-            return Ok(message);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
-
-    [HttpPost("rooms/{roomId}/read")]
+    [HttpPost("rooms/{roomId:guid}/read")]
     public async Task<IActionResult> MarkAsRead(Guid roomId)
     {
-        var memberId = GetCurrentMemberId();
+        var memberId = await GetCurrentMemberIdAsync();
         if (memberId == Guid.Empty)
-        {
-            return Unauthorized(new { message = "Invalid member" });
-        }
-        
+            return Unauthorized(new { message = "No member record linked to your account" });
+
         await _chatService.MarkAsReadAsync(roomId, memberId);
-        return Ok(new { message = "Marked as read" });
+        return Ok();
     }
 
-    [HttpPost("direct/{memberId}")]
-    public async Task<IActionResult> GetOrCreateDirectChat(Guid memberId)
+    [HttpPost("direct/{targetMemberId:guid}")]
+    public async Task<IActionResult> GetOrCreateDirectChat(Guid targetMemberId)
     {
-        var currentMemberId = GetCurrentMemberId();
-        if (currentMemberId == Guid.Empty)
-        {
-            return Unauthorized(new { message = "Invalid member" });
-        }
-        
-        var rooms = await _chatService.GetOrCreateIndividualChatAsync(currentMemberId, memberId);
+        var memberId = await GetCurrentMemberIdAsync();
+        if (memberId == Guid.Empty)
+            return Unauthorized(new { message = "No member record linked to your account" });
+
+        var rooms = await _chatService.GetOrCreateIndividualChatAsync(memberId, targetMemberId);
         if (rooms.Count == 0)
-        {
             return NotFound(new { message = "Member not found" });
-        }
+
         return Ok(rooms.First());
     }
 
-    private Guid GetCurrentMemberId()
+    private async Task<Guid> GetCurrentMemberIdAsync()
     {
-        var memberIdClaim = User.FindFirst("member_id")?.Value;
-        return Guid.TryParse(memberIdClaim, out var memberId) ? memberId : Guid.Empty;
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(userIdStr, out var userId))
+            return Guid.Empty;
+
+        return await _chatService.GetMemberIdByUserIdAsync(userId);
     }
 }

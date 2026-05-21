@@ -415,6 +415,47 @@ type LogLevel = 'Error' | 'Warning' | 'Info' | 'Debug' | 'Audit' | '';
     .detail-text.small { font-size: 12px; word-break: break-all; }
     .exception-text { font-family: monospace; font-size: 11px; background: #2d2d2d; color: #f8f8f2; padding: 16px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
     .json-text { font-family: monospace; font-size: 12px; background: #f8f9fa; padding: 12px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+
+    @media (max-width: 1200px) {
+      .filter-bar { gap: 8px; }
+      .search-box { min-width: 200px; }
+    }
+
+    @media (max-width: 992px) {
+      .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .header-actions { width: 100%; justify-content: stretch; }
+      .stats-row { gap: 8px; }
+      .stat-chip { flex: 1; min-width: 120px; justify-content: center; }
+    }
+
+    @media (max-width: 768px) {
+      .filter-bar { flex-direction: column; align-items: stretch; }
+      .search-box { min-width: auto; }
+      .filter-bar select, .filter-bar .module-input { width: 100%; }
+      .date-range { flex-wrap: wrap; }
+      .date-range input { flex: 1; min-width: 120px; }
+      .page-header h1 { font-size: 22px; }
+    }
+
+    @media (max-width: 576px) {
+      .page-header h1 { font-size: 20px; }
+      .subtitle { font-size: 13px; }
+      .stat-chip { padding: 8px 12px; }
+      .stat-chip .count { font-size: 16px; }
+      .stat-chip .label { font-size: 11px; }
+      .btn { padding: 8px 14px; font-size: 13px; }
+      .data-table { font-size: 12px; }
+      .data-table th, .data-table td { padding: 8px 10px; }
+      .modal { width: 95vw; }
+      .modal-body { padding: 16px; }
+    }
+
+    @media (max-width: 480px) {
+      .data-table th:nth-child(4),
+      .data-table td:nth-child(4),
+      .data-table th:nth-child(5),
+      .data-table td:nth-child(5) { display: none; }
+    }
   `]
 })
 export class LogsActivityComponent implements OnInit, OnDestroy {
