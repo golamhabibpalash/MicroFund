@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Data;
+using UnityMicroFund.API.Infrastructure.Email;
 using UnityMicroFund.API.Models;
 
 namespace UnityMicroFund.API.Areas.Auth.Controllers;
@@ -13,10 +14,12 @@ namespace UnityMicroFund.API.Areas.Auth.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IEmailService _emailService;
 
-    public UsersController(AppDbContext context)
+    public UsersController(AppDbContext context, IEmailService emailService)
     {
         _context = context;
+        _emailService = emailService;
     }
 
     [HttpGet]
@@ -224,6 +227,9 @@ public class UsersController : ControllerBase
         user.IsApproved = isApproved;
         user.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        if (isApproved)
+            _ = _emailService.SendUserApprovedEmailAsync(user.Email, user.Name);
 
         var message = user.IsApproved ? "User approved successfully" : "User unapproved successfully";
 

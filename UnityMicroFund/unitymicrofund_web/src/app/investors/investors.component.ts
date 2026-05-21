@@ -607,6 +607,7 @@ export class InvestorsComponent implements OnInit {
   saveMember() {
     if (!this.editingMember) return;
     this.isSaving = true;
+    this.errorMessage = '';
     this.http.put<Member>(`/api/members/${this.editingMember.id}`, this.editingMember).subscribe({
       next: (updated) => {
         const index = this.members.findIndex(m => m.id === updated.id);
@@ -620,6 +621,8 @@ export class InvestorsComponent implements OnInit {
       error: (err) => {
         console.error('Error saving member:', err);
         this.isSaving = false;
+        alert(err.error?.message || 'Failed to save member. Please try again.');
+        this.cdr.detectChanges();
       }
     });
   }
