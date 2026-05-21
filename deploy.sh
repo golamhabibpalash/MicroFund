@@ -312,8 +312,8 @@ API_SRC="${API_SRC_DIR}/UnityMicroFund.API.csproj"
 
 info "Restoring packages..."
 # Clean stale build artifacts to avoid cache conflicts
-rm -rf "${API_SRC_DIR}/obj" "${API_SRC_DIR}/bin"
-chown -R root:root "${API_SRC_DIR}"
+rm -rf "${API_SRC_DIR}/obj" "${API_SRC_DIR}/bin" "${API_DIR}"
+mkdir -p "${API_DIR}"
 dotnet restore "${API_SRC}" -q
 
 info "Publishing release build..."
@@ -322,6 +322,7 @@ dotnet publish "${API_SRC}" \
     --output "${API_DIR}" \
     --no-self-contained \
     --runtime linux-x64 \
+    --no-incremental \
     -q
 
 # Copy Tesseract training data if present in source
