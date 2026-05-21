@@ -2174,6 +2174,7 @@ export class PaymentsComponent implements OnInit {
   }
 
   resetForm() {
+    const preservedMemberId = !this.isAdmin ? this.newTransaction.memberId : '';
     this.newTransaction = {
       transferTo: '',
       amount: 0,
@@ -2182,7 +2183,7 @@ export class PaymentsComponent implements OnInit {
       accountId: '',
       receiptType: '',
       transferFrom: '',
-      memberId: ''
+      memberId: preservedMemberId || ''
     };
     this.transactionDate = '';
     this.transactionId = '';
