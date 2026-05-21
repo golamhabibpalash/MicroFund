@@ -77,7 +77,12 @@ const STORAGE_KEY = 'umf_nav_expanded';
           <!-- Optional divider -->
           <li *ngIf="mod.dividerBefore && !collapsed" class="nav-divider" role="separator" aria-hidden="true"></li>
 
-          <li class="nav-module" [class.is-active]="isModuleActive(mod)" [class.is-expanded]="isExpanded(mod.id)">
+          <li class="nav-module"
+              [class.is-active]="isModuleActive(mod)"
+              [class.is-expanded]="isExpanded(mod.id)"
+              [class.hover-expand]="collapsed && hoveredModule === mod.id"
+              (mouseenter)="onHover(mod.id)"
+              (mouseleave)="onHover(null)">
 
             <!-- ── Direct link (no children) ── -->
             <ng-container *ngIf="!mod.children?.length">
@@ -93,6 +98,8 @@ const STORAGE_KEY = 'umf_nav_expanded';
                 <span class="nav-icon material-icons" aria-hidden="true">{{ mod.icon }}</span>
                 <span class="nav-label" *ngIf="!collapsed">{{ mod.label }}</span>
               </a>
+              <!-- Tooltip when collapsed -->
+              <div class="nav-tooltip" *ngIf="collapsed && hoveredModule === mod.id">{{ mod.label }}</div>
             </ng-container>
 
             <!-- ── Module with children (accordion) ── -->
@@ -119,7 +126,7 @@ const STORAGE_KEY = 'umf_nav_expanded';
                 </span>
               </button>
 
-              <!-- Children with height animation -->
+              <!-- Children inline (when not collapsed) -->
               <div
                 class="nav-children"
                 [id]="'navgroup-' + mod.id"
@@ -140,6 +147,25 @@ const STORAGE_KEY = 'umf_nav_expanded';
                   <span class="nav-icon material-icons" aria-hidden="true">{{ child.icon }}</span>
                   <span class="nav-label">{{ child.label }}</span>
                 </a>
+              </div>
+
+              <!-- Hover popover (when collapsed) -->
+              <div class="nav-popover" *ngIf="collapsed && hoveredModule === mod.id">
+                <div class="popover-header">
+                  <span class="material-icons">{{ mod.icon }}</span>
+                  <span class="popover-title">{{ mod.label }}</span>
+                </div>
+                <div class="popover-children">
+                  <a
+                    *ngFor="let child of visibleChildren(mod); trackBy: trackByRoute"
+                    class="popover-child-link"
+                    [routerLink]="child.route"
+                    [class.active]="isChildActive(child.route)"
+                    (click)="onChildClick(mod)">
+                    <span class="material-icons">{{ child.icon }}</span>
+                    <span>{{ child.label }}</span>
+                  </a>
+                </div>
               </div>
             </ng-container>
 
@@ -309,6 +335,107 @@ const STORAGE_KEY = 'umf_nav_expanded';
       border-left-color: #FFD700;
     }
 
+    /* ── Tooltip (collapsed, direct links) ──────────────── */
+    .nav-tooltip {
+      position: absolute;
+      left: calc(100% + 12px);
+      top: 50%;
+      transform: translateY(-50%);
+      background: #1a1a2e;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      opacity: 0;
+      animation: tooltipFadeIn 0.15s ease forwards;
+    }
+
+    .nav-tooltip::before {
+      content: '';
+      position: absolute;
+      left: -6px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 6px solid transparent;
+      border-right-color: #1a1a2e;
+    }
+
+    @keyframes tooltipFadeIn {
+      from { opacity: 0; transform: translateY(-50%) translateX(-4px); }
+      to   { opacity: 1; transform: translateY(-50%) translateX(0); }
+    }
+
+    /* ── Hover popover (collapsed, modules with children) ─ */
+    .nav-popover {
+      position: absolute;
+      left: calc(100% + 8px);
+      top: 0;
+      min-width: 220px;
+      background: #1a1a2e;
+      border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      z-index: 1000;
+      overflow: hidden;
+      opacity: 0;
+      animation: popoverFadeIn 0.2s ease forwards;
+    }
+
+    @keyframes popoverFadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .popover-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      color: #FFD700;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .popover-header .material-icons {
+      font-size: 20px;
+    }
+
+    .popover-children {
+      padding: 6px 0;
+    }
+
+    .popover-child-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      color: rgba(255,255,255,0.75);
+      text-decoration: none;
+      font-size: 13px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .popover-child-link:hover {
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+    }
+
+    .popover-child-link.active {
+      background: rgba(255,215,0,0.12);
+      color: #FFD700;
+      font-weight: 500;
+    }
+
+    .popover-child-link .material-icons {
+      font-size: 18px;
+      color: inherit;
+    }
+
     /* ── Child indicator dot ────────────────────────────── */
     .child-indicator {
       width: 6px;
@@ -346,6 +473,7 @@ export class SideNavComponent implements OnInit, OnChanges, OnDestroy {
 
   expandedModules = new Set<string>();
   currentUrl = '';
+  hoveredModule: string | null = null;
 
   private destroy$ = new Subject<void>();
 
@@ -450,16 +578,21 @@ export class SideNavComponent implements OnInit, OnChanges, OnDestroy {
 
   onDirectClick() {
     this.navigated.emit();
+    this.hoveredModule = null;
   }
 
   onChildClick(mod: NavModule) {
-    // Keep the parent expanded; collapse siblings if policy demands it
     if (this.policy.singleExpand) {
       this.expandedModules.clear();
       this.expandedModules.add(mod.id);
     }
     this.saveState();
     this.navigated.emit();
+    this.hoveredModule = null;
+  }
+
+  onHover(id: string | null) {
+    this.hoveredModule = this.collapsed ? id : null;
   }
 
   // ─── Keyboard navigation ────────────────────────────────────────────────────

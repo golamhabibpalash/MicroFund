@@ -604,7 +604,7 @@ export class AdminLayoutComponent implements OnInit {
   userRole: string | null = null;
   userName: string | null = null;
   sidebarOpen = false;
-  sidebarCollapsed = false;
+  sidebarCollapsed = localStorage.getItem('umf_sidebar_collapsed') === 'true';
 
   constructor(
     private cdr: ChangeDetectorRef,
@@ -641,7 +641,10 @@ export class AdminLayoutComponent implements OnInit {
 
   toggleSidebar() { this.sidebarOpen = !this.sidebarOpen; }
   closeSidebar()  { this.sidebarOpen = false; }
-  toggleSidebarCollapse() { this.sidebarCollapsed = !this.sidebarCollapsed; }
+  toggleSidebarCollapse() {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+    localStorage.setItem('umf_sidebar_collapsed', String(this.sidebarCollapsed));
+  }
 
   closeSidebarOnMobile() {
     if (window.innerWidth <= 992) this.sidebarOpen = false;
