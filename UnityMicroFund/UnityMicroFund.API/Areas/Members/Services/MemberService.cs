@@ -79,8 +79,28 @@ public class MemberService : IMemberService
             throw new ArgumentException("Invalid gender value");
         }
 
+        // Auto-link to an existing User account with the same email
+        Guid? linkedUserId = null;
+        if (!string.IsNullOrWhiteSpace(dto.Email))
+        {
+            var matchedUser = await _context.Users
+                .Where(u => u.Email.ToLower() == dto.Email.ToLower())
+                .Select(u => new { u.Id })
+                .FirstOrDefaultAsync();
+
+            if (matchedUser != null)
+            {
+                // Only link if that user doesn't already own a different member record
+                var alreadyLinked = await _context.Members
+                    .AnyAsync(m => m.UserId == matchedUser.Id);
+                if (!alreadyLinked)
+                    linkedUserId = matchedUser.Id;
+            }
+        }
+
         var member = new Member
         {
+            UserId = linkedUserId,
             Name = dto.Name,
             DateOfBirth = dto.DateOfBirth,
             Gender = gender,

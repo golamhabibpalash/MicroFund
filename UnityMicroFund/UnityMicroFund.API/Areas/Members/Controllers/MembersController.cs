@@ -49,6 +49,17 @@ public class MembersController : ControllerBase
         if (member == null)
             return NotFound(new { message = "No member record is linked to your account. Please contact your administrator." });
 
+        // Self-heal: persist the UserId link if it was missing (found by email only)
+        if (member.UserId == null && userId != Guid.Empty)
+        {
+            var alreadyLinked = await _context.Members.AnyAsync(m => m.UserId == userId && m.Id != member.Id);
+            if (!alreadyLinked)
+            {
+                member.UserId = userId;
+                await _context.SaveChangesAsync();
+            }
+        }
+
         return Ok(new { id = member.Id, name = member.Name, email = member.Email });
     }
 

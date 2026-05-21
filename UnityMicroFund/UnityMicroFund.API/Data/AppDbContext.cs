@@ -43,8 +43,15 @@ public class AppDbContext : DbContext
         {
             entity.HasIndex(e => e.Phone).IsUnique();
             entity.HasIndex(e => e.Email);
+            entity.HasIndex(e => e.UserId).IsUnique();  // enforce one Member per User at DB level
             entity.Property(e => e.MonthlyAmount).HasPrecision(18, 2);
             entity.Property(e => e.Gender).HasConversion<string>();
+
+            entity.HasOne(m => m.User)
+                  .WithOne(u => u.Member)
+                  .HasForeignKey<Member>(m => m.UserId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Investment>(entity =>

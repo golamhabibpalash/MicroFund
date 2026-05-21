@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using UnityMicroFund.API.Models;
 
 namespace UnityMicroFund.API.Areas.Auth.Models;
 
@@ -39,4 +40,6 @@ public class User
     public DateTime CreatedAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
+
+    public virtual Member? Member { get; set; }
 }
