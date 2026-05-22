@@ -18,10 +18,9 @@ export class ForgotPasswordComponent {
   error: string = '';
   success: string = '';
   isLoading = false;
-  method: ResetMethod = 'phone';
+  method: ResetMethod = 'email';
   destination: string = '';
 
-  private readonly phoneValidators = [Validators.required, Validators.pattern(/^[0-9]{10,15}$/)];
   private readonly emailValidators = [Validators.required, Validators.email];
 
   constructor(
@@ -30,8 +29,7 @@ export class ForgotPasswordComponent {
     private router: Router,
   ) {
     this.form = this.fb.group({
-      phone: ['', this.phoneValidators],
-      email: [{ value: '', disabled: true }, this.emailValidators],
+      email: ['', this.emailValidators],
       code: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(6)]],
       newPassword: ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: ['', [Validators.required]],
@@ -39,26 +37,15 @@ export class ForgotPasswordComponent {
   }
 
   selectMethod(method: ResetMethod): void {
-    if (this.method === method) {
-      return;
-    }
+    if (method === 'phone') return;
+    if (this.method === method) return;
     this.method = method;
     this.error = '';
     this.success = '';
-
-    const phone = this.form.get('phone');
-    const email = this.form.get('email');
-    if (method === 'phone') {
-      phone?.enable();
-      email?.disable();
-    } else {
-      email?.enable();
-      phone?.disable();
-    }
   }
 
   get step1Fields() {
-    return this.method === 'phone' ? ['phone'] : ['email'];
+    return ['email'];
   }
 
   get step2Fields() {
@@ -107,7 +94,7 @@ export class ForgotPasswordComponent {
   }
 
   private getIdentifier(): string {
-    const control = this.method === 'phone' ? this.form.get('phone') : this.form.get('email');
+    const control = this.form.get('email');
     return (control?.value || '').trim();
   }
 
@@ -118,14 +105,15 @@ export class ForgotPasswordComponent {
       next: () => {
         this.isLoading = false;
         this.currentStep = 2;
-        this.success =
-          this.method === 'phone'
-            ? 'A 6-digit code has been sent to your phone.'
-            : 'A 6-digit code has been sent to your email.';
+        this.success = 'A 6-digit code has been sent to your email.';
       },
       error: (err) => {
         this.isLoading = false;
-        this.error = err.error?.message || 'Failed to send reset code. Please try again.';
+        const msg =
+          err.status === 404
+            ? 'No account found with this email address.'
+            : err.error?.message || 'Failed to send reset code. Please try again.';
+        this.error = msg;
       },
     });
   }

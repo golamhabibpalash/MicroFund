@@ -27,7 +27,7 @@ public class AuthService : IAuthService
     private readonly ISmsService _smsService;
     private readonly AdminSettings _adminSettings;
 
-    private const int ResetCodeExpiryMinutes = 10;
+    private const int ResetCodeExpiryMinutes = 5;
     private const int MaxResetAttempts = 5;
 
     public AuthService(Data.AppDbContext context, IJwtService jwtService, IConfiguration configuration, INotificationService notificationService, HttpClient httpClient, IEmailService emailService, ISmsService smsService, IOptions<AdminSettings> adminSettings)
