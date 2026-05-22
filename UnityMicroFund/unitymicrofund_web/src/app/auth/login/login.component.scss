@@ -5,20 +5,160 @@
   align-items: center;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)),
-              url('/assets/workspace-bg.jpg') no-repeat center center/cover;
+  background-color: #0a0f1c;
+  background-image:
+    radial-gradient(circle at 20% 18%, rgba(45, 212, 191, 0.12), transparent 42%),
+    radial-gradient(circle at 82% 82%, rgba(56, 132, 255, 0.12), transparent 45%),
+    linear-gradient(160deg, #0b1120 0%, #0e1830 55%, #0a1024 100%);
+
+  // Subtle professional grid texture overlay (slowly drifting for a living feel)
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    z-index: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(circle at center, #000 0%, transparent 80%);
+    -webkit-mask-image: radial-gradient(circle at center, #000 0%, transparent 80%);
+    pointer-events: none;
+    animation: gridPan 60s linear infinite;
+  }
+
+  // Finance motif: glowing area chart + rising growth line + candlestick bars
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 58%;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.6;
+    background-repeat: no-repeat;
+    background-position: bottom center;
+    background-size: cover;
+    filter: drop-shadow(0 0 14px rgba(45, 212, 191, 0.35));
+    animation: floatChart 9s ease-in-out infinite;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 400' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='a' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%232dd4bf' stop-opacity='0.30'/%3E%3Cstop offset='1' stop-color='%232dd4bf' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0,330 L160,300 L320,315 L480,250 L640,275 L800,200 L960,225 L1120,140 L1200,110 L1200,400 L0,400 Z' fill='url(%23a)'/%3E%3Cg fill='%232dd4bf' fill-opacity='0.10'%3E%3Crect x='90' y='250' width='14' height='90'/%3E%3Crect x='250' y='210' width='14' height='130'/%3E%3Crect x='410' y='230' width='14' height='110'/%3E%3Crect x='570' y='170' width='14' height='170'/%3E%3Crect x='730' y='190' width='14' height='150'/%3E%3Crect x='890' y='120' width='14' height='220'/%3E%3Crect x='1050' y='90' width='14' height='250'/%3E%3C/g%3E%3Cpath d='M0,330 L160,300 L320,315 L480,250 L640,275 L800,200 L960,225 L1120,140 L1200,110' fill='none' stroke='%232dd4bf' stroke-width='3' stroke-opacity='0.55' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='800' cy='200' r='6' fill='%232dd4bf' fill-opacity='0.7'/%3E%3Ccircle cx='1120' cy='140' r='6' fill='%232dd4bf' fill-opacity='0.7'/%3E%3Cpath d='M0,360 L160,345 L320,352 L480,320 L640,335 L800,295 L960,308 L1120,260 L1200,240' fill='none' stroke='%233884ff' stroke-width='2' stroke-opacity='0.30' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
 }
 
+// Two living "aurora" orbs in brand colors, gently drifting
 .bg-glow {
   position: absolute;
-  width: 500px;
-  height: 500px;
-  background: var(--brand-gradient);
-  filter: blur(120px);
-  opacity: 0.25;
-  right: 15%;
-  top: 10%;
+  inset: 0;
   z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+  }
+
+  &::before {
+    width: 520px;
+    height: 520px;
+    right: 6%;
+    top: 4%;
+    background: radial-gradient(circle, rgba(45, 212, 191, 0.55), transparent 70%);
+    opacity: 0.5;
+    animation: auroraDrift 18s ease-in-out infinite alternate;
+  }
+
+  &::after {
+    width: 460px;
+    height: 460px;
+    left: 4%;
+    bottom: 6%;
+    background: radial-gradient(circle, rgba(56, 132, 255, 0.5), transparent 70%);
+    opacity: 0.45;
+    animation: auroraDrift 24s ease-in-out infinite alternate-reverse;
+  }
+}
+
+// Floating currency symbols & coins scattered across the backdrop
+.currency-field {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+
+  .cur {
+    position: absolute;
+    font-weight: 700;
+    color: rgba(45, 212, 191, 0.16);
+    text-shadow: 0 0 18px rgba(45, 212, 191, 0.18);
+    user-select: none;
+    animation: floatCurrency 14s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .coin {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid rgba(45, 212, 191, 0.18);
+    background: radial-gradient(circle at 35% 30%, rgba(45, 212, 191, 0.14), transparent 70%);
+    box-shadow: 0 0 22px rgba(45, 212, 191, 0.12);
+    animation: floatCurrency 16s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  // Symbols — varied size / position / timing for an organic scatter
+  .c1 { top: 14%; left: 10%;  font-size: 4.5rem; animation-delay: 0s;    color: rgba(45, 212, 191, 0.18); }
+  .c2 { top: 24%; left: 78%;  font-size: 3rem;   animation-delay: -2s;   color: rgba(56, 132, 255, 0.16); }
+  .c3 { top: 62%; left: 6%;   font-size: 3.5rem; animation-delay: -5s;   color: rgba(56, 132, 255, 0.14); }
+  .c4 { top: 72%; left: 86%;  font-size: 5rem;   animation-delay: -1.5s; }
+  .c5 { top: 40%; left: 88%;  font-size: 2.6rem; animation-delay: -7s;   color: rgba(56, 132, 255, 0.15); }
+  .c6 { top: 82%; left: 22%;  font-size: 3.2rem; animation-delay: -4s;   color: rgba(56, 132, 255, 0.14); }
+  .c7 { top: 8%;  left: 52%;  font-size: 2.4rem; animation-delay: -9s; }
+  .c8 { top: 50%; left: 16%;  font-size: 2.8rem; animation-delay: -3s; }
+
+  // Coins
+  .k1 { top: 18%; left: 64%; width: 70px;  height: 70px; animation-delay: -6s; }
+  .k2 { top: 66%; left: 72%; width: 48px;  height: 48px; animation-delay: -2.5s; }
+  .k3 { top: 34%; left: 30%; width: 90px;  height: 90px; animation-delay: -8s; }
+}
+
+@keyframes floatCurrency {
+  0%   { transform: translateY(0) translateX(0) rotate(0deg); }
+  33%  { transform: translateY(-22px) translateX(10px) rotate(6deg); }
+  66%  { transform: translateY(12px) translateX(-8px) rotate(-5deg); }
+  100% { transform: translateY(0) translateX(0) rotate(0deg); }
+}
+
+@keyframes gridPan {
+  to { background-position: 48px 48px; }
+}
+
+@keyframes floatChart {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+
+@keyframes auroraDrift {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(40px, -30px) scale(1.15); }
+}
+
+// Respect users who prefer reduced motion
+@media (prefers-reduced-motion: reduce) {
+  .login-container::before,
+  .login-container::after,
+  .bg-glow::before,
+  .bg-glow::after,
+  .currency-field .cur,
+  .currency-field .coin {
+    animation: none;
+  }
 }
 
 .glass-card {
@@ -58,29 +198,6 @@
     font-size: 0.9rem;
     color: var(--text-secondary);
     margin: 0;
-  }
-}
-
-.biometric-wrapper {
-  margin-bottom: 2rem;
-  display: flex;
-  justify-content: center;
-
-  .biometric-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 1rem;
-    border-radius: 50%;
-    color: #2dd4bf;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 0 15px rgba(45, 212, 191, 0.1);
-
-    &:hover {
-      background: rgba(45, 212, 191, 0.15);
-      transform: scale(1.05);
-      box-shadow: 0 0 25px rgba(45, 212, 191, 0.3);
-    }
   }
 }
 
@@ -292,6 +409,30 @@
     text-decoration: underline;
     &:hover { color: #2dd4bf; }
   }
+
+  a.action-link {
+    display: inline-block;
+    margin-top: 0.5rem;
+    padding: 0.5rem 1.1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #2dd4bf;
+    text-decoration: none;
+    letter-spacing: 0.2px;
+    border: 1px solid rgba(45, 212, 191, 0.5);
+    border-radius: 8px;
+    background: rgba(45, 212, 191, 0.08);
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      color: #0b1120;
+      background: #2dd4bf;
+      border-color: #2dd4bf;
+      box-shadow: 0 0 18px rgba(45, 212, 191, 0.4);
+      text-decoration: none;
+    }
+  }
 }
 
 @keyframes spin {
@@ -325,14 +466,6 @@
 
     .subtitle {
       font-size: 0.8rem;
-    }
-  }
-
-  .biometric-wrapper {
-    margin-bottom: 1rem;
-
-    .biometric-btn {
-      padding: 0.75rem;
     }
   }
 

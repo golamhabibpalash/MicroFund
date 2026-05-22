@@ -3,5 +3,10 @@
     "target": "http://localhost:5248",
     "secure": false,
     "changeOrigin": true
+  },
+  "/assets/member": {
+    "target": "http://localhost:5248",
+    "secure": false,
+    "changeOrigin": true
   }
 }

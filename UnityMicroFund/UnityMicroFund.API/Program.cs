@@ -243,6 +243,15 @@ if (Directory.Exists(uploadsPath))
     });
 }
 
+var memberImagesPath = Path.Combine(builder.Environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "member");
+Directory.CreateDirectory(memberImagesPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(memberImagesPath),
+    RequestPath = "/assets/member",
+    ContentTypeProvider = contentTypeProvider
+});
+
 static string GetContentType(string fileName)
 {
     var ext = Path.GetExtension(fileName).ToLowerInvariant();

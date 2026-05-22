@@ -12,10 +12,12 @@ namespace UnityMicroFund.API.Areas.Profile.Controllers;
 public class ProfileController : ControllerBase
 {
     private readonly IProfileService _profileService;
+    private readonly IWebHostEnvironment _environment;
 
-    public ProfileController(IProfileService profileService)
+    public ProfileController(IProfileService profileService, IWebHostEnvironment environment)
     {
         _profileService = profileService;
+        _environment = environment;
     }
 
     [HttpGet]
@@ -103,12 +105,8 @@ public class ProfileController : ControllerBase
             return Unauthorized();
         }
 
-        var uploadsFolder = "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/unitymicrofund_web/src/assets/member";
-        
-        if (!Directory.Exists(uploadsFolder))
-        {
-            Directory.CreateDirectory(uploadsFolder);
-        }
+        var uploadsFolder = Path.Combine(_environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "member");
+        Directory.CreateDirectory(uploadsFolder);
 
         var fileName = $"{userId}_{DateTime.UtcNow:yyyyMMddHHmmss}{extension}";
         var filePath = Path.Combine(uploadsFolder, fileName);
@@ -118,15 +116,12 @@ public class ProfileController : ControllerBase
             await file.CopyToAsync(stream);
         }
 
-        // Also copy to dist/browser folder for production
-        var distFolder = "/Users/golamhabibpalash/Documents/Dev/Projects/UnityMicroFund/UnityMicroFund/unitymicrofund_web/dist/unitymicrofund_web/browser/assets/member";
-        if (Directory.Exists(distFolder))
+        // Also copy to dist/browser folder so it is served in production builds
+        var distFolder = Path.Combine(_environment.ContentRootPath, "..", "unitymicrofund_web", "dist", "unitymicrofund_web", "browser", "assets", "member");
+        if (Directory.Exists(Path.GetDirectoryName(distFolder)!))
         {
-            var distPath = Path.Combine(distFolder, fileName);
-            using (var distStream = new FileStream(distPath, FileMode.Create))
-            {
-                await file.CopyToAsync(distStream);
-            }
+            Directory.CreateDirectory(distFolder);
+            System.IO.File.Copy(filePath, Path.Combine(distFolder, fileName), overwrite: true);
         }
 
         var imageUrl = $"/assets/member/{fileName}";

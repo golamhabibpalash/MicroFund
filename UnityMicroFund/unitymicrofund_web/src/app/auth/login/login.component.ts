@@ -250,10 +250,6 @@ export class LoginComponent implements OnInit, AfterViewInit {
     });
   }
 
-  triggerBiometric(): void {
-    console.log('Initiating WebAuthn / FIDO2 Biometric Handshake...');
-  }
-
   private navigateToDashboard(): void {
     this.router.navigate(['/dashboard']);
   }

@@ -1,6 +1,21 @@
 <div class="login-container">
   <div class="bg-glow"></div>
 
+  <!-- Floating currency motif (decorative) -->
+  <div class="currency-field" aria-hidden="true">
+    <span class="cur c1">৳</span>
+    <span class="cur c2">$</span>
+    <span class="cur c3">€</span>
+    <span class="cur c4">৳</span>
+    <span class="cur c5">£</span>
+    <span class="cur c6">¥</span>
+    <span class="cur c7">$</span>
+    <span class="cur c8">৳</span>
+    <span class="coin k1"></span>
+    <span class="coin k2"></span>
+    <span class="coin k3"></span>
+  </div>
+
   <div class="glass-card">
     <div class="card-header">
       <img src="assets/organization/logo.png" alt="Unity MicroFund Logo" class="brand-logo" />
@@ -8,19 +23,9 @@
       <p class="subtitle">Sharia-Compliant Investments & Community</p>
     </div>
 
-    <div class="biometric-wrapper">
-      <button type="button" class="biometric-btn" (click)="triggerBiometric()" title="Biometric Login">
-        <span class="fingerprint-icon">
-          <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="1.5" fill="none">
-            <path d="M12 2a10 10 0 0 0-4.5 1.1M12 6a6 6 0 0 1 5.3 3.2M8.5 11.5a4 4 0 0 1 7 0M5.1 15.3A10 10 0 0 1 12 10a10 10 0 0 1 8.2 4.3M12 14a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z" stroke-linecap="round"/>
-          </svg>
-        </span>
-      </button>
-    </div>
-
     <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
       <div class="form-group">
-        <label for="email">Member ID</label>
+        <label for="email">Email</label>
         <div class="input-wrapper">
           <input
             id="email"
@@ -33,7 +38,7 @@
       </div>
 
       <div class="form-group">
-        <label for="password">Secure Key</label>
+        <label for="password">Password</label>
         <div class="input-wrapper">
           <input
             id="password"
@@ -85,7 +90,8 @@
     </div>
 
     <div class="card-footer">
-      <p>Not a member? <a routerLink="/auth/register" class="action-link">Apply for Unity MicroFund Membership</a>.</p>
+      <p>Not a member?</p>
+      <a routerLink="/auth/register" class="action-link">Apply for Unity MicroFund Membership</a>
     </div>
   </div>
 </div>
