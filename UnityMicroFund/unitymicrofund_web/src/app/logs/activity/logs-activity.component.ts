@@ -294,7 +294,7 @@ type LogLevel = 'Error' | 'Warning' | 'Info' | 'Debug' | 'Audit' | '';
     </div>
   `,
   styles: [`
-    .logs-wrapper { max-width: 1400px; }
+    .logs-wrapper { width: 100%; margin: 0 auto; padding: 24px; box-sizing: border-box; }
 
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
     .page-header h1 { font-size: 26px; font-weight: 600; color: #1a1a2e; margin: 0; }
@@ -429,6 +429,7 @@ type LogLevel = 'Error' | 'Warning' | 'Info' | 'Debug' | 'Audit' | '';
     }
 
     @media (max-width: 768px) {
+      .logs-wrapper { padding: 16px; }
       .filter-bar { flex-direction: column; align-items: stretch; }
       .search-box { min-width: auto; }
       .filter-bar select, .filter-bar .module-input { width: 100%; }

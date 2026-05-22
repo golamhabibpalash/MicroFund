@@ -318,7 +318,7 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
     </div>
   `,
   styles: [`
-    .accounts-wrapper { max-width: 1400px; }
+    .accounts-wrapper { width: 100%; margin: 0 auto; padding: 24px; box-sizing: border-box; }
     .top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
     .header-left { display: flex; align-items: center; gap: 12px; }
     .header-left h1 { font-size: 28px; font-weight: 600; color: #1a1a2e; margin: 0; }
@@ -433,6 +433,7 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
       .accounts-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 768px) {
+      .accounts-wrapper { padding: 16px; }
       .top-header { flex-direction: column; align-items: flex-start; gap: 12px; }
       .search-box { width: 100%; }
       .header-actions { width: 100%; flex-wrap: wrap; }

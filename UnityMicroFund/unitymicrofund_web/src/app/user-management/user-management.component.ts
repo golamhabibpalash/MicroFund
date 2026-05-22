@@ -447,7 +447,7 @@ type TabType = 'users' | 'roles' | 'permissions';
     </div>
   `,
   styles: [`
-    .user-management-wrapper { max-width: 1400px; }
+    .user-management-wrapper { width: 100%; margin: 0 auto; padding: 24px; box-sizing: border-box; }
     .page-header { margin-bottom: 24px; }
     .page-header h1 { font-size: 28px; font-weight: 600; color: #1a1a2e; margin: 0; }
     .subtitle { color: #666; margin: 4px 0 0 0; font-size: 14px; }
@@ -628,6 +628,7 @@ type TabType = 'users' | 'roles' | 'permissions';
     }
 
     @media (max-width: 768px) {
+      .user-management-wrapper { padding: 16px; }
       .page-header h1 { font-size: 24px; }
       .roles-grid { grid-template-columns: 1fr; }
       .permissions-grid { grid-template-columns: 1fr; }

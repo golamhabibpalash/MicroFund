@@ -521,7 +521,10 @@ interface Member {
   `,
   styles: [`
     .payments-wrapper {
-      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+      box-sizing: border-box;
     }
 
     .top-header {
@@ -1193,6 +1196,7 @@ interface Member {
       .stats-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 768px) {
+      .payments-wrapper { padding: 16px; }
       .top-header h1 { font-size: 20px; }
       .search-box { width: 100%; margin-bottom: 12px; }
       .header-actions { flex-wrap: wrap; gap: 8px; }

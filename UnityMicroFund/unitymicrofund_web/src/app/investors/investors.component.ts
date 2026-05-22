@@ -375,7 +375,7 @@ interface Member {
     </div>
   `,
   styles: [`
-    .investors-wrapper { max-width: 1400px; }
+    .investors-wrapper { width: 100%; margin: 0 auto; padding: 24px; box-sizing: border-box; }
     .top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
     .header-left { display: flex; align-items: center; gap: 12px; }
     .header-left h1 { font-size: 28px; font-weight: 600; color: #1a1a2e; margin: 0; }
@@ -456,6 +456,7 @@ interface Member {
       .stats-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 768px) {
+      .investors-wrapper { padding: 16px; }
       .top-header { flex-direction: column; align-items: flex-start; gap: 12px; }
       .search-box { width: 100%; }
       .view-toggle { display: none; }

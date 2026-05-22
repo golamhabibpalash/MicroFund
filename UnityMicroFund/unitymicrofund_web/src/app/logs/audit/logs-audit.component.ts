@@ -224,7 +224,7 @@ import { AuditLog, PagedResult } from '../../core/models/log.model';
     </div>
   `,
   styles: [`
-    .logs-wrapper { max-width: 1400px; }
+    .logs-wrapper { width: 100%; margin: 0 auto; padding: 24px; box-sizing: border-box; }
     .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
     .page-header h1 { font-size: 26px; font-weight: 600; color: #1a1a2e; margin: 0; }
     .subtitle { color: #666; margin: 4px 0 0; font-size: 14px; }
@@ -320,6 +320,7 @@ import { AuditLog, PagedResult } from '../../core/models/log.model';
     }
 
     @media (max-width: 768px) {
+      .logs-wrapper { padding: 16px; }
       .filter-bar { flex-direction: column; align-items: stretch; }
       .search-box { min-width: auto; }
       .filter-bar select { width: 100%; }
