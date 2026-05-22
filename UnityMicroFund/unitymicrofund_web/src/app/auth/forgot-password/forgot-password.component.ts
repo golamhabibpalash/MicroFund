@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Auth } from '../../core/services/auth';
+import { Auth, ResetMethod } from '../../core/services/auth';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 
@@ -18,7 +18,11 @@ export class ForgotPasswordComponent {
   error: string = '';
   success: string = '';
   isLoading = false;
-  phone: string = '';
+  method: ResetMethod = 'phone';
+  destination: string = '';
+
+  private readonly phoneValidators = [Validators.required, Validators.pattern(/^[0-9]{10,15}$/)];
+  private readonly emailValidators = [Validators.required, Validators.email];
 
   constructor(
     private fb: FormBuilder,
@@ -26,15 +30,35 @@ export class ForgotPasswordComponent {
     private router: Router,
   ) {
     this.form = this.fb.group({
-      phone: ['', [Validators.required, Validators.pattern(/^[0-9]{10,15}$/)]],
+      phone: ['', this.phoneValidators],
+      email: [{ value: '', disabled: true }, this.emailValidators],
       code: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(6)]],
       newPassword: ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: ['', [Validators.required]],
     });
   }
 
+  selectMethod(method: ResetMethod): void {
+    if (this.method === method) {
+      return;
+    }
+    this.method = method;
+    this.error = '';
+    this.success = '';
+
+    const phone = this.form.get('phone');
+    const email = this.form.get('email');
+    if (method === 'phone') {
+      phone?.enable();
+      email?.disable();
+    } else {
+      email?.enable();
+      phone?.disable();
+    }
+  }
+
   get step1Fields() {
-    return ['phone'];
+    return this.method === 'phone' ? ['phone'] : ['email'];
   }
 
   get step2Fields() {
@@ -68,7 +92,7 @@ export class ForgotPasswordComponent {
 
   nextStep() {
     if (this.currentStep === 1 && this.isStepValid(1)) {
-      this.phone = this.formatPhoneNumber(this.form.get('phone')?.value);
+      this.destination = this.getIdentifier();
       this.requestResetCode();
     } else if (this.currentStep === 2 && this.isStepValid(2)) {
       this.verifyCode();
@@ -82,29 +106,22 @@ export class ForgotPasswordComponent {
     }
   }
 
-  private formatPhoneNumber(phone: string): string {
-    let number = phone.replace(/[\s\-\(\)]/g, '');
-    
-    if (number.startsWith('+880')) {
-      return number;
-    } else if (number.startsWith('880')) {
-      return '+' + number;
-    } else if (number.startsWith('0')) {
-      return '+88' + number.substring(1);
-    } else if (number.length === 10) {
-      return '+88' + number;
-    }
-    return '+' + number;
+  private getIdentifier(): string {
+    const control = this.method === 'phone' ? this.form.get('phone') : this.form.get('email');
+    return (control?.value || '').trim();
   }
 
   requestResetCode() {
     this.isLoading = true;
     this.error = '';
-    this.authService.forgotPassword(this.phone).subscribe({
-      next: (response) => {
+    this.authService.forgotPassword(this.method, this.destination).subscribe({
+      next: () => {
         this.isLoading = false;
         this.currentStep = 2;
-        this.success = 'Reset code sent to your phone. Please enter the 6-digit code.';
+        this.success =
+          this.method === 'phone'
+            ? 'A 6-digit code has been sent to your phone.'
+            : 'A 6-digit code has been sent to your email.';
       },
       error: (err) => {
         this.isLoading = false;
@@ -117,14 +134,14 @@ export class ForgotPasswordComponent {
     this.isLoading = true;
     this.error = '';
     const code = this.form.get('code')?.value;
-    this.authService.verifyResetCode(this.phone, code).subscribe({
+    this.authService.verifyResetCode(this.method, this.destination, code).subscribe({
       next: (response) => {
         this.isLoading = false;
         if (response.valid) {
           this.currentStep = 3;
           this.success = 'Code verified. Please enter your new password.';
         } else {
-          this.error = 'Invalid verification code.';
+          this.error = 'Invalid or expired verification code.';
         }
       },
       error: (err) => {
@@ -146,7 +163,7 @@ export class ForgotPasswordComponent {
     this.isLoading = true;
     this.error = '';
     const code = this.form.get('code')?.value;
-    this.authService.resetPassword(this.phone, code, newPassword).subscribe({
+    this.authService.resetPassword(this.method, this.destination, code, newPassword).subscribe({
       next: () => {
         this.isLoading = false;
         this.success = 'Password reset successful! Redirecting to login...';

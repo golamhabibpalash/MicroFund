@@ -1,80 +1,91 @@
-<div class="login-wrapper">
-  <div class="login-container">
-    <!-- Header -->
-    <div class="login-header">
-      <img src="assets/organization/logo.png" alt="UnityMicroFund Logo" class="logo-img" />
-      <p>Welcome Back</p>
+<div class="login-container">
+  <div class="bg-glow"></div>
+
+  <div class="glass-card">
+    <div class="card-header">
+      <img src="assets/organization/logo.png" alt="Unity MicroFund Logo" class="brand-logo" />
+      <h2>Unity MicroFund</h2>
+      <p class="subtitle">Sharia-Compliant Investments & Community</p>
     </div>
 
-    <!-- Google Sign In / Sign Up -->
-    <div class="google-section">
-      <button type="button" class="google-btn" (click)="renderGoogleButton(); loadGoogleScript()" [disabled]="isGoogleLoading">
-        <svg class="google-icon" viewBox="0 0 24 24" width="20" height="20">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
-        <span>{{ isGoogleLoading ? 'Processing...' : 'Continue with Google' }}</span>
+    <div class="biometric-wrapper">
+      <button type="button" class="biometric-btn" (click)="triggerBiometric()" title="Biometric Login">
+        <span class="fingerprint-icon">
+          <svg viewBox="0 0 24 24" width="32" height="32" stroke="currentColor" stroke-width="1.5" fill="none">
+            <path d="M12 2a10 10 0 0 0-4.5 1.1M12 6a6 6 0 0 1 5.3 3.2M8.5 11.5a4 4 0 0 1 7 0M5.1 15.3A10 10 0 0 1 12 10a10 10 0 0 1 8.2 4.3M12 14a2 2 0 1 1 0 4 2 2 0 0 1 0-4Z" stroke-linecap="round"/>
+          </svg>
+        </span>
       </button>
-      <div id="google-signin-button"></div>
     </div>
 
-    <div class="divider">
-      <span>or</span>
-    </div>
-
-    <!-- Login Form -->
-    <form [formGroup]="form" (ngSubmit)="login()" class="login-form">
-      <!-- Email Field -->
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
       <div class="form-group">
-        <label for="email">Email Address</label>
-        <input
-          id="email"
-          type="email"
-          formControlName="email"
-          class="form-control"
-          placeholder="Enter your email"
-          [class.is-invalid]="form.get('email')?.invalid && form.get('email')?.touched"
-        />
-        <div class="error-message" *ngIf="form.get('email')?.invalid && form.get('email')?.touched">
-          <span *ngIf="form.get('email')?.errors?.['required']">Email is required</span>
-          <span *ngIf="form.get('email')?.errors?.['email']">Please enter a valid email</span>
+        <label for="email">Member ID</label>
+        <div class="input-wrapper">
+          <input
+            id="email"
+            type="text"
+            formControlName="email"
+            placeholder="Enter ID"
+            autocomplete="off"
+          />
         </div>
       </div>
 
-      <!-- Password Field -->
       <div class="form-group">
-        <div class="password-header">
-          <label for="password">Password</label>
-          <a routerLink="/auth/forgot-password" class="forgot-password">Forgot?</a>
-        </div>
-        <input
-          id="password"
-          type="password"
-          formControlName="password"
-          class="form-control"
-          placeholder="Enter your password"
-          [class.is-invalid]="form.get('password')?.invalid && form.get('password')?.touched"
-        />
-        <div
-          class="error-message"
-          *ngIf="form.get('password')?.invalid && form.get('password')?.touched"
-        >
-          <span *ngIf="form.get('password')?.errors?.['required']">Password is required</span>
+        <label for="password">Secure Key</label>
+        <div class="input-wrapper">
+          <input
+            id="password"
+            type="password"
+            formControlName="password"
+            placeholder="Enter Key"
+          />
         </div>
       </div>
 
-      <!-- Submit Button -->
-      <div class="error-message server-error" *ngIf="error">{{ error }}</div>
-      <button type="submit" class="btn-submit" [disabled]="form.invalid || isLoading">
-        <span>{{ isLoading ? 'Signing in...' : 'Sign In' }}</span>
+      <div class="form-actions">
+        <label class="switch-label">
+          <input type="checkbox" formControlName="rememberMe" />
+          <span class="slider"></span>
+          <span class="label-text">Remember Me</span>
+        </label>
+        <a routerLink="/auth/forgot-password" class="fallback-link">Forgot Key?</a>
+      </div>
+
+      <div class="error-message" *ngIf="error">{{ error }}</div>
+
+      <button type="submit" class="submit-btn" [disabled]="loginForm.invalid || isLoading">
+        <span *ngIf="!isLoading">Authenticate & Enter</span>
+        <span *ngIf="isLoading" class="spinner"></span>
       </button>
     </form>
 
-    <!-- Register Link -->
-    <div class="register-link">
-      <p>Don't have an account? <a routerLink="/auth/register">Sign Up</a></p>
+    <div class="sso-section">
+      <div class="sso-divider">
+        <span>Or continue with</span>
+      </div>
+      <div class="sso-buttons">
+        <button type="button" class="sso-btn google-btn" (click)="signInWithGoogle()" [disabled]="isGoogleLoading">
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          <span>{{ isGoogleLoading ? 'Processing...' : 'Google' }}</span>
+        </button>
+        <button type="button" class="sso-btn facebook-btn" (click)="facebookLogin()" [disabled]="isFacebookLoading">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="#1877F2">
+            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+          </svg>
+          <span>{{ isFacebookLoading ? 'Processing...' : 'Facebook' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="card-footer">
+      <p>Not a member? <a routerLink="/auth/register" class="action-link">Apply for Unity MicroFund Membership</a>.</p>
     </div>
   </div>
 </div>

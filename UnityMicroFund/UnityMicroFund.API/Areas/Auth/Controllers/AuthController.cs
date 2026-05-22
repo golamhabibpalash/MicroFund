@@ -75,6 +75,47 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("facebook-login")]
+    public async Task<IActionResult> FacebookLogin([FromBody] FacebookLoginDto dto)
+    {
+        var result = await _authService.FacebookLoginOrRegisterAsync(dto.Token);
+        if (result == null)
+        {
+            return Unauthorized(new { message = "Facebook authentication failed or account is inactive" });
+        }
+        return Ok(result);
+    }
+
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
+    {
+        var via = dto.Method?.Trim().ToLowerInvariant() == "phone" ? "phone" : "email";
+        var found = await _authService.RequestPasswordResetAsync(dto);
+        if (!found)
+        {
+            return NotFound(new { message = $"No account found with this {via}." });
+        }
+        return Ok(new { message = $"A reset code has been sent to your {via}." });
+    }
+
+    [HttpPost("verify-reset-code")]
+    public async Task<IActionResult> VerifyResetCode([FromBody] VerifyResetCodeDto dto)
+    {
+        var valid = await _authService.VerifyResetCodeAsync(dto);
+        return Ok(new { valid });
+    }
+
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+    {
+        var result = await _authService.ResetPasswordAsync(dto);
+        if (!result)
+        {
+            return BadRequest(new { message = "Invalid or expired verification code." });
+        }
+        return Ok(new { message = "Password reset successful." });
+    }
+
     [Authorize]
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)

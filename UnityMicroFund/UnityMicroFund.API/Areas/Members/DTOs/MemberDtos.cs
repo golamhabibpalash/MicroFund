@@ -180,6 +180,14 @@ public class UpdateMemberDto
     public bool? IsActive { get; set; }
 }
 
+public class MemberProfileStatusDto
+{
+    // "none" = no member linked, "pending" = awaiting admin approval, "active" = approved
+    public string Status { get; set; } = "none";
+    public Guid? MemberId { get; set; }
+    public string? Name { get; set; }
+}
+
 public class MemberResponseDto
 {
     public Guid Id { get; set; }

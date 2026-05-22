@@ -10,6 +10,7 @@ public interface IEmailService
     Task SendEmailAsync(string toEmail, string subject, string body);
     Task SendTransactionApprovedEmailAsync(string userEmail, string userName, string refNo, decimal amount, string accountName, string status);
     Task SendUserApprovedEmailAsync(string userEmail, string userName);
+    Task SendPasswordResetCodeEmailAsync(string userEmail, string userName, string code, int expiryMinutes);
 }
 
 public class EmailService : IEmailService
@@ -162,6 +163,40 @@ public class EmailService : IEmailService
             </a>
         </div>
         <p>If you have any questions, feel free to contact the administrator.</p>
+        <p style='margin-top: 30px; color: #666; font-size: 12px;'>
+            This is an automated message from UnityMicroFund. Please do not reply to this email.
+        </p>
+    </div>
+</body>
+</html>";
+
+        await SendEmailAsync(userEmail, subject, body);
+    }
+
+    public async Task SendPasswordResetCodeEmailAsync(string userEmail, string userName, string code, int expiryMinutes)
+    {
+        var subject = "Password Reset Code - UnityMicroFund";
+
+        var body = $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+</head>
+<body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;'>
+    <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;'>
+        <h1 style='color: white; margin: 0; text-align: center;'>UnityMicroFund</h1>
+    </div>
+    <div style='background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;'>
+        <h2 style='color: #667eea; margin-top: 0;'>Password Reset Request</h2>
+        <p>Dear <strong>{userName}</strong>,</p>
+        <p>We received a request to reset your password. Use the verification code below to continue:</p>
+        <div style='text-align: center; margin: 30px 0;'>
+            <span style='display: inline-block; background: white; border: 2px dashed #667eea; padding: 16px 32px; border-radius: 8px; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #333; font-family: monospace;'>{code}</span>
+        </div>
+        <p>This code will expire in <strong>{expiryMinutes} minutes</strong>.</p>
+        <p>If you did not request a password reset, you can safely ignore this email — your password will not change.</p>
         <p style='margin-top: 30px; color: #666; font-size: 12px;'>
             This is an automated message from UnityMicroFund. Please do not reply to this email.
         </p>

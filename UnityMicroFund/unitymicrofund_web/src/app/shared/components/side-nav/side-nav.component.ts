@@ -347,18 +347,30 @@ const STORAGE_KEY = 'umf_nav_expanded';
 
     .nav-popover {
       position: fixed;
-      left: 76px;
+      left: 54px;
       top: var(--popover-top, 50%);
       transform: translateY(-50%);
       min-width: 200px;
       background: #1a1a2e;
-      border-radius: 10px;
+      border-radius: 0 10px 10px 0;
       box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08);
       z-index: 9999;
       overflow: hidden;
       opacity: 0;
-      animation: popoverFadeIn 0.18s ease forwards;
+      animation: popoverSlideIn 0.2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
       pointer-events: auto;
+      padding-left: 18px;
+      background-clip: padding-box;
+    }
+
+    .nav-popover::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 18px;
+      background: transparent;
     }
 
     .nav-popover-direct {
@@ -392,8 +404,8 @@ const STORAGE_KEY = 'umf_nav_expanded';
       color: inherit;
     }
 
-    @keyframes popoverFadeIn {
-      from { opacity: 0; transform: translateY(-50%) translateX(-8px); }
+    @keyframes popoverSlideIn {
+      from { opacity: 0; transform: translateY(-50%) translateX(-12px); }
       to   { opacity: 1; transform: translateY(-50%) translateX(0); }
     }
 
@@ -599,18 +611,30 @@ const STORAGE_KEY = 'umf_nav_expanded';
     /* ── Floating popover (collapsed, all items) ──────── */
     .nav-popover {
       position: fixed;
-      left: 76px;
+      left: 54px;
       top: var(--popover-top, 50%);
       transform: translateY(-50%);
       min-width: 200px;
       background: #1a1a2e;
-      border-radius: 10px;
+      border-radius: 0 10px 10px 0;
       box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08);
       z-index: 9999;
       overflow: hidden;
       opacity: 0;
-      animation: popoverFadeIn 0.18s ease forwards;
+      animation: popoverSlideIn 0.2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
       pointer-events: auto;
+      padding-left: 18px;
+      background-clip: padding-box;
+    }
+
+    .nav-popover::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 18px;
+      background: transparent;
     }
 
     .nav-popover-direct {
@@ -644,8 +668,8 @@ const STORAGE_KEY = 'umf_nav_expanded';
       color: inherit;
     }
 
-    @keyframes popoverFadeIn {
-      from { opacity: 0; transform: translateY(-50%) translateX(-8px); }
+    @keyframes popoverSlideIn {
+      from { opacity: 0; transform: translateY(-50%) translateX(-12px); }
       to   { opacity: 1; transform: translateY(-50%) translateX(0); }
     }
 

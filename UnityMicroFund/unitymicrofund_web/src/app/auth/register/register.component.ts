@@ -1,8 +1,14 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Auth } from '../../core/services/auth';
+import { AuthService } from '../../core/services/auth.service';
+import { Token } from '../../core/services/token';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { environment } from '../../../environments/environment';
+
+declare const google: any;
+declare const FB: any;
 
 @Component({
   selector: 'app-register',
@@ -11,7 +17,7 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [ReactiveFormsModule, CommonModule, RouterLink],
 })
-export class RegisterComponent {
+export class RegisterComponent implements OnInit, AfterViewInit {
   form: FormGroup;
   error: string = '';
   success: string = '';
@@ -20,6 +26,11 @@ export class RegisterComponent {
   showPassword = false;
   showConfirmPassword = false;
   isLoading = false;
+  isGoogleLoading = false;
+  isFacebookLoading = false;
+
+  private googleClientId = environment.googleClientId;
+  private facebookAppId = environment.facebookAppId;
 
   togglePasswordVisibility() {
     this.showPassword = !this.showPassword;
@@ -32,7 +43,10 @@ export class RegisterComponent {
   constructor(
     private fb: FormBuilder,
     private authService: Auth,
+    private googleAuthService: AuthService,
+    private tokenService: Token,
     private router: Router,
+    private cdr: ChangeDetectorRef,
   ) {
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
@@ -60,6 +74,146 @@ export class RegisterComponent {
       emergencyContactRelation: ['', [Validators.required]],
       acceptTerms: [false, [Validators.requiredTrue]],
     });
+  }
+
+  ngOnInit(): void {}
+
+  ngAfterViewInit(): void {
+    this.loadGoogleScript();
+    this.loadFacebookSdk();
+  }
+
+  loadGoogleScript(): void {
+    if (typeof google !== 'undefined' && google.accounts) return;
+    const script = document.createElement('script');
+    script.id = 'google-gsi-script';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => this.initializeGoogleSignIn();
+    document.head.appendChild(script);
+  }
+
+  initializeGoogleSignIn(): void {
+    if (typeof google !== 'undefined' && google.accounts) {
+      google.accounts.id.initialize({
+        client_id: this.googleClientId,
+        callback: (response: any) => this.handleGoogleResponse(response),
+      });
+    }
+  }
+
+  signInWithGoogle(): void {
+    if (typeof google === 'undefined' || !google.accounts) {
+      this.loadGoogleScript();
+      return;
+    }
+
+    this.isGoogleLoading = true;
+    this.error = '';
+
+    const tempDiv = document.createElement('div');
+    tempDiv.id = 'google-temp-btn-' + Date.now();
+    tempDiv.style.position = 'fixed';
+    tempDiv.style.opacity = '0';
+    tempDiv.style.pointerEvents = 'none';
+    tempDiv.style.zIndex = '-1';
+    document.body.appendChild(tempDiv);
+
+    google.accounts.id.renderButton(
+      document.getElementById(tempDiv.id),
+      { theme: 'outline', size: 'large' }
+    );
+
+    requestAnimationFrame(() => {
+      const btn = tempDiv.querySelector('[role="button"], button') as HTMLElement;
+      if (btn) {
+        btn.click();
+      } else {
+        this.isGoogleLoading = false;
+        this.error = 'Google sign-in unavailable.';
+        this.cdr.detectChanges();
+      }
+      setTimeout(() => tempDiv.remove(), 1000);
+    });
+  }
+
+  handleGoogleResponse(response: any): void {
+    if (response.credential) {
+      this.isGoogleLoading = true;
+      this.authService.googleLogin(response.credential).subscribe({
+        next: (res) => {
+          this.isGoogleLoading = false;
+          if (res.accessToken) {
+            this.router.navigate(['/dashboard']);
+          } else {
+            this.error = res.message || 'Registration pending approval.';
+            this.cdr.detectChanges();
+          }
+        },
+        error: () => {
+          this.isGoogleLoading = false;
+          this.error = 'Google sign up failed.';
+          this.cdr.detectChanges();
+        }
+      });
+    }
+  }
+
+  loadFacebookSdk(): void {
+    if (document.getElementById('facebook-jssdk')) return;
+    const script = document.createElement('script');
+    script.id = 'facebook-jssdk';
+    script.src = 'https://connect.facebook.net/en_US/sdk.js';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => this.initializeFacebookSdk();
+    document.head.appendChild(script);
+  }
+
+  initializeFacebookSdk(): void {
+    if (typeof FB !== 'undefined') {
+      FB.init({
+        appId: this.facebookAppId,
+        cookie: true,
+        xfbml: true,
+        version: 'v19.0'
+      });
+    }
+  }
+
+  facebookSignUp(): void {
+    if (typeof FB === 'undefined') {
+      this.error = 'Facebook SDK not loaded.';
+      return;
+    }
+
+    this.isFacebookLoading = true;
+    FB.login((response: any) => {
+      if (response.authResponse) {
+        const accessToken = response.authResponse.accessToken;
+        this.authService.facebookLogin(accessToken).subscribe({
+          next: (res) => {
+            this.isFacebookLoading = false;
+            if (res.requiresApproval) {
+              this.error = 'Registration submitted! Your account is pending approval.';
+              this.tokenService.clearAll();
+              this.cdr.detectChanges();
+            } else if (res.accessToken) {
+              this.router.navigate(['/dashboard']);
+            }
+          },
+          error: () => {
+            this.isFacebookLoading = false;
+            this.error = 'Facebook sign up failed.';
+            this.cdr.detectChanges();
+          }
+        });
+      } else {
+        this.isFacebookLoading = false;
+        this.cdr.detectChanges();
+      }
+    }, { scope: 'public_profile,email' });
   }
 
   get step1Fields() {

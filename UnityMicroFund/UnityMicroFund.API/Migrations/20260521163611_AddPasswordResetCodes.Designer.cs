@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using UnityMicroFund.API.Data;
 
@@ -11,9 +12,11 @@ using UnityMicroFund.API.Data;
 namespace UnityMicroFund.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260521163611_AddPasswordResetCodes")]
+    partial class AddPasswordResetCodes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -77,16 +80,16 @@ namespace UnityMicroFund.API.Migrations
                         .HasColumnType("varchar(256)");
 
                     b.Property<string>("FacebookAccessToken")
-                        .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("FacebookId")
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
                     b.Property<string>("GoogleAccessToken")
-                        .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("GoogleId")
                         .HasMaxLength(500)

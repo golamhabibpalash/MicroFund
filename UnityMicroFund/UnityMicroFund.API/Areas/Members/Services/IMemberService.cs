@@ -9,4 +9,6 @@ public interface IMemberService
     Task<MemberResponseDto> CreateMemberAsync(CreateMemberDto dto);
     Task<MemberResponseDto?> UpdateMemberAsync(Guid id, UpdateMemberDto dto);
     Task<bool> DeleteMemberAsync(Guid id);
+    Task<MemberProfileStatusDto> GetProfileStatusAsync(Guid userId);
+    Task<MemberResponseDto> CreateOwnMemberAsync(Guid userId, CreateMemberDto dto);
 }

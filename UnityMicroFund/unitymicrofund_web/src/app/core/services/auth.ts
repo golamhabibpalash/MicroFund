@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, BehaviorSubject, tap, catchError, throwError, map, of, switchMap } from 'rxjs';
+import { Observable, BehaviorSubject, tap, catchError, throwError, map } from 'rxjs';
 import { Token } from './token';
-import { SmsService } from './sms.service';
+
+export type ResetMethod = 'email' | 'phone';
 
 interface AuthResponseDto {
   AccessToken: string;
@@ -48,12 +49,10 @@ export class Auth {
   private readonly apiUrl = '/api/auth';
   private isAuthenticatedSubject = new BehaviorSubject(false);
   public isAuthenticated$ = this.isAuthenticatedSubject.asObservable();
-  private pendingResetCodes = new Map<string, { code: string; expiresAt: number }>();
 
   constructor(
     private http: HttpClient,
     private tokenService: Token,
-    private smsService: SmsService,
   ) {
     this.checkInitialAuthStatus();
   }
@@ -167,6 +166,47 @@ export class Auth {
     this.isAuthenticatedSubject.next(false);
   }
 
+  facebookLogin(token: string): Observable<AuthResponse> {
+    return this.http.post<any>(`${this.apiUrl}/facebook-login`, { token }).pipe(
+      map((response) => {
+        if (response.requiresApproval) {
+          return {
+            requiresApproval: true,
+            message: response.message || 'Your account is pending approval.',
+            user: response.user,
+          };
+        }
+
+        const loginToken = response.accessToken || response.AccessToken;
+        const refreshToken = response.refreshToken || response.RefreshToken;
+        const expiresAt = response.expiresAt || response.ExpiresAt;
+
+        if (loginToken && loginToken.length > 0) {
+          this.tokenService.saveToken(loginToken);
+          if (refreshToken) {
+            this.tokenService.saveRefreshToken(refreshToken);
+          }
+          if (expiresAt) {
+            this.tokenService.setTokenExpiry(new Date(expiresAt));
+          }
+          this.isAuthenticatedSubject.next(true);
+
+          return {
+            accessToken: loginToken,
+            refreshToken: refreshToken,
+            expiresAt: expiresAt ? new Date(expiresAt).getTime() : undefined,
+            user: response.user,
+          };
+        }
+
+        return { accessToken: '' };
+      }),
+      catchError((error: HttpErrorResponse) => {
+        return throwError(() => error);
+      })
+    );
+  }
+
   googleLogin(token: string): Observable<AuthResponse> {
     return this.http.post<any>(`${this.apiUrl}/google-login`, { token }).pipe(
       map((response) => {
@@ -213,65 +253,32 @@ export class Auth {
     return !!token;
   }
 
-  forgotPassword(phone: string): Observable<{ message: string }> {
-    return this.getUserByPhone(phone).pipe(
-      catchError(() => {
-        throw new Error('User not found with this phone number');
-      }),
-      tap((user) => {
-        if (this.smsService.isConfigured()) {
-          const code = Math.floor(100000 + Math.random() * 900000).toString();
-          const expiresAt = Date.now() + 10 * 60 * 1000;
-          this.pendingResetCodes.set(phone, { code, expiresAt });
-          this.smsService.sendOtp(phone).subscribe({
-            next: () => console.log('OTP sent successfully'),
-            error: (err: any) => console.error('Failed to send OTP:', err),
-          });
-        }
-      }),
-      map(() => ({ message: 'Reset code sent to your phone number' }))
-    );
+  forgotPassword(method: ResetMethod, identifier: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/forgot-password`, {
+      method,
+      identifier,
+    });
   }
 
-  private getUserByPhone(phone: string): Observable<{ id: string; name: string; phone: string; email: string }> {
-    return this.http.get<{ id: string; name: string; phone: string; email: string }>(
-      `${this.apiUrl}/user-by-phone/${phone.replace('+', '')}`
-    );
+  verifyResetCode(method: ResetMethod, identifier: string, code: string): Observable<{ valid: boolean }> {
+    return this.http.post<{ valid: boolean }>(`${this.apiUrl}/verify-reset-code`, {
+      method,
+      identifier,
+      code,
+    });
   }
 
-  verifyResetCode(phone: string, code: string): Observable<{ valid: boolean }> {
-    const stored = this.pendingResetCodes.get(phone);
-    
-    if (!stored) {
-      return of({ valid: false });
-    }
-    
-    if (Date.now() > stored.expiresAt) {
-      this.pendingResetCodes.delete(phone);
-      return of({ valid: false });
-    }
-    
-    if (stored.code !== code) {
-      return of({ valid: false });
-    }
-    
-    this.pendingResetCodes.delete(phone);
-    return of({ valid: true });
-  }
-
-  resetPassword(phone: string, code: string, newPassword: string): Observable<{ message: string }> {
-    return this.verifyResetCode(phone, code).pipe(
-      tap((response) => {
-        if (!response.valid) {
-          throw new Error('Invalid or expired verification code');
-        }
-      }),
-      switchMap(() => 
-        this.http.post<{ message: string }>(`${this.apiUrl}/reset-password-by-phone`, {
-          phone,
-          newPassword,
-        })
-      )
-    );
+  resetPassword(
+    method: ResetMethod,
+    identifier: string,
+    code: string,
+    newPassword: string,
+  ): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/reset-password`, {
+      method,
+      identifier,
+      code,
+      newPassword,
+    });
   }
 }

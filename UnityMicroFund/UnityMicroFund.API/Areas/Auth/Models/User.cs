@@ -34,8 +34,14 @@ public class User
     [MaxLength(500)]
     public string? GoogleId { get; set; }
 
-    [MaxLength(500)]
+    [MaxLength(2000)]
     public string? GoogleAccessToken { get; set; }
+
+    [MaxLength(500)]
+    public string? FacebookId { get; set; }
+
+    [MaxLength(2000)]
+    public string? FacebookAccessToken { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

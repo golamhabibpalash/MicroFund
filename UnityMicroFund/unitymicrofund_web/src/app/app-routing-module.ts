@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { AuthGuard, AdminGuard } from './core/guards';
+import { AuthGuard, AdminGuard, PublicGuard, CompleteProfileGuard } from './core/guards';
 import { AdminLayoutComponent } from './layout/admin-layout.component';
 
 import { DashboardComponent } from './dashboard/dashboard.component';
@@ -14,16 +14,18 @@ import { UserManagementComponent } from './user-management/user-management.compo
 import { LoginComponent } from './auth/login/login.component';
 import { RegisterComponent } from './auth/register/register.component';
 import { ForgotPasswordComponent } from './auth/forgot-password/forgot-password.component';
+import { CompleteProfileComponent } from './auth/complete-profile/complete-profile.component';
 import { LogsActivityComponent } from './logs/activity/logs-activity.component';
 import { LogsAuditComponent } from './logs/audit/logs-audit.component';
 import { BusinessConfigComponent } from './settings/business-config/business-config.component';
 
 const routes: Routes = [
   { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
-  { path: 'login', component: LoginComponent },
-  { path: 'auth/login', component: LoginComponent },
-  { path: 'auth/register', component: RegisterComponent },
-  { path: 'auth/forgot-password', component: ForgotPasswordComponent },
+  { path: 'login', component: LoginComponent, canActivate: [PublicGuard] },
+  { path: 'auth/login', component: LoginComponent, canActivate: [PublicGuard] },
+  { path: 'auth/register', component: RegisterComponent, canActivate: [PublicGuard] },
+  { path: 'auth/forgot-password', component: ForgotPasswordComponent, canActivate: [PublicGuard] },
+  { path: 'complete-profile', component: CompleteProfileComponent, canActivate: [AuthGuard] },
   {
     path: 'dashboard',
     component: AdminLayoutComponent,
@@ -33,19 +35,19 @@ const routes: Routes = [
   {
     path: 'investments',
     component: AdminLayoutComponent,
-    canActivate: [AuthGuard],
+    canActivate: [AuthGuard, CompleteProfileGuard],
     children: [{ path: '', component: InvestmentsComponent }],
   },
   {
     path: 'investors',
     component: AdminLayoutComponent,
-    canActivate: [AuthGuard],
+    canActivate: [AuthGuard, CompleteProfileGuard],
     children: [{ path: '', component: InvestorsComponent }],
   },
   {
     path: 'payments',
     component: AdminLayoutComponent,
-    canActivate: [AuthGuard],
+    canActivate: [AuthGuard, CompleteProfileGuard],
     children: [{ path: '', component: PaymentsComponent }],
   },
   {
@@ -57,7 +59,7 @@ const routes: Routes = [
   {
     path: 'reports',
     component: AdminLayoutComponent,
-    canActivate: [AuthGuard],
+    canActivate: [AuthGuard, CompleteProfileGuard],
     children: [{ path: '', component: ReportsComponent }],
   },
   {

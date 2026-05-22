@@ -18,6 +18,7 @@ using UnityMicroFund.API.Areas.Settings.Services;
 using UnityMicroFund.API.Areas.Transactions.Services;
 using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Infrastructure.Email;
+using UnityMicroFund.API.Infrastructure.Sms;
 using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Infrastructure.ExceptionHandling;
 using UnityMicroFund.API.Infrastructure.Logging;
@@ -145,7 +146,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 builder.Services.AddScoped<IJwtService, JwtService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddHttpClient<IAuthService, AuthService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IMemberService, MemberService>();
 builder.Services.AddScoped<IContributionService, ContributionService>();
@@ -159,6 +160,7 @@ builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IOcrService, OcrService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddHttpClient<ISmsService, SmsService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IParamBusConfigService, ParamBusConfigService>();

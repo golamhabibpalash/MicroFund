@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using UnityMicroFund.API.Data;
 
@@ -11,9 +12,11 @@ using UnityMicroFund.API.Data;
 namespace UnityMicroFund.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260521161850_AddFacebookAuthFields")]
+    partial class AddFacebookAuthFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -21,46 +24,6 @@ namespace UnityMicroFund.API.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
-
-            modelBuilder.Entity("UnityMicroFund.API.Areas.Auth.Models.PasswordResetCode", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<int>("AttemptCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("CodeHash")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("varchar(128)");
-
-                    b.Property<DateTime?>("ConsumedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<bool>("IsVerified")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("Method")
-                        .IsRequired()
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId", "Method");
-
-                    b.ToTable("password_reset_codes");
-                });
 
             modelBuilder.Entity("UnityMicroFund.API.Areas.Auth.Models.User", b =>
                 {
@@ -77,16 +40,16 @@ namespace UnityMicroFund.API.Migrations
                         .HasColumnType("varchar(256)");
 
                     b.Property<string>("FacebookAccessToken")
-                        .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("FacebookId")
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
                     b.Property<string>("GoogleAccessToken")
-                        .HasMaxLength(2000)
-                        .HasColumnType("varchar(2000)");
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<string>("GoogleId")
                         .HasMaxLength(500)
@@ -1171,17 +1134,6 @@ namespace UnityMicroFund.API.Migrations
                         .IsUnique();
 
                     b.ToTable("user_claims");
-                });
-
-            modelBuilder.Entity("UnityMicroFund.API.Areas.Auth.Models.PasswordResetCode", b =>
-                {
-                    b.HasOne("UnityMicroFund.API.Areas.Auth.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("UnityMicroFund.API.Models.ChatMessage", b =>

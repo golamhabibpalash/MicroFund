@@ -34,6 +34,7 @@ public class AppDbContext : DbContext
     public DbSet<ChatRoomMember> ChatRoomMembers { get; set; }
     public DbSet<ParamBusConfig> ParamBusConfigs { get; set; }
     public DbSet<LogEntry> LogEntries { get; set; }
+    public DbSet<PasswordResetCode> PasswordResetCodes { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -131,6 +132,17 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ChatRoomMember>(entity =>
         {
             entity.HasIndex(e => new { e.ChatRoomId, e.MemberId }).IsUnique();
+        });
+
+        modelBuilder.Entity<PasswordResetCode>(entity =>
+        {
+            entity.Property(e => e.Method).HasConversion<string>();
+            entity.HasIndex(e => new { e.UserId, e.Method });
+
+            entity.HasOne(e => e.User)
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.ApplyConfiguration(new LogEntryConfiguration());

@@ -40,4 +40,8 @@ export class AuthService {
   getGoogleClientId(): string {
     return environment.googleClientId;
   }
+
+  getFacebookAppId(): string {
+    return environment.facebookAppId;
+  }
 }

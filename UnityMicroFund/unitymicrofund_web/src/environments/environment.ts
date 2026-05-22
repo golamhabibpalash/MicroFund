@@ -1,5 +1,6 @@
 export const environment = {
   production: false,
   apiUrl: 'http://localhost:5248/api',
-  googleClientId: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com'
+  googleClientId: '29877781210-lti8ddmn5cse3b17ehuo9gvmgt9scrva.apps.googleusercontent.com',
+  facebookAppId: 'YOUR_FACEBOOK_APP_ID'
 };

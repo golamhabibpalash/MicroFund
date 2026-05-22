@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Areas.Members.DTOs;
+using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Models;
 
@@ -8,10 +9,12 @@ namespace UnityMicroFund.API.Areas.Members.Services;
 public class MemberService : IMemberService
 {
     private readonly AppDbContext _context;
+    private readonly INotificationService _notificationService;
 
-    public MemberService(AppDbContext context)
+    public MemberService(AppDbContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<IEnumerable<MemberResponseDto>> GetMembersAsync(string? search = null, bool? isActive = null)
@@ -186,6 +189,127 @@ public class MemberService : IMemberService
         _context.Members.Remove(member);
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<MemberProfileStatusDto> GetProfileStatusAsync(Guid userId)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+        {
+            return new MemberProfileStatusDto { Status = "none" };
+        }
+
+        var member = await _context.Members.FirstOrDefaultAsync(m => m.UserId == userId);
+        if (member == null && !string.IsNullOrEmpty(user.Email))
+        {
+            member = await _context.Members
+                .FirstOrDefaultAsync(m => m.Email != null && m.Email.ToLower() == user.Email.ToLower());
+
+            // Self-heal: link the member to the user if it was matched by email only.
+            if (member != null && member.UserId == null)
+            {
+                member.UserId = userId;
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        if (member == null)
+        {
+            return new MemberProfileStatusDto { Status = "none" };
+        }
+
+        return new MemberProfileStatusDto
+        {
+            Status = member.IsActive ? "active" : "pending",
+            MemberId = member.Id,
+            Name = member.Name
+        };
+    }
+
+    public async Task<MemberResponseDto> CreateOwnMemberAsync(Guid userId, CreateMemberDto dto)
+    {
+        var user = await _context.Users.FindAsync(userId)
+            ?? throw new InvalidOperationException("User account not found.");
+
+        var existing = await _context.Members
+            .FirstOrDefaultAsync(m => m.UserId == userId ||
+                (m.Email != null && user.Email != null && m.Email.ToLower() == user.Email.ToLower()));
+        if (existing != null)
+        {
+            throw new InvalidOperationException("A member profile already exists for your account.");
+        }
+
+        if (!dto.AcceptTerms)
+        {
+            throw new ArgumentException("You must accept the terms and conditions");
+        }
+
+        if (await _context.Members.AnyAsync(m => m.Phone == dto.Phone))
+        {
+            throw new ArgumentException("A member with this phone number already exists");
+        }
+
+        if (!Enum.TryParse<Gender>(dto.Gender, true, out var gender))
+        {
+            throw new ArgumentException("Invalid gender value");
+        }
+
+        var member = new Member
+        {
+            UserId = userId,
+            Name = dto.Name,
+            DateOfBirth = dto.DateOfBirth,
+            Gender = gender,
+            Nationality = dto.Nationality,
+            Phone = dto.Phone,
+            AlternatePhone = dto.AlternatePhone,
+            Email = user.Email,
+            Address = dto.Address,
+            Occupation = dto.Occupation,
+            EmployerName = dto.EmployerName,
+            EmergencyContactName = dto.EmergencyContactName,
+            EmergencyContactPhone = dto.EmergencyContactPhone,
+            EmergencyContactRelation = dto.EmergencyContactRelation,
+            NomineeName = dto.NomineeName,
+            NomineeRelation = dto.NomineeRelation,
+            NomineePhone = dto.NomineePhone,
+            BankName = dto.BankName,
+            AccountHolderName = dto.AccountHolderName,
+            AccountNumber = dto.AccountNumber,
+            RoutingNumber = dto.RoutingNumber,
+            SwiftCode = dto.SwiftCode,
+            ProfileImageUrl = dto.ProfileImageUrl,
+            DocumentUrl = dto.DocumentUrl,
+            SignatureUrl = dto.SignatureUrl,
+            MonthlyAmount = dto.MonthlyAmount,
+            JoinDate = DateTime.UtcNow,
+            AcceptTerms = dto.AcceptTerms,
+            IsActive = false,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        _context.Members.Add(member);
+        await _context.SaveChangesAsync();
+
+        await _notificationService.CreateRegistrationRequestAsync(user.Id, user.Email, user.Name, member.Id);
+
+        var admins = await _context.Users
+            .Where(u => u.Role == UserRole.Admin && u.IsActive)
+            .ToListAsync();
+        foreach (var admin in admins)
+        {
+            await _notificationService.CreateNotificationAsync(
+                "Member Profile Submitted",
+                $"{user.Name} ({user.Email}) submitted member details and is waiting for approval.",
+                NotificationType.RegistrationApproval,
+                admin.Id,
+                user.Id,
+                user.Id,
+                member.Id);
+        }
+
+        return MapToDto(member);
     }
 
     private MemberResponseDto MapToDto(Member m)

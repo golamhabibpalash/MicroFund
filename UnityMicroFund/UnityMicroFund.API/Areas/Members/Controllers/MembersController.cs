@@ -63,6 +63,48 @@ public class MembersController : ControllerBase
         return Ok(new { id = member.Id, name = member.Name, email = member.Email });
     }
 
+    [HttpGet("profile-status")]
+    public async Task<IActionResult> GetProfileStatus()
+    {
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdStr, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        var status = await _memberService.GetProfileStatusAsync(userId);
+        return Ok(status);
+    }
+
+    [HttpPost("complete-profile")]
+    public async Task<IActionResult> CompleteProfile([FromBody] CreateMemberDto dto)
+    {
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!Guid.TryParse(userIdStr, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        try
+        {
+            var member = await _memberService.CreateOwnMemberAsync(userId, dto);
+            return Ok(new
+            {
+                memberId = member.Id,
+                status = "pending",
+                message = "Your profile has been submitted and is awaiting admin approval."
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetMembers(
         [FromQuery] string? search = null,
