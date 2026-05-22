@@ -20,6 +20,7 @@ using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Infrastructure.Email;
 using UnityMicroFund.API.Infrastructure.Sms;
 using UnityMicroFund.API.Areas.Tasks.Services;
+using UnityMicroFund.API.Infrastructure.Configuration;
 using UnityMicroFund.API.Infrastructure.ExceptionHandling;
 using UnityMicroFund.API.Infrastructure.Logging;
 using UnityMicroFund.API.Infrastructure.Middleware;
@@ -144,6 +145,8 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
+
+builder.Services.Configure<AdminSettings>(builder.Configuration.GetSection("AdminUser"));
 
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddHttpClient<IAuthService, AuthService>();

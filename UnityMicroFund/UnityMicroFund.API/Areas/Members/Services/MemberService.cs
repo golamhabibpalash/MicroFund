@@ -123,13 +123,13 @@ public class MemberService : IMemberService
             BankName = dto.BankName,
             AccountHolderName = dto.AccountHolderName,
             AccountNumber = dto.AccountNumber,
-            RoutingNumber = dto.RoutingNumber,
+            RoutingNumber = dto.RoutingNumber ?? string.Empty,
             SwiftCode = dto.SwiftCode,
             ProfileImageUrl = dto.ProfileImageUrl,
             DocumentUrl = dto.DocumentUrl,
             SignatureUrl = dto.SignatureUrl,
             MonthlyAmount = dto.MonthlyAmount,
-            JoinDate = dto.JoinDate,
+            JoinDate = dto.JoinDate ?? DateTime.UtcNow,
             AcceptTerms = dto.AcceptTerms,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -197,6 +197,16 @@ public class MemberService : IMemberService
         if (user == null)
         {
             return new MemberProfileStatusDto { Status = "none" };
+        }
+
+        // Admin and Manager users are always active — no member record needed.
+        if (user.Role == UserRole.Admin || user.Role == UserRole.Manager)
+        {
+            return new MemberProfileStatusDto
+            {
+                Status = "active",
+                Name = user.Name
+            };
         }
 
         var member = await _context.Members.FirstOrDefaultAsync(m => m.UserId == userId);
@@ -276,7 +286,7 @@ public class MemberService : IMemberService
             BankName = dto.BankName,
             AccountHolderName = dto.AccountHolderName,
             AccountNumber = dto.AccountNumber,
-            RoutingNumber = dto.RoutingNumber,
+            RoutingNumber = dto.RoutingNumber ?? string.Empty,
             SwiftCode = dto.SwiftCode,
             ProfileImageUrl = dto.ProfileImageUrl,
             DocumentUrl = dto.DocumentUrl,
@@ -309,7 +319,14 @@ public class MemberService : IMemberService
                 member.Id);
         }
 
-        return MapToDto(member);
+        return new MemberResponseDto
+        {
+            Id = member.Id,
+            UserId = member.UserId ?? Guid.Empty,
+            Name = member.Name,
+            IsActive = member.IsActive,
+            CreatedAt = member.CreatedAt
+        };
     }
 
     private MemberResponseDto MapToDto(Member m)

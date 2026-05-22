@@ -1,190 +1,125 @@
 <div class="complete-profile-wrapper">
   <div class="complete-profile-container">
+
     <div class="cp-header">
-      <img src="assets/organization/logo.png" alt="UnityMicroFund Logo" class="logo-img" />
+      <img src="assets/organization/logo.png" alt="UnityMicroFund" class="logo-img" />
       <p>Complete Your Member Profile</p>
     </div>
 
-    <!-- Loading -->
-    <div *ngIf="state === 'loading'" class="cp-message">
-      <p>Checking your profile…</p>
+    <div *ngIf="state === 'success'" class="cp-message success">
+      <div class="success-icon">&#10003;</div>
+      <h3>Submission Successful!</h3>
+      <p>{{ submitMessage }}</p>
+      <p class="redirect-note">Redirecting to login page...</p>
+      <button type="button" class="btn-primary" (click)="goToLogin()">Go to Login</button>
     </div>
 
-    <!-- Pending approval -->
-    <div *ngIf="state === 'pending'" class="cp-message info">
-      <h3>Profile Awaiting Approval</h3>
-      <p>
-        Your member profile has been submitted and is waiting for an administrator to approve it.
-        You'll be able to access transactions and member features once it's approved.
-      </p>
-      <button type="button" class="btn-primary" (click)="goToDashboard()">Back to Dashboard</button>
-    </div>
-
-    <!-- Submitted -->
-    <div *ngIf="state === 'submitted'" class="cp-message success">
-      <h3>Profile Submitted</h3>
-      <p>
-        Thank you! Your member details have been submitted and are now awaiting admin approval.
-        We'll notify you once your membership is active.
-      </p>
-      <button type="button" class="btn-primary" (click)="goToDashboard()">Back to Dashboard</button>
-    </div>
-
-    <!-- Form -->
     <ng-container *ngIf="state === 'form'">
-      <p class="cp-intro">
-        To access transactions and member features, please provide your member information below.
-        An administrator will review and approve your profile.
-      </p>
-
-      <!-- Progress -->
-      <div class="progress-steps">
-        <div class="step" [class.active]="currentStep >= 1" [class.completed]="currentStep > 1">
-          <span class="step-number">1</span><span class="step-label">Personal</span>
-        </div>
-        <div class="step-line" [class.active]="currentStep > 1"></div>
-        <div class="step" [class.active]="currentStep >= 2" [class.completed]="currentStep > 2">
-          <span class="step-number">2</span><span class="step-label">Contact</span>
-        </div>
-        <div class="step-line" [class.active]="currentStep > 2"></div>
-        <div class="step" [class.active]="currentStep >= 3" [class.completed]="currentStep > 3">
-          <span class="step-number">3</span><span class="step-label">Bank</span>
-        </div>
-        <div class="step-line" [class.active]="currentStep > 3"></div>
-        <div class="step" [class.active]="currentStep >= 4">
-          <span class="step-number">4</span><span class="step-label">Nominee</span>
-        </div>
-      </div>
+      <p class="cp-intro">Please fill in your details below. An admin will review and approve your membership.</p>
 
       <div class="alert-message error" *ngIf="error">{{ error }}</div>
 
       <form [formGroup]="form" class="cp-form">
-        <!-- Step 1: Personal -->
-        <div *ngIf="currentStep === 1" class="step-content">
+        <div class="form-group">
+          <label>Full Name *</label>
+          <input type="text" formControlName="name" class="form-control" placeholder="Your full name" />
+        </div>
+
+        <div class="form-group">
+          <label>Phone Number *</label>
+          <input type="tel" formControlName="phone" class="form-control" placeholder="e.g. 01712345678" />
+        </div>
+
+        <div class="form-row">
           <div class="form-group">
-            <label>Full Name</label>
-            <input type="text" formControlName="name" class="form-control" placeholder="Your full name" />
+            <label>Date of Birth *</label>
+            <input type="date" formControlName="dateOfBirth" class="form-control" />
           </div>
           <div class="form-group">
-            <label>Phone Number</label>
-            <input type="tel" formControlName="phone" class="form-control" placeholder="e.g., 01712345678" />
+            <label>Gender *</label>
+            <select formControlName="gender" class="form-control">
+              <option value="">Select</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Date of Birth</label>
-              <input type="date" formControlName="dateOfBirth" class="form-control" />
-            </div>
-            <div class="form-group">
-              <label>Gender</label>
-              <select formControlName="gender" class="form-control">
-                <option value="">Select</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-          </div>
+        </div>
+
+        <div class="form-row">
           <div class="form-group">
-            <label>Nationality</label>
+            <label>Nationality *</label>
             <input type="text" formControlName="nationality" class="form-control" placeholder="Nationality" />
           </div>
           <div class="form-group">
-            <label>Occupation</label>
+            <label>Occupation *</label>
             <input type="text" formControlName="occupation" class="form-control" placeholder="Occupation" />
           </div>
-          <div class="form-group">
-            <label>Employer Name (optional)</label>
-            <input type="text" formControlName="employerName" class="form-control" placeholder="Employer" />
-          </div>
         </div>
 
-        <!-- Step 2: Contact / Address -->
-        <div *ngIf="currentStep === 2" class="step-content">
-          <div class="form-group">
-            <label>Address</label>
-            <input type="text" formControlName="address" class="form-control" placeholder="Address" />
-          </div>
-          <div class="form-group">
-            <label>Monthly Contribution Amount</label>
-            <input type="number" formControlName="monthlyAmount" class="form-control" placeholder="0.00" min="0" />
-          </div>
+        <div class="form-group">
+          <label>Address *</label>
+          <input type="text" formControlName="address" class="form-control" placeholder="Your address" />
         </div>
 
-        <!-- Step 3: Bank -->
-        <div *ngIf="currentStep === 3" class="step-content">
+        <div class="form-group">
+          <label>Monthly Contribution Amount *</label>
+          <input type="number" formControlName="monthlyAmount" class="form-control" placeholder="0.00" min="0" />
+        </div>
+
+        <div class="form-group">
+          <label>Bank Name *</label>
+          <input type="text" formControlName="bankName" class="form-control" placeholder="Bank name" />
+        </div>
+
+        <div class="form-row">
           <div class="form-group">
-            <label>Bank Name</label>
-            <input type="text" formControlName="bankName" class="form-control" placeholder="Bank name" />
-          </div>
-          <div class="form-group">
-            <label>Account Holder Name</label>
+            <label>Account Holder Name *</label>
             <input type="text" formControlName="accountHolderName" class="form-control" placeholder="Account holder" />
           </div>
           <div class="form-group">
-            <label>Account Number</label>
+            <label>Account Number *</label>
             <input type="text" formControlName="accountNumber" class="form-control" placeholder="Account number" />
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Routing Number (optional)</label>
-              <input type="text" formControlName="routingNumber" class="form-control" placeholder="Routing" />
-            </div>
-            <div class="form-group">
-              <label>SWIFT Code (optional)</label>
-              <input type="text" formControlName="swiftCode" class="form-control" placeholder="SWIFT" />
-            </div>
+        </div>
+
+        <div class="form-group">
+          <label>Nominee Name *</label>
+          <input type="text" formControlName="nomineeName" class="form-control" placeholder="Nominee name" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Nominee Phone *</label>
+            <input type="tel" formControlName="nomineePhone" class="form-control" placeholder="Nominee phone" />
+          </div>
+          <div class="form-group">
+            <label>Emergency Contact Phone *</label>
+            <input type="tel" formControlName="emergencyContactPhone" class="form-control" placeholder="Emergency phone" />
           </div>
         </div>
 
-        <!-- Step 4: Nominee + Emergency -->
-        <div *ngIf="currentStep === 4" class="step-content">
-          <div class="form-group">
-            <label>Nominee Name</label>
-            <input type="text" formControlName="nomineeName" class="form-control" placeholder="Nominee name" />
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Nominee Phone</label>
-              <input type="tel" formControlName="nomineePhone" class="form-control" placeholder="Nominee phone" />
-            </div>
-            <div class="form-group">
-              <label>Nominee Relation</label>
-              <input type="text" formControlName="nomineeRelation" class="form-control" placeholder="Relation" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Emergency Contact Name</label>
-            <input type="text" formControlName="emergencyContactName" class="form-control" placeholder="Contact name" />
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Emergency Contact Phone</label>
-              <input type="tel" formControlName="emergencyContactPhone" class="form-control" placeholder="Contact phone" />
-            </div>
-            <div class="form-group">
-              <label>Emergency Contact Relation</label>
-              <input type="text" formControlName="emergencyContactRelation" class="form-control" placeholder="Relation" />
-            </div>
-          </div>
-          <label class="checkbox-row">
-            <input type="checkbox" formControlName="acceptTerms" />
-            <span>I confirm the information is accurate and accept the terms and conditions.</span>
-          </label>
-        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" formControlName="acceptTerms" />
+          <span>I confirm the information is accurate and accept the terms *</span>
+        </label>
 
-        <!-- Buttons -->
-        <div class="button-group">
-          <button type="button" class="btn-secondary" *ngIf="currentStep > 1" (click)="prevStep()" [disabled]="isLoading">
-            Back
-          </button>
-          <button type="button" class="btn-primary" *ngIf="currentStep < totalSteps" (click)="nextStep()" [disabled]="!isStepValid(currentStep)">
-            Next
-          </button>
-          <button type="button" class="btn-primary" *ngIf="currentStep === totalSteps" (click)="submit()" [disabled]="form.invalid || isLoading">
-            {{ isLoading ? 'Submitting…' : 'Submit for Approval' }}
-          </button>
-        </div>
+        <button type="button" class="btn-primary" (click)="submit()" [disabled]="form.invalid">
+          Submit for Approval
+        </button>
       </form>
     </ng-container>
+
+    <div *ngIf="state === 'submitting'" class="cp-message loading">
+      <div class="spinner"></div>
+      <p>Submitting your profile... Please wait.</p>
+    </div>
+
+    <div *ngIf="state === 'error'" class="cp-message error-state">
+      <h3>Submission Failed</h3>
+      <p>{{ error }}</p>
+      <button type="button" class="btn-primary" (click)="state = 'form'">Try Again</button>
+    </div>
+
   </div>
 </div>

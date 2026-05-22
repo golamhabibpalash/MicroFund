@@ -141,8 +141,9 @@ interface Member {
               <span class="material-icons">close</span>
             </button>
           </div>
-          <form (ngSubmit)="saveMember()" *ngIf="editingMember">
+          <form (ngSubmit)="saveMember()" #editForm="ngForm" *ngIf="editingMember" novalidate>
             <div class="modal-body">
+              <div class="alert alert-error" *ngIf="errorMessage">{{ errorMessage }}</div>
               <div class="form-section">
                 <h3>Personal Information</h3>
                 <div class="form-grid">
@@ -617,11 +618,12 @@ export class InvestorsComponent implements OnInit {
         }
         this.isSaving = false;
         this.closeEditModal();
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Error saving member:', err);
         this.isSaving = false;
-        alert(err.error?.message || 'Failed to save member. Please try again.');
+        this.errorMessage = err.error?.message || 'Failed to save member. Please try again.';
         this.cdr.detectChanges();
       }
     });

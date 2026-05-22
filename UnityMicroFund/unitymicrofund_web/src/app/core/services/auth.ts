@@ -167,85 +167,64 @@ export class Auth {
     this.isAuthenticatedSubject.next(false);
   }
 
+  private handleSsoResponse(response: any): AuthResponse {
+    if (response.requiresMemberRegistration) {
+      const loginToken = response.accessToken || response.AccessToken;
+      if (loginToken) {
+        this.tokenService.saveToken(loginToken);
+      }
+      return {
+        requiresMemberRegistration: true,
+        message: response.message || 'Please complete your member registration.',
+        user: response.user,
+        accessToken: loginToken || '',
+      };
+    }
+
+    if (response.requiresApproval) {
+      return {
+        requiresApproval: true,
+        message: response.message || 'Your account is pending approval.',
+        user: response.user,
+      };
+    }
+
+    const loginToken = response.accessToken || response.AccessToken;
+    const refreshToken = response.refreshToken || response.RefreshToken;
+    const expiresAt = response.expiresAt || response.ExpiresAt;
+
+    if (loginToken && loginToken.length > 0) {
+      this.tokenService.saveToken(loginToken);
+      if (refreshToken) {
+        this.tokenService.saveRefreshToken(refreshToken);
+      }
+      if (expiresAt) {
+        this.tokenService.setTokenExpiry(new Date(expiresAt));
+      }
+      this.isAuthenticatedSubject.next(true);
+
+      return {
+        accessToken: loginToken,
+        refreshToken: refreshToken,
+        expiresAt: expiresAt ? new Date(expiresAt).getTime() : undefined,
+        user: response.user,
+      };
+    }
+
+    return { accessToken: '' };
+  }
+
   facebookLogin(token: string): Observable<AuthResponse> {
     return this.http.post<any>(`${this.apiUrl}/facebook-login`, { token }).pipe(
-      map((response) => {
-        if (response.requiresApproval) {
-          return {
-            requiresApproval: true,
-            message: response.message || 'Your account is pending approval.',
-            user: response.user,
-          };
-        }
-
-        const loginToken = response.accessToken || response.AccessToken;
-        const refreshToken = response.refreshToken || response.RefreshToken;
-        const expiresAt = response.expiresAt || response.ExpiresAt;
-
-        if (loginToken && loginToken.length > 0) {
-          this.tokenService.saveToken(loginToken);
-          if (refreshToken) {
-            this.tokenService.saveRefreshToken(refreshToken);
-          }
-          if (expiresAt) {
-            this.tokenService.setTokenExpiry(new Date(expiresAt));
-          }
-          this.isAuthenticatedSubject.next(true);
-
-          return {
-            accessToken: loginToken,
-            refreshToken: refreshToken,
-            expiresAt: expiresAt ? new Date(expiresAt).getTime() : undefined,
-            user: response.user,
-          };
-        }
-
-        return { accessToken: '' };
-      }),
-      catchError((error: HttpErrorResponse) => {
-        return throwError(() => error);
-      })
+      map((response) => this.handleSsoResponse(response)),
+      catchError((error: HttpErrorResponse) => throwError(() => error))
     );
   }
 
   googleLogin(token: string): Observable<AuthResponse> {
     return this.http.post<any>(`${this.apiUrl}/google-login`, { token }).pipe(
-      map((response) => {
-        if (response.requiresApproval) {
-          return {
-            requiresApproval: true,
-            message: response.message || 'Your account is pending approval.',
-            user: response.user,
-          };
-        }
-
-        const loginToken = response.accessToken || response.AccessToken;
-        const refreshToken = response.refreshToken || response.RefreshToken;
-        const expiresAt = response.expiresAt || response.ExpiresAt;
-
-        if (loginToken && loginToken.length > 0) {
-          this.tokenService.saveToken(loginToken);
-          if (refreshToken) {
-            this.tokenService.saveRefreshToken(refreshToken);
-          }
-          if (expiresAt) {
-            this.tokenService.setTokenExpiry(new Date(expiresAt));
-          }
-          this.isAuthenticatedSubject.next(true);
-
-          return {
-            accessToken: loginToken,
-            refreshToken: refreshToken,
-            expiresAt: expiresAt ? new Date(expiresAt).getTime() : undefined,
-            user: response.user,
-          };
-        }
-
-        return { accessToken: '' };
-      }),
-      catchError((error: HttpErrorResponse) => {
-        return throwError(() => error);
-      })
+      map((response) => this.handleSsoResponse(response)),
+      catchError((error: HttpErrorResponse) => throwError(() => error))
     );
   }
 

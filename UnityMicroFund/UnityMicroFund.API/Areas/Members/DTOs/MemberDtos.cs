@@ -73,9 +73,8 @@ public class CreateMemberDto
     [MaxLength(30)]
     public string AccountNumber { get; set; } = string.Empty;
 
-    [Required]
     [MaxLength(30)]
-    public string RoutingNumber { get; set; } = string.Empty;
+    public string? RoutingNumber { get; set; }
 
     [MaxLength(20)]
     public string? SwiftCode { get; set; }
@@ -93,8 +92,7 @@ public class CreateMemberDto
     [Range(0.01, double.MaxValue, ErrorMessage = "Monthly amount must be greater than 0")]
     public decimal MonthlyAmount { get; set; }
 
-    [Required]
-    public DateTime JoinDate { get; set; }
+    public DateTime? JoinDate { get; set; }
 
     public bool AcceptTerms { get; set; }
 }

@@ -120,6 +120,9 @@ export class LoginComponent implements OnInit, AfterViewInit {
             this.tokenService.clearAll();
             this.cdr.detectChanges();
           } else if (res.accessToken) {
+            this.tokenService.saveToken(res.accessToken);
+            if (res.refreshToken) this.tokenService.saveRefreshToken(res.refreshToken);
+            if (res.expiresAt) this.tokenService.setTokenExpiry(new Date(res.expiresAt));
             this.navigateToDashboard();
           }
         },
@@ -174,13 +177,16 @@ export class LoginComponent implements OnInit, AfterViewInit {
               if (res.accessToken) {
                 this.tokenService.saveToken(res.accessToken);
               }
-              this.router.navigate(['/auth', 'complete-profile']);
+              this.router.navigate(['/complete-profile']);
               this.cdr.detectChanges();
             } else if (res.requiresApproval) {
               this.error = 'Your registration is pending approval.';
               this.tokenService.clearAll();
               this.cdr.detectChanges();
             } else if (res.accessToken) {
+              this.tokenService.saveToken(res.accessToken);
+              if (res.refreshToken) this.tokenService.saveRefreshToken(res.refreshToken);
+              if (res.expiresAt) this.tokenService.setTokenExpiry(new Date(res.expiresAt));
               this.navigateToDashboard();
             }
           },
@@ -218,6 +224,9 @@ export class LoginComponent implements OnInit, AfterViewInit {
         }
 
         if (response.accessToken && response.accessToken.length > 0) {
+          this.tokenService.saveToken(response.accessToken);
+          if (response.refreshToken) this.tokenService.saveRefreshToken(response.refreshToken);
+          if (response.expiresAt) this.tokenService.setTokenExpiry(new Date(response.expiresAt));
           this.navigateToDashboard();
           return;
         }
