@@ -124,6 +124,17 @@ connect.lock/
 *.credentials
 
 # ----------------------
+# Claude AI
+# ----------------------
+.claude/settings.local.json
+
+# ----------------------
+# Uploaded assets
+# ----------------------
+UnityMicroFund/unitymicrofund_web/src/assets/member/
+UnityMicroFund/unitymicrofund_web/src/assets/paymentReceipt/
+
+# ----------------------
 # Logs
 # ----------------------
 
