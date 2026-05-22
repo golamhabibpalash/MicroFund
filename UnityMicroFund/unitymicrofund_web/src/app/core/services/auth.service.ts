@@ -19,6 +19,7 @@ export interface GoogleAuthResponse {
   user: AuthUser;
   message?: string;
   requiresApproval?: boolean;
+  requiresMemberRegistration?: boolean;
 }
 
 @Injectable({
@@ -35,6 +36,32 @@ export class AuthService {
 
   login(credentials: { email: string; password: string }): Observable<GoogleAuthResponse> {
     return this.http.post<GoogleAuthResponse>(`${this.apiUrl}/login`, credentials);
+  }
+
+  completeSsoRegistration(data: {
+    name: string;
+    phone: string;
+    dateOfBirth: string;
+    gender: string;
+    nationality: string;
+    address: string;
+    occupation: string;
+    employerName?: string;
+    emergencyContactName?: string;
+    emergencyContactPhone: string;
+    emergencyContactRelation?: string;
+    nomineeName: string;
+    nomineeRelation?: string;
+    nomineePhone?: string;
+    bankName: string;
+    accountHolderName: string;
+    accountNumber: string;
+    routingNumber: string;
+    swiftCode?: string;
+    monthlyAmount: number;
+    acceptTerms: boolean;
+  }): Observable<GoogleAuthResponse> {
+    return this.http.post<GoogleAuthResponse>(`${this.apiUrl}/complete-sso-registration`, data);
   }
 
   getGoogleClientId(): string {

@@ -19,4 +19,5 @@ public interface IAuthService
     Task<User?> GetUserByEmailAsync(string email);
     Task<bool> UpdateUserAsync(User user);
     Task<IEnumerable<UserDto>> GetAllUsersAsync();
+    Task<AuthResponseDto?> CompleteSsoRegistrationAsync(Guid userId, SsoMemberRegistrationDto dto);
 }

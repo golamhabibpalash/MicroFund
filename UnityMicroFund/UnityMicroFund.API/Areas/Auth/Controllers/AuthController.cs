@@ -117,6 +117,24 @@ public class AuthController : ControllerBase
     }
 
     [Authorize]
+    [Authorize]
+    [HttpPost("complete-sso-registration")]
+    public async Task<IActionResult> CompleteSsoRegistration([FromBody] SsoMemberRegistrationDto dto)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null || !Guid.TryParse(userId, out var id))
+        {
+            return Unauthorized();
+        }
+
+        var result = await _authService.CompleteSsoRegistrationAsync(id, dto);
+        if (result == null)
+        {
+            return BadRequest(new { message = "User not found" });
+        }
+        return Ok(result);
+    }
+
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
     {

@@ -35,6 +35,7 @@ export interface AuthResponse {
   };
   message?: string;
   requiresApproval?: boolean;
+  requiresMemberRegistration?: boolean;
 }
 
 export interface LoginCredentials {

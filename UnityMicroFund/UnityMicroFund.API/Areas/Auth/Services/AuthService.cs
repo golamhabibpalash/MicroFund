@@ -273,21 +273,51 @@ public class AuthService : IAuthService
                 return null;
             }
 
-            if (!existingUser.IsApproved)
+            existingUser.GoogleId = payload.Subject;
+            existingUser.GoogleAccessToken = googleToken;
+            existingUser.UpdatedAt = DateTime.UtcNow;
+
+            if (existingUser.IsApproved)
             {
-                existingUser.IsApproved = true;
-                existingUser.GoogleId = payload.Subject;
-                existingUser.GoogleAccessToken = googleToken;
-                existingUser.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
                 return await GenerateAuthResponseAsync(existingUser);
             }
 
-            existingUser.GoogleId = payload.Subject;
-            existingUser.GoogleAccessToken = googleToken;
-            existingUser.UpdatedAt = DateTime.UtcNow;
+            var hasMember = await _context.Members.AnyAsync(m => m.UserId == existingUser.Id);
+            if (!hasMember)
+            {
+                await _context.SaveChangesAsync();
+                return new AuthResponseDto
+                {
+                    User = new UserDto
+                    {
+                        Id = existingUser.Id,
+                        Name = existingUser.Name,
+                        Email = existingUser.Email,
+                        Role = existingUser.Role.ToString(),
+                        IsActive = existingUser.IsActive,
+                        IsApproved = existingUser.IsApproved
+                    },
+                    RequiresMemberRegistration = true,
+                    Message = "Please complete your member registration."
+                };
+            }
+
             await _context.SaveChangesAsync();
-            return await GenerateAuthResponseAsync(existingUser);
+            return new AuthResponseDto
+            {
+                User = new UserDto
+                {
+                    Id = existingUser.Id,
+                    Name = existingUser.Name,
+                    Email = existingUser.Email,
+                    Role = existingUser.Role.ToString(),
+                    IsActive = existingUser.IsActive,
+                    IsApproved = existingUser.IsApproved
+                },
+                RequiresApproval = true,
+                Message = "Your account is pending approval."
+            };
         }
 
         var newUser = new User
@@ -299,7 +329,7 @@ public class AuthService : IAuthService
             GoogleAccessToken = googleToken,
             Role = UnityMicroFund.API.Models.UserRole.Member,
             IsActive = true,
-            IsApproved = true,
+            IsApproved = false,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -307,36 +337,20 @@ public class AuthService : IAuthService
         _context.Users.Add(newUser);
         await _context.SaveChangesAsync();
 
-        var member = new Member
+        return new AuthResponseDto
         {
-            Id = Guid.NewGuid(),
-            UserId = newUser.Id,
-            Name = newUser.Name,
-            Email = newUser.Email,
-            DateOfBirth = new DateTime(2000, 1, 1),
-            Gender = Gender.Other,
-            Nationality = "Not Set",
-            Phone = "0000000000",
-            Address = "Not Set",
-            Occupation = "Not Set",
-            EmergencyContactPhone = "0000000000",
-            NomineeName = "Not Set",
-            BankName = "Not Set",
-            AccountHolderName = newUser.Name,
-            AccountNumber = "0000000000",
-            RoutingNumber = "0000000000",
-            MonthlyAmount = 0,
-            JoinDate = DateTime.UtcNow,
-            AcceptTerms = true,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            User = new UserDto
+            {
+                Id = newUser.Id,
+                Name = newUser.Name,
+                Email = newUser.Email,
+                Role = newUser.Role.ToString(),
+                IsActive = newUser.IsActive,
+                IsApproved = newUser.IsApproved
+            },
+            RequiresMemberRegistration = true,
+            Message = "Please complete your member registration."
         };
-
-        _context.Members.Add(member);
-        await _context.SaveChangesAsync();
-
-        return await GenerateAuthResponseAsync(newUser);
     }
 
     public async Task<AuthResponseDto?> FacebookLoginOrRegisterAsync(string facebookToken)
@@ -385,21 +399,51 @@ public class AuthService : IAuthService
                 return null;
             }
 
-            if (!existingUser.IsApproved)
+            existingUser.FacebookId = facebookUser.Id;
+            existingUser.FacebookAccessToken = facebookToken;
+            existingUser.UpdatedAt = DateTime.UtcNow;
+
+            if (existingUser.IsApproved)
             {
-                existingUser.IsApproved = true;
-                existingUser.FacebookId = facebookUser.Id;
-                existingUser.FacebookAccessToken = facebookToken;
-                existingUser.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
                 return await GenerateAuthResponseAsync(existingUser);
             }
 
-            existingUser.FacebookId = facebookUser.Id;
-            existingUser.FacebookAccessToken = facebookToken;
-            existingUser.UpdatedAt = DateTime.UtcNow;
+            var hasMember = await _context.Members.AnyAsync(m => m.UserId == existingUser.Id);
+            if (!hasMember)
+            {
+                await _context.SaveChangesAsync();
+                return new AuthResponseDto
+                {
+                    User = new UserDto
+                    {
+                        Id = existingUser.Id,
+                        Name = existingUser.Name,
+                        Email = existingUser.Email,
+                        Role = existingUser.Role.ToString(),
+                        IsActive = existingUser.IsActive,
+                        IsApproved = existingUser.IsApproved
+                    },
+                    RequiresMemberRegistration = true,
+                    Message = "Please complete your member registration."
+                };
+            }
+
             await _context.SaveChangesAsync();
-            return await GenerateAuthResponseAsync(existingUser);
+            return new AuthResponseDto
+            {
+                User = new UserDto
+                {
+                    Id = existingUser.Id,
+                    Name = existingUser.Name,
+                    Email = existingUser.Email,
+                    Role = existingUser.Role.ToString(),
+                    IsActive = existingUser.IsActive,
+                    IsApproved = existingUser.IsApproved
+                },
+                RequiresApproval = true,
+                Message = "Your account is pending approval."
+            };
         }
 
         var newUser = new User
@@ -411,7 +455,7 @@ public class AuthService : IAuthService
             FacebookAccessToken = facebookToken,
             Role = UnityMicroFund.API.Models.UserRole.Member,
             IsActive = true,
-            IsApproved = true,
+            IsApproved = false,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -419,36 +463,129 @@ public class AuthService : IAuthService
         _context.Users.Add(newUser);
         await _context.SaveChangesAsync();
 
-        var member = new Member
+        return new AuthResponseDto
         {
-            Id = Guid.NewGuid(),
-            UserId = newUser.Id,
-            Name = newUser.Name,
-            Email = newUser.Email,
-            DateOfBirth = new DateTime(2000, 1, 1),
-            Gender = Gender.Other,
-            Nationality = "Not Set",
-            Phone = "0000000000",
-            Address = "Not Set",
-            Occupation = "Not Set",
-            EmergencyContactPhone = "0000000000",
-            NomineeName = "Not Set",
-            BankName = "Not Set",
-            AccountHolderName = newUser.Name,
-            AccountNumber = "0000000000",
-            RoutingNumber = "0000000000",
-            MonthlyAmount = 0,
-            JoinDate = DateTime.UtcNow,
-            AcceptTerms = true,
-            IsActive = true,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            User = new UserDto
+            {
+                Id = newUser.Id,
+                Name = newUser.Name,
+                Email = newUser.Email,
+                Role = newUser.Role.ToString(),
+                IsActive = newUser.IsActive,
+                IsApproved = newUser.IsApproved
+            },
+            RequiresMemberRegistration = true,
+            Message = "Please complete your member registration."
         };
+    }
 
-        _context.Members.Add(member);
-        await _context.SaveChangesAsync();
+    public async Task<AuthResponseDto?> CompleteSsoRegistrationAsync(Guid userId, SsoMemberRegistrationDto dto)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+        {
+            return null;
+        }
 
-        return await GenerateAuthResponseAsync(newUser);
+        var existingMember = await _context.Members.AnyAsync(m => m.UserId == userId);
+        if (existingMember)
+        {
+            return new AuthResponseDto
+            {
+                User = new UserDto
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Email = user.Email,
+                    Role = user.Role.ToString(),
+                    IsActive = user.IsActive,
+                    IsApproved = user.IsApproved
+                },
+                RequiresApproval = true,
+                Message = "You have already submitted your registration. Please wait for approval."
+            };
+        }
+
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            user.Name = dto.Name;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            var member = new Member
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                Name = dto.Name,
+                DateOfBirth = dto.DateOfBirth,
+                Gender = Enum.TryParse<Gender>(dto.Gender, true, out var gender) ? gender : Gender.Other,
+                Nationality = dto.Nationality,
+                Phone = dto.Phone,
+                AlternatePhone = dto.AlternatePhone,
+                Email = user.Email,
+                Address = dto.Address,
+                Occupation = dto.Occupation,
+                EmployerName = dto.EmployerName,
+                EmergencyContactName = dto.EmergencyContactName,
+                EmergencyContactPhone = dto.EmergencyContactPhone,
+                EmergencyContactRelation = dto.EmergencyContactRelation,
+                NomineeName = dto.NomineeName,
+                NomineeRelation = dto.NomineeRelation,
+                NomineePhone = dto.NomineePhone,
+                BankName = dto.BankName,
+                AccountHolderName = dto.AccountHolderName,
+                AccountNumber = dto.AccountNumber,
+                RoutingNumber = dto.RoutingNumber,
+                SwiftCode = dto.SwiftCode,
+                MonthlyAmount = dto.MonthlyAmount,
+                JoinDate = DateTime.UtcNow,
+                AcceptTerms = dto.AcceptTerms,
+                IsActive = false,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _context.Members.Add(member);
+            await _context.SaveChangesAsync();
+
+            await _notificationService.CreateRegistrationRequestAsync(user.Id, user.Email, user.Name, member.Id);
+
+            var admins = await _context.Users.Where(u => u.Role == UnityMicroFund.API.Models.UserRole.Admin && u.IsActive).ToListAsync();
+            foreach (var admin in admins)
+            {
+                await _notificationService.CreateNotificationAsync(
+                    "New Registration Request",
+                    $"User {user.Name} ({user.Email}) has completed SSO registration and is waiting for approval.",
+                    NotificationType.RegistrationApproval,
+                    admin.Id,
+                    user.Id,
+                    user.Id,
+                    member.Id
+                );
+            }
+
+            await transaction.CommitAsync();
+
+            return new AuthResponseDto
+            {
+                User = new UserDto
+                {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Email = user.Email,
+                    Role = user.Role.ToString(),
+                    IsActive = user.IsActive,
+                    IsApproved = user.IsApproved
+                },
+                RequiresApproval = true,
+                Message = "Your registration has been submitted and is pending admin approval."
+            };
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordDto dto)

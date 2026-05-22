@@ -109,7 +109,13 @@ export class LoginComponent implements OnInit, AfterViewInit {
       this.authService.googleLogin(response.credential).subscribe({
         next: (res) => {
           this.isGoogleLoading = false;
-          if (res.requiresApproval) {
+          if (res.requiresMemberRegistration) {
+            if (res.accessToken) {
+              this.tokenService.saveToken(res.accessToken);
+            }
+            this.router.navigate(['/auth', 'complete-profile']);
+            this.cdr.detectChanges();
+          } else if (res.requiresApproval) {
             this.error = 'Your registration is pending approval.';
             this.tokenService.clearAll();
             this.cdr.detectChanges();
@@ -164,7 +170,13 @@ export class LoginComponent implements OnInit, AfterViewInit {
         this.authService.facebookLogin(accessToken).subscribe({
           next: (res) => {
             this.isFacebookLoading = false;
-            if (res.requiresApproval) {
+            if (res.requiresMemberRegistration) {
+              if (res.accessToken) {
+                this.tokenService.saveToken(res.accessToken);
+              }
+              this.router.navigate(['/auth', 'complete-profile']);
+              this.cdr.detectChanges();
+            } else if (res.requiresApproval) {
               this.error = 'Your registration is pending approval.';
               this.tokenService.clearAll();
               this.cdr.detectChanges();
