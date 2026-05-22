@@ -1,5 +1,8 @@
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Models;
 using UnityMicroFund.API.Areas.Auth.Models;
@@ -10,8 +13,20 @@ namespace UnityMicroFund.API.Data;
 
 public class AppDbContext : DbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+    private readonly IHttpContextAccessor? _httpContextAccessor;
+
+    // Business entities whose create/update/delete operations are recorded in audit_logs.
+    private static readonly HashSet<string> AuditedEntities = new()
     {
+        nameof(Member), nameof(Investment), nameof(Contribution), nameof(MemberInvestment),
+        nameof(Account), nameof(Transaction), nameof(GroupSetting), nameof(ParamBusConfig)
+    };
+
+    // httpContextAccessor is optional so design-time tooling (dotnet ef) can still construct the context.
+    public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? httpContextAccessor = null)
+        : base(options)
+    {
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public DbSet<Member> Members { get; set; }
@@ -35,6 +50,106 @@ public class AppDbContext : DbContext
     public DbSet<ParamBusConfig> ParamBusConfigs { get; set; }
     public DbSet<LogEntry> LogEntries { get; set; }
     public DbSet<PasswordResetCode> PasswordResetCodes { get; set; }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var auditEntries = CaptureAuditEntries();
+        var result = await base.SaveChangesAsync(cancellationToken);
+
+        if (auditEntries.Count > 0)
+        {
+            AuditLogs.AddRange(auditEntries);
+            await base.SaveChangesAsync(cancellationToken);
+        }
+
+        return result;
+    }
+
+    public override int SaveChanges()
+    {
+        var auditEntries = CaptureAuditEntries();
+        var result = base.SaveChanges();
+
+        if (auditEntries.Count > 0)
+        {
+            AuditLogs.AddRange(auditEntries);
+            base.SaveChanges();
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Inspects the change tracker and builds an audit_logs row for every create/update/delete
+    /// of an audited business entity. Captured before SaveChanges so original values are still available.
+    /// </summary>
+    private List<AuditLog> CaptureAuditEntries()
+    {
+        var auditLogs = new List<AuditLog>();
+
+        var httpContext = _httpContextAccessor?.HttpContext;
+        Guid? userId = Guid.TryParse(httpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var uid)
+            ? uid
+            : null;
+        var userEmail = httpContext?.User.FindFirst(ClaimTypes.Email)?.Value;
+        var ipAddress = httpContext?.Connection.RemoteIpAddress?.ToString();
+        var userAgent = httpContext?.Request.Headers.UserAgent.ToString();
+
+        var jsonOptions = new JsonSerializerOptions { WriteIndented = false };
+
+        foreach (var entry in ChangeTracker.Entries())
+        {
+            var entityName = entry.Entity.GetType().Name;
+            if (!AuditedEntities.Contains(entityName))
+                continue;
+
+            string action;
+            Dictionary<string, object?>? oldValues = null;
+            Dictionary<string, object?>? newValues = null;
+
+            switch (entry.State)
+            {
+                case EntityState.Added:
+                    action = "CREATE";
+                    newValues = entry.CurrentValues.Properties.ToDictionary(p => p.Name, p => entry.CurrentValues[p]);
+                    break;
+
+                case EntityState.Deleted:
+                    action = "DELETE";
+                    oldValues = entry.OriginalValues.Properties.ToDictionary(p => p.Name, p => entry.OriginalValues[p]);
+                    break;
+
+                case EntityState.Modified:
+                    var modified = entry.Properties.Where(p => p.IsModified).ToList();
+                    if (modified.Count == 0)
+                        continue;
+                    action = "UPDATE";
+                    oldValues = modified.ToDictionary(p => p.Metadata.Name, p => p.OriginalValue);
+                    newValues = modified.ToDictionary(p => p.Metadata.Name, p => p.CurrentValue);
+                    break;
+
+                default:
+                    continue;
+            }
+
+            auditLogs.Add(new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                EntityName = entityName,
+                Action = action,
+                OldValues = oldValues != null ? JsonSerializer.Serialize(oldValues, jsonOptions) : null,
+                NewValues = newValues != null ? JsonSerializer.Serialize(newValues, jsonOptions) : null,
+                Description = $"{action} {entityName}",
+                UserId = userId,
+                UserEmail = userEmail,
+                IpAddress = ipAddress,
+                UserAgent = userAgent,
+                Timestamp = DateTime.UtcNow
+            });
+        }
+
+        return auditLogs;
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
