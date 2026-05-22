@@ -376,6 +376,9 @@ cat > "${API_DIR}/appsettings.Production.json" <<APPSETTINGS
     "FromName": "UnityMicroFund",
     "UseSsl": "true"
   },
+  "AdminUser": {
+    "Email": "admin@unitymicrofund.com"
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Warning",
