@@ -6,6 +6,7 @@ import { Token } from '../../core/services/token';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { environment } from '../../../environments/environment';
+import { BrandingService } from '../../core/services/branding.service';
 
 declare const google: any;
 declare const FB: any;
@@ -23,6 +24,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
   isLoading = false;
   isGoogleLoading = false;
   isFacebookLoading = false;
+  logoUrl = 'assets/organization/logo.png';
 
   private googleClientId = environment.googleClientId;
   private facebookAppId = environment.facebookAppId;
@@ -34,6 +36,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
     private tokenService: Token,
     private router: Router,
     private cdr: ChangeDetectorRef,
+    private brandingService: BrandingService,
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -42,7 +45,12 @@ export class LoginComponent implements OnInit, AfterViewInit {
     });
   }
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.brandingService.getBranding().subscribe({
+      next: (b) => { this.logoUrl = b.logoUrl; this.cdr.detectChanges(); },
+      error: () => { /* keep default logo */ },
+    });
+  }
 
   ngAfterViewInit(): void {
     this.loadGoogleScript();

@@ -5,6 +5,7 @@ import { Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { ParamBusConfigService, ParamBusConfig, UpdateParamBusConfig } from '../../core/services/param-bus-config.service';
 import { ToastService } from '../../core/services/toast.service';
+import { BrandingService } from '../../core/services/branding.service';
 
 @Component({
   selector: 'app-business-config',
@@ -19,9 +20,28 @@ import { ToastService } from '../../core/services/toast.service';
         </div>
       </div>
 
+      <!-- Company Logo -->
+      <div class="logo-card">
+        <div class="logo-card-head">
+          <h3>Company Logo</h3>
+          <p>Shown in the sidebar and on login/auth screens. PNG, JPG, SVG or WEBP, max 2MB.</p>
+        </div>
+        <div class="logo-card-body">
+          <div class="logo-preview">
+            <img [src]="currentLogoUrl" alt="Current logo" />
+          </div>
+          <div class="logo-actions">
+            <input #logoInput type="file" accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp" (change)="onLogoSelected($event)" hidden />
+            <button class="btn-edit" (click)="logoInput.click()" [disabled]="logoUploading">
+              {{ logoUploading ? 'Uploading...' : 'Change Logo' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="config-content">
         <div *ngIf="loading" class="loading">Loading...</div>
-        
+
         <table class="config-table" *ngIf="!loading">
           <thead>
             <tr>
@@ -91,6 +111,12 @@ import { ToastService } from '../../core/services/toast.service';
     .header-left h2 { margin: 0 0 8px 0; color: #333; }
     .header-left p { margin: 0; color: #666; }
     .loading { text-align: center; padding: 40px; color: #666; }
+    .logo-card { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+    .logo-card-head h3 { margin: 0 0 4px 0; color: #333; }
+    .logo-card-head p { margin: 0 0 16px 0; color: #666; font-size: 13px; }
+    .logo-card-body { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+    .logo-preview { width: 80px; height: 80px; border: 1px solid #e0e0e0; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #fafafa; overflow: hidden; }
+    .logo-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
     .config-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
     .config-table th { background: #1976d2; color: white; padding: 12px; text-align: left; font-weight: 500; }
     .config-table td { padding: 12px; border-bottom: 1px solid #eee; }
@@ -135,18 +161,22 @@ export class BusinessConfigComponent implements OnInit, AfterViewInit, OnDestroy
   editingId: string | null = null;
   editConfig: any = {};
   loading = true;
+  currentLogoUrl = 'assets/organization/logo.png';
+  logoUploading = false;
   private routeSubscription: any;
 
   constructor(
     private configService: ParamBusConfigService,
     private toastService: ToastService,
+    private brandingService: BrandingService,
     private router: Router,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
     this.loadConfigs();
-    
+    this.loadLogo();
+
     this.routeSubscription = this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe(() => {
@@ -180,6 +210,47 @@ export class BusinessConfigComponent implements OnInit, AfterViewInit, OnDestroy
         this.loading = false;
         this.cdr.detectChanges();
       }
+    });
+  }
+
+  loadLogo(): void {
+    this.brandingService.getBranding().subscribe({
+      next: (b) => { this.currentLogoUrl = b.logoUrl; this.cdr.detectChanges(); },
+      error: () => { /* keep default */ },
+    });
+  }
+
+  onLogoSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || !input.files[0]) return;
+
+    const file = input.files[0];
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      this.toastService.error('Please select a PNG, JPG, SVG or WEBP image.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      this.toastService.error('Logo size must be less than 2MB.');
+      return;
+    }
+
+    this.logoUploading = true;
+    this.brandingService.uploadLogo(file).subscribe({
+      next: (res) => {
+        // cache-bust so the new image is shown immediately
+        this.currentLogoUrl = `${res.logoUrl}?t=${Date.now()}`;
+        this.brandingService.refresh();
+        this.logoUploading = false;
+        this.toastService.success('Logo updated successfully. Reload to see it everywhere.');
+        input.value = '';
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.logoUploading = false;
+        this.toastService.error(err.error?.message || 'Failed to upload logo');
+        this.cdr.detectChanges();
+      },
     });
   }
 

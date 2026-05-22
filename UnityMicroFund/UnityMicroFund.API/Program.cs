@@ -197,6 +197,8 @@ var contentTypeProvider = new FileExtensionContentTypeProvider();
 contentTypeProvider.Mappings[".jpeg"] = "image/jpeg";
 contentTypeProvider.Mappings[".jpg"] = "image/jpeg";
 contentTypeProvider.Mappings[".png"] = "image/png";
+contentTypeProvider.Mappings[".svg"] = "image/svg+xml";
+contentTypeProvider.Mappings[".webp"] = "image/webp";
 
 var webDistPath = Path.Combine(builder.Environment.ContentRootPath, "..", "unitymicrofund_web", "dist", "unitymicrofund_web", "browser", "assets");
 var altPath = Path.Combine(builder.Environment.ContentRootPath, "..", "..", "unitymicrofund_web", "dist", "unitymicrofund_web", "browser", "assets");
@@ -249,6 +251,15 @@ app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(memberImagesPath),
     RequestPath = "/assets/member",
+    ContentTypeProvider = contentTypeProvider
+});
+
+var organizationPath = Path.Combine(builder.Environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "organization");
+Directory.CreateDirectory(organizationPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(organizationPath),
+    RequestPath = "/assets/organization",
     ContentTypeProvider = contentTypeProvider
 });
 

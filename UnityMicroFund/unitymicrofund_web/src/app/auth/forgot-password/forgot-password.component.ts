@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Auth, ResetMethod } from '../../core/services/auth';
+import { BrandingService } from '../../core/services/branding.service';
 
 @Component({
   selector: 'app-forgot-password',
@@ -11,7 +12,7 @@ import { Auth, ResetMethod } from '../../core/services/auth';
   standalone: true,
   imports: [ReactiveFormsModule, CommonModule, RouterLink],
 })
-export class ForgotPasswordComponent {
+export class ForgotPasswordComponent implements OnInit {
   form: FormGroup;
   currentStep: number = 1;
   totalSteps: number = 3;
@@ -20,6 +21,7 @@ export class ForgotPasswordComponent {
   isLoading = false;
   method: ResetMethod = 'email';
   destination: string = '';
+  logoUrl = 'assets/organization/logo.png';
 
   private readonly emailValidators = [Validators.required, Validators.email];
 
@@ -27,12 +29,20 @@ export class ForgotPasswordComponent {
     private fb: FormBuilder,
     private authService: Auth,
     private router: Router,
+    private brandingService: BrandingService,
   ) {
     this.form = this.fb.group({
       email: ['', this.emailValidators],
       code: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(6)]],
       newPassword: ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: ['', [Validators.required]],
+    });
+  }
+
+  ngOnInit(): void {
+    this.brandingService.getBranding().subscribe({
+      next: (b) => { this.logoUrl = b.logoUrl; },
+      error: () => { /* keep default logo */ },
     });
   }
 

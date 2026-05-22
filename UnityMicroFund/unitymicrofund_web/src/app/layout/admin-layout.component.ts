@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { filter } from 'rxjs/operators';
 import { UserService } from '../core/services/user';
 import { Token } from '../core/services/token';
+import { BrandingService } from '../core/services/branding.service';
 import { ChatInterfaceComponent } from '../chat/chat-interface.component';
 import { NotificationBellComponent } from '../shared/notification-bell/notification-bell.component';
 import {
@@ -29,6 +30,7 @@ const NAV_MODULES: NavModule[] = [
     children: [
       { label: 'Investments',  route: '/investments', icon: 'trending_up' },
       { label: 'Transactions', route: '/payments',    icon: 'payments' },
+      { label: 'Withdraw',     route: '/withdraw',    icon: 'output' },
       { label: 'Accounts',     route: '/accounts',    icon: 'account_balance', roles: ['Admin'] },
     ],
   },
@@ -116,11 +118,11 @@ const NAV_POLICY: NavPolicy = {
             <div class="logo-glow"></div>
             <div class="logo-inner">
               <div class="logo-icon-container">
-                <img src="assets/organization/logo.png" alt="UnityMicroFund" class="logo-img" />
+                <img [src]="logoUrl" alt="Company logo" class="logo-img" />
                 <div class="logo-shine"></div>
               </div>
               <div class="logo-content">
-                <span class="logo-text">UnityMicroFund</span>
+                <span class="logo-text">{{ companyName }}</span>
                 <span class="logo-tagline">Investment Platform</span>
               </div>
             </div>
@@ -246,12 +248,13 @@ const NAV_POLICY: NavPolicy = {
 
     .logo-wrapper {
       position: relative;
-      padding: 14px 12px;
+      padding: 12px 10px;
       background: linear-gradient(145deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 100%);
       overflow: hidden;
       border-radius: 10px;
       margin-left: 4px;
       flex: 1;
+      min-width: 0;
       transition: opacity 0.2s, max-width 0.25s;
     }
 
@@ -281,13 +284,14 @@ const NAV_POLICY: NavPolicy = {
       position: relative;
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 11px;
       z-index: 1;
+      min-width: 0;
     }
 
     .logo-icon-container {
       position: relative;
-      width: 52px; height: 52px;
+      width: 46px; height: 46px;
       background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
       border-radius: 12px;
       display: flex;
@@ -304,7 +308,7 @@ const NAV_POLICY: NavPolicy = {
     }
 
     .logo-img {
-      width: 36px; height: 36px;
+      width: 32px; height: 32px;
       object-fit: contain;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
     }
@@ -328,15 +332,19 @@ const NAV_POLICY: NavPolicy = {
       display: flex;
       flex-direction: column;
       gap: 2px;
+      min-width: 0;
+      flex: 1;
     }
 
     .logo-text {
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 700;
       color: white;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.2px;
       text-shadow: 0 2px 8px rgba(0,0,0,0.25);
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .logo-tagline {
@@ -344,7 +352,10 @@ const NAV_POLICY: NavPolicy = {
       font-weight: 500;
       color: rgba(255,215,0,0.9);
       text-transform: uppercase;
-      letter-spacing: 1.8px;
+      letter-spacing: 1.4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .logo-particles {
@@ -629,6 +640,8 @@ export class AdminLayoutComponent implements OnInit {
 
   userRole: string | null = null;
   userName: string | null = null;
+  companyName = 'Unity MicroFund';
+  logoUrl = 'assets/organization/logo.png';
   sidebarOpen = false;
   sidebarCollapsed = localStorage.getItem('umf_sidebar_collapsed') === 'true';
 
@@ -637,16 +650,29 @@ export class AdminLayoutComponent implements OnInit {
     private userService: UserService,
     private tokenService: Token,
     private router: Router,
+    private brandingService: BrandingService,
   ) {}
 
   ngOnInit() {
     this.refreshUser();
+    this.loadBranding();
 
     this.router.events.pipe(
       filter(e => e instanceof NavigationEnd),
     ).subscribe(() => {
       this.refreshUser();
       this.cdr.detectChanges();
+    });
+  }
+
+  private loadBranding() {
+    this.brandingService.getBranding().subscribe({
+      next: (branding) => {
+        this.companyName = branding.companyName;
+        this.logoUrl = branding.logoUrl;
+        this.cdr.detectChanges();
+      },
+      error: () => { /* keep defaults on failure */ },
     });
   }
 

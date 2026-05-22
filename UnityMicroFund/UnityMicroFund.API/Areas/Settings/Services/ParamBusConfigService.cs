@@ -144,6 +144,51 @@ public class ParamBusConfigService : IParamBusConfigService
         };
     }
 
+    public async Task<ParamBusConfigDto> SetValueByNameAsync(string name, string value, string? description, string modifiedBy, CancellationToken cancellationToken = default)
+    {
+        var config = await _context.ParamBusConfigs
+            .FirstOrDefaultAsync(c => c.Name == name, cancellationToken);
+
+        if (config == null)
+        {
+            config = new API.Models.ParamBusConfig
+            {
+                Id = Guid.NewGuid(),
+                Name = name,
+                Value = value,
+                Description = description,
+                Status = true,
+                LastModifiedDate = DateTime.UtcNow,
+                LastModifiedBy = modifiedBy,
+                LastModifiedColumn = "All"
+            };
+            _context.ParamBusConfigs.Add(config);
+        }
+        else
+        {
+            config.Value = value;
+            if (description != null)
+                config.Description = description;
+            config.LastModifiedDate = DateTime.UtcNow;
+            config.LastModifiedBy = modifiedBy;
+            config.LastModifiedColumn = "Value";
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return new ParamBusConfigDto
+        {
+            Id = config.Id,
+            Name = config.Name,
+            Value = config.Value,
+            Description = config.Description,
+            Status = config.Status,
+            LastModifiedDate = config.LastModifiedDate,
+            LastModifiedBy = await GetModifiedByDisplayName(config.LastModifiedBy, cancellationToken),
+            LastModifiedColumn = config.LastModifiedColumn
+        };
+    }
+
     public async Task<ParamBusConfigDto?> UpdateAsync(Guid id, UpdateParamBusConfigDto dto, string modifiedBy, CancellationToken cancellationToken = default)
     {
         var config = await _context.ParamBusConfigs.FindAsync([id], cancellationToken);

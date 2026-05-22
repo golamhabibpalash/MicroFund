@@ -8,5 +8,10 @@
     "target": "http://localhost:5248",
     "secure": false,
     "changeOrigin": true
+  },
+  "/assets/organization": {
+    "target": "http://localhost:5248",
+    "secure": false,
+    "changeOrigin": true
   }
 }

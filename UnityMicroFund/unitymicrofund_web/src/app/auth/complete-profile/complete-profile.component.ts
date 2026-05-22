@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { MemberProfileService } from '../../core/services/member-profile.service';
 import { Token } from '../../core/services/token';
+import { BrandingService } from '../../core/services/branding.service';
 
 type ViewState = 'form' | 'submitting' | 'success' | 'error';
 
@@ -19,12 +20,14 @@ export class CompleteProfileComponent implements OnInit {
   state: ViewState = 'form';
   error = '';
   submitMessage = '';
+  logoUrl = 'assets/organization/logo.png';
 
   constructor(
     private fb: FormBuilder,
     private memberProfile: MemberProfileService,
     private router: Router,
     private token: Token,
+    private brandingService: BrandingService,
   ) {
     this.form = this.fb.group({
       name: ['', Validators.required],
@@ -46,6 +49,11 @@ export class CompleteProfileComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.brandingService.getBranding().subscribe({
+      next: (b) => { this.logoUrl = b.logoUrl; },
+      error: () => { /* keep default logo */ },
+    });
+
     const role = this.token.getUserRole();
     if (role === 'Admin' || role === 'Manager') {
       this.router.navigate(['/dashboard']);
