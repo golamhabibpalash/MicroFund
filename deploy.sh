@@ -262,7 +262,8 @@ cat > "${ENV_DIR}/environment.prod.ts" <<'ENVTS'
 export const environment = {
   production: true,
   apiUrl: '/api',
-  googleClientId: ''
+  googleClientId: '',
+  facebookAppId: ''
 };
 ENVTS
 
