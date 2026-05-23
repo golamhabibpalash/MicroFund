@@ -38,9 +38,14 @@ WEB_DIR="${APP_DIR}/web"
 UPLOADS_DIR="${APP_DIR}/uploads/receipts"
 SERVICE_NAME="unitymicrofund-api"
 SERVICE_USER="unitymicrofund"
+MAINTENANCE_FLAG="${APP_DIR}/.maintenance"
+NGINX_CONF="/etc/nginx/sites-available/${DOMAIN}"
 
 log()  { echo "[$(date +%T)] ✓  $*"; }
 info() { echo "[$(date +%T)] →  $*"; }
+
+# Always remove maintenance flag on exit (success or failure)
+trap 'rm -f "${MAINTENANCE_FLAG}"; nginx -s reload 2>/dev/null || true' EXIT
 
 # =============================================================================
 # 1. Pull latest code
@@ -54,7 +59,55 @@ git -C "${REPO_DIR}" clean -fd -q
 log "Code updated to $(git -C "${REPO_DIR}" rev-parse --short HEAD)"
 
 # =============================================================================
-# 2. Build Angular
+# 2. Maintenance mode — enable
+# =============================================================================
+
+# Copy latest maintenance page from repo
+cp "${REPO_DIR}/maintenance.html" "${APP_DIR}/maintenance.html"
+
+# Patch Nginx config to support maintenance mode (one-time, idempotent)
+if [[ -f "${NGINX_CONF}" ]] && ! grep -q '\.maintenance' "${NGINX_CONF}"; then
+    info "Adding maintenance mode support to Nginx config..."
+    python3 - "${NGINX_CONF}" <<'PYSCRIPT'
+import re, sys
+
+with open(sys.argv[1]) as f:
+    conf = f.read()
+
+# Insert maintenance check into "location / {" block
+conf = re.sub(
+    r'(location / \{)',
+    r'\1\n        if (-f /var/www/unitymicrofund/.maintenance) { return 503; }',
+    conf
+)
+
+# Append error_page + @maintenance location before the final closing brace
+maintenance_block = (
+    '\n    error_page 503 @maintenance;\n'
+    '    location @maintenance {\n'
+    '        root /var/www/unitymicrofund;\n'
+    '        try_files /maintenance.html =503;\n'
+    '        internal;\n'
+    '    }\n'
+)
+conf = re.sub(r'\n\}(\s*)$', maintenance_block + r'\n}\1', conf)
+
+with open(sys.argv[1], 'w') as f:
+    f.write(conf)
+
+print("Nginx config patched with maintenance mode support")
+PYSCRIPT
+    nginx -t && nginx -s reload
+    log "Nginx config updated"
+fi
+
+# Enable maintenance page
+touch "${MAINTENANCE_FLAG}"
+nginx -s reload
+log "Maintenance mode ON — site shows maintenance page"
+
+# =============================================================================
+# 3. Build Angular
 # =============================================================================
 
 info "Building Angular..."
@@ -83,7 +136,7 @@ rsync -a --delete "${ANGULAR_DIST}/" "${WEB_DIR}/"
 log "Angular built → ${WEB_DIR}"
 
 # =============================================================================
-# 3. Publish .NET API
+# 4. Publish .NET API
 # =============================================================================
 
 info "Publishing .NET API..."
@@ -147,7 +200,7 @@ chmod 600 "${API_DIR}/appsettings.Production.json"
 log "API published → ${API_DIR}"
 
 # =============================================================================
-# 4. Fix permissions and restart service
+# 5. Fix permissions and restart service
 # =============================================================================
 
 chown -R "${SERVICE_USER}:${SERVICE_USER}" "${APP_DIR}"
@@ -155,9 +208,19 @@ chmod -R 755 "${WEB_DIR}"
 chmod 750 "${API_DIR}"
 chmod 700 "${UPLOADS_DIR}"
 chown "${SERVICE_USER}:${SERVICE_USER}" "${API_DIR}/logs"
+# Keep maintenance.html readable by nginx
+chmod 644 "${APP_DIR}/maintenance.html"
 
 systemctl restart "${SERVICE_NAME}"
 log "Service '${SERVICE_NAME}' restarted"
+
+# =============================================================================
+# 6. Maintenance mode — disable (trap also handles this on failure)
+# =============================================================================
+
+rm -f "${MAINTENANCE_FLAG}"
+nginx -s reload
+log "Maintenance mode OFF — site is live"
 
 echo ""
 echo "========================================"

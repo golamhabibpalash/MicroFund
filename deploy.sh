@@ -506,8 +506,17 @@ server {
     add_header X-XSS-Protection        "1; mode=block"                 always;
     add_header Referrer-Policy         "strict-origin-when-cross-origin" always;
 
+    # ── Maintenance mode ────────────────────────────────────────────────────
+    error_page 503 @maintenance;
+    location @maintenance {
+        root ${APP_DIR};
+        try_files /maintenance.html =503;
+        internal;
+    }
+
     # ── Angular SPA ─────────────────────────────────────────────────────────
     location / {
+        if (-f ${APP_DIR}/.maintenance) { return 503; }
         try_files \$uri \$uri/ /index.html;
     }
 
@@ -569,6 +578,10 @@ server {
 NGINX
 
 ln -sf "${NGINX_CONF}" "/etc/nginx/sites-enabled/${DOMAIN}"
+
+# Copy maintenance page to the app directory
+cp "${REPO_DIR}/maintenance.html" "${APP_DIR}/maintenance.html"
+chmod 644 "${APP_DIR}/maintenance.html"
 
 nginx -t
 systemctl enable --now nginx
