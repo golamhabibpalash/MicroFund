@@ -379,6 +379,10 @@ cat > "${API_DIR}/appsettings.Production.json" <<APPSETTINGS
   "AdminUser": {
     "Email": "admin@unitymicrofund.com"
   },
+  "Uploads": {
+    "MemberImagesPath": "${APP_DIR}/uploads/member",
+    "OrganizationPath": "${APP_DIR}/uploads/organization"
+  },
   "Cors": {
     "AllowedOrigins": ["https://${DOMAIN}", "http://${DOMAIN}"]
   },
@@ -440,7 +444,7 @@ Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=${UPLOADS_DIR}
+ReadWritePaths=${APP_DIR}/uploads
 ReadWritePaths=${API_DIR}/logs
 
 [Install]

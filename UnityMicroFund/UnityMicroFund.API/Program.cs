@@ -256,7 +256,8 @@ if (Directory.Exists(uploadsPath))
     });
 }
 
-var memberImagesPath = Path.Combine(builder.Environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "member");
+var memberImagesPath = builder.Configuration["Uploads:MemberImagesPath"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "member");
 Directory.CreateDirectory(memberImagesPath);
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -265,7 +266,8 @@ app.UseStaticFiles(new StaticFileOptions
     ContentTypeProvider = contentTypeProvider
 });
 
-var organizationPath = Path.Combine(builder.Environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "organization");
+var organizationPath = builder.Configuration["Uploads:OrganizationPath"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "organization");
 Directory.CreateDirectory(organizationPath);
 app.UseStaticFiles(new StaticFileOptions
 {

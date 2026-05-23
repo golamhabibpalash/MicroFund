@@ -201,6 +201,10 @@ cat > "${API_DIR}/appsettings.Production.json" <<APPSETTINGS
   "AdminUser": {
     "Email": "admin@unitymicrofund.com"
   },
+  "Uploads": {
+    "MemberImagesPath": "/var/www/unitymicrofund/uploads/member",
+    "OrganizationPath": "/var/www/unitymicrofund/uploads/organization"
+  },
   "Cors": {
     "AllowedOrigins": ["https://${DOMAIN}", "http://${DOMAIN}"]
   },
@@ -219,6 +223,17 @@ log "API published → ${API_DIR}"
 # =============================================================================
 # 5. Fix permissions and restart service
 # =============================================================================
+
+# Ensure upload subdirectories exist
+mkdir -p "${APP_DIR}/uploads/member" "${APP_DIR}/uploads/organization"
+
+# Ensure systemd ReadWritePaths covers the whole uploads dir (not just receipts)
+SVCFILE="/etc/systemd/system/${SERVICE_NAME}.service"
+if [[ -f "${SVCFILE}" ]] && grep -q 'ReadWritePaths=.*uploads/receipts' "${SVCFILE}"; then
+    sed -i 's|ReadWritePaths=.*/uploads/receipts|ReadWritePaths=/var/www/unitymicrofund/uploads|' "${SVCFILE}"
+    systemctl daemon-reload
+    log "Systemd service ReadWritePaths updated to cover full uploads directory"
+fi
 
 chown -R "${SERVICE_USER}:${SERVICE_USER}" "${APP_DIR}"
 chmod -R 755 "${WEB_DIR}"
