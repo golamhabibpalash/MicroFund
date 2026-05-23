@@ -65,15 +65,33 @@ log "Code updated to $(git -C "${REPO_DIR}" rev-parse --short HEAD)"
 # Copy latest maintenance page from repo
 cp "${REPO_DIR}/maintenance.html" "${APP_DIR}/maintenance.html"
 
-# Patch Nginx config to support maintenance mode (one-time, idempotent)
-if [[ -f "${NGINX_CONF}" ]] && ! grep -q 'maintenance\.html' "${NGINX_CONF}"; then
-    info "Adding maintenance mode support to Nginx config..."
+# Patch Nginx config — ensure correct maintenance mode support (idempotent)
+# Runs whenever the new-style block is absent (handles first install and
+# servers that still have the old @maintenance named-location approach).
+if [[ -f "${NGINX_CONF}" ]] && ! grep -q 'location = /maintenance.html' "${NGINX_CONF}"; then
+    info "Patching Nginx config for maintenance mode..."
     python3 - "${NGINX_CONF}" <<'PYSCRIPT'
-import sys
+import re, sys
 
 with open(sys.argv[1]) as f:
     conf = f.read()
 
+# Remove old-style @maintenance named location blocks (if present)
+conf = re.sub(
+    r'\n[ \t]*error_page 503 @maintenance;[ \t]*'
+    r'\n[ \t]*location @maintenance \{[^}]*\}',
+    '',
+    conf,
+    flags=re.DOTALL
+)
+# Remove old-style if-check (may have been inserted by a previous patch)
+conf = re.sub(
+    r'\n[ \t]*if \(-f /var/www/unitymicrofund/\.maintenance\) \{ return 503; \}',
+    '',
+    conf
+)
+
+# Insert correct maintenance block before "location / {"
 maintenance_block = (
     '    error_page 503 /maintenance.html;\n'
     '    location = /maintenance.html {\n'
@@ -81,25 +99,20 @@ maintenance_block = (
     '        add_header Cache-Control "no-cache" always;\n'
     '    }\n\n'
 )
-maintenance_if = '        if (-f /var/www/unitymicrofund/.maintenance) { return 503; }\n'
-
-# Insert error_page block before the first "location / {" line
-conf = conf.replace('    location / {', maintenance_block + '    location / {', 1)
-
-# Insert the if-check as first line inside "location / {"
-conf = conf.replace(
-    '    location / {\n',
-    '    location / {\n' + maintenance_if,
-    1
+maintenance_if = (
+    '        if (-f /var/www/unitymicrofund/.maintenance) { return 503; }\n'
 )
+
+conf = conf.replace('    location / {', maintenance_block + '    location / {', 1)
+conf = conf.replace('    location / {\n', '    location / {\n' + maintenance_if, 1)
 
 with open(sys.argv[1], 'w') as f:
     f.write(conf)
 
-print("Nginx config patched with maintenance mode support")
+print("Nginx config updated with correct maintenance mode support")
 PYSCRIPT
     nginx -t && nginx -s reload
-    log "Nginx config updated"
+    log "Nginx config patched"
 fi
 
 # Enable maintenance page
