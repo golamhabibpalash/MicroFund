@@ -30,11 +30,11 @@ LETSENCRYPT_EMAIL="unitymicrofund@gmail.com"  # notifications from Let's Encrypt
 # Database
 DB_NAME="microfundDb"
 DB_USER="microfund"
-DB_PASS="123AsD,./"            # leave blank to auto-generate a strong password
+DB_PASS=""            # leave blank to auto-generate a strong password
 DB_ROOT_CURRENT_PASS=""        # existing MariaDB root password (required if MariaDB already has one)
 
 # JWT  (leave blank to auto-generate a 48-byte random secret)
-JWT_SECRET="MkUghuX/jZ4R3w550wVUjlOEhKayirv1WLk1VGcBWTGMhVwp5corMNWzSS0RWlty"
+JWT_SECRET=""
 JWT_ISSUER="UnityMicroFund"
 JWT_AUDIENCE="UnityMicroFund"
 JWT_EXPIRY_MINUTES=60
@@ -48,7 +48,7 @@ GOOGLE_CLIENT_SECRET=""                          # replace with your Google OAut
 EMAIL_HOST="smtp.gmail.com"
 EMAIL_PORT="587"
 EMAIL_USERNAME="unitymicrofund@gmail.com"
-EMAIL_PASSWORD="MyPassword@3497#Hard"                                 # replace with your SMTP password
+EMAIL_PASSWORD=""                                 # replace with your SMTP password
 EMAIL_FROM="unitymicrofund@gmail.com"
 
 # =============================================================================
@@ -258,11 +258,11 @@ ANGULAR_JSON="${WEB_SRC}/angular.json"
 ENV_DIR="${WEB_SRC}/src/environments"
 mkdir -p "${ENV_DIR}"
 
-cat > "${ENV_DIR}/environment.prod.ts" <<'ENVTS'
+cat > "${ENV_DIR}/environment.prod.ts" <<ENVTS
 export const environment = {
   production: true,
   apiUrl: '/api',
-  googleClientId: '',
+  googleClientId: '${GOOGLE_CLIENT_ID}',
   facebookAppId: ''
 };
 ENVTS
