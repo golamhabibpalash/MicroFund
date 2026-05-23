@@ -66,31 +66,32 @@ log "Code updated to $(git -C "${REPO_DIR}" rev-parse --short HEAD)"
 cp "${REPO_DIR}/maintenance.html" "${APP_DIR}/maintenance.html"
 
 # Patch Nginx config to support maintenance mode (one-time, idempotent)
-if [[ -f "${NGINX_CONF}" ]] && ! grep -q '\.maintenance' "${NGINX_CONF}"; then
+if [[ -f "${NGINX_CONF}" ]] && ! grep -q 'maintenance\.html' "${NGINX_CONF}"; then
     info "Adding maintenance mode support to Nginx config..."
     python3 - "${NGINX_CONF}" <<'PYSCRIPT'
-import re, sys
+import sys
 
 with open(sys.argv[1]) as f:
     conf = f.read()
 
-# Insert maintenance check into "location / {" block
-conf = re.sub(
-    r'(location / \{)',
-    r'\1\n        if (-f /var/www/unitymicrofund/.maintenance) { return 503; }',
-    conf
-)
-
-# Append error_page + @maintenance location before the final closing brace
 maintenance_block = (
-    '\n    error_page 503 @maintenance;\n'
-    '    location @maintenance {\n'
+    '    error_page 503 /maintenance.html;\n'
+    '    location = /maintenance.html {\n'
     '        root /var/www/unitymicrofund;\n'
-    '        try_files /maintenance.html =503;\n'
-    '        internal;\n'
-    '    }\n'
+    '        add_header Cache-Control "no-cache" always;\n'
+    '    }\n\n'
 )
-conf = re.sub(r'\n\}(\s*)$', maintenance_block + r'\n}\1', conf)
+maintenance_if = '        if (-f /var/www/unitymicrofund/.maintenance) { return 503; }\n'
+
+# Insert error_page block before the first "location / {" line
+conf = conf.replace('    location / {', maintenance_block + '    location / {', 1)
+
+# Insert the if-check as first line inside "location / {"
+conf = conf.replace(
+    '    location / {\n',
+    '    location / {\n' + maintenance_if,
+    1
+)
 
 with open(sys.argv[1], 'w') as f:
     f.write(conf)

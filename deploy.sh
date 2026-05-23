@@ -507,11 +507,10 @@ server {
     add_header Referrer-Policy         "strict-origin-when-cross-origin" always;
 
     # ── Maintenance mode ────────────────────────────────────────────────────
-    error_page 503 @maintenance;
-    location @maintenance {
+    error_page 503 /maintenance.html;
+    location = /maintenance.html {
         root ${APP_DIR};
-        try_files /maintenance.html =503;
-        internal;
+        add_header Cache-Control "no-cache" always;
     }
 
     # ── Angular SPA ─────────────────────────────────────────────────────────
