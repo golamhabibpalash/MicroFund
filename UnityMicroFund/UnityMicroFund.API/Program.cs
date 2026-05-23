@@ -98,7 +98,18 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins("http://localhost:4200", "http://localhost:3000", "http://127.0.0.1:4200")
+        var origins = new List<string>
+        {
+            "http://localhost:4200",
+            "http://localhost:3000",
+            "http://127.0.0.1:4200"
+        };
+
+        var configured = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+        if (configured?.Length > 0)
+            origins.AddRange(configured);
+
+        policy.WithOrigins(origins.ToArray())
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();

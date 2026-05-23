@@ -379,6 +379,9 @@ cat > "${API_DIR}/appsettings.Production.json" <<APPSETTINGS
   "AdminUser": {
     "Email": "admin@unitymicrofund.com"
   },
+  "Cors": {
+    "AllowedOrigins": ["https://${DOMAIN}", "http://${DOMAIN}"]
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Warning",

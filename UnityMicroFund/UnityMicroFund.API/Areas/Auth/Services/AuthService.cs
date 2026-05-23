@@ -270,12 +270,19 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponseDto?> GoogleLoginOrRegisterAsync(string googleToken)
     {
+        var clientId = _configuration["Google:ClientId"];
+        if (string.IsNullOrWhiteSpace(clientId))
+        {
+            Console.WriteLine("Google login failed: Google:ClientId is not configured in appsettings.");
+            return null;
+        }
+
         Google.Apis.Auth.GoogleJsonWebSignature.Payload payload;
         try
         {
             var settings = new Google.Apis.Auth.GoogleJsonWebSignature.ValidationSettings
             {
-                Audience = new[] { _configuration["Google:ClientId"] }
+                Audience = new[] { clientId }
             };
             payload = await Google.Apis.Auth.GoogleJsonWebSignature.ValidateAsync(googleToken, settings);
         }
