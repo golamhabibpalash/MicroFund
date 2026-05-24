@@ -74,7 +74,12 @@ export class CompleteProfileComponent implements OnInit {
           }, 6000);
         }
       },
-      error: () => {},
+      error: (err) => {
+        if (err?.status === 401) {
+          this.token.clearAll();
+          this.router.navigate(['/auth/login']);
+        }
+      },
     });
   }
 

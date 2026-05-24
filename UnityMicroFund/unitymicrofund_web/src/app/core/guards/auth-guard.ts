@@ -16,8 +16,13 @@ export class AuthGuard implements CanActivate {
     state: RouterStateSnapshot
   ): boolean | UrlTree {
     const token = this.tokenService.getToken();
-    
+
     if (!token) {
+      return this.router.createUrlTree(['/auth/login']);
+    }
+
+    if (this.tokenService.isTokenExpired()) {
+      this.tokenService.clearAll();
       return this.router.createUrlTree(['/auth/login']);
     }
 
@@ -36,9 +41,13 @@ export class PublicGuard implements CanActivate {
 
   canActivate(): boolean | UrlTree {
     const token = this.tokenService.getToken();
-    
-    if (token) {
+
+    if (token && !this.tokenService.isTokenExpired()) {
       return this.router.createUrlTree(['/dashboard']);
+    }
+
+    if (token && this.tokenService.isTokenExpired()) {
+      this.tokenService.clearAll();
     }
 
     return true;

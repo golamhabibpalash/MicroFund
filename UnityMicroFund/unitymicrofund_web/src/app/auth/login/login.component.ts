@@ -121,7 +121,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
             if (res.accessToken) {
               this.tokenService.saveToken(res.accessToken);
             }
-            this.router.navigate(['/auth', 'complete-profile']);
+            this.router.navigate(['/complete-profile']);
             this.cdr.detectChanges();
           } else if (res.requiresApproval) {
             this.error = 'Your registration is pending approval.';

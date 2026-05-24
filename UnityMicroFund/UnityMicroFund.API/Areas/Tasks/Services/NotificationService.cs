@@ -141,6 +141,7 @@ public class NotificationService : INotificationService
         if (user == null) return false;
 
         user.IsActive = true;
+        user.IsApproved = true;
         user.UpdatedAt = DateTime.UtcNow;
 
         request.Status = "Approved";
