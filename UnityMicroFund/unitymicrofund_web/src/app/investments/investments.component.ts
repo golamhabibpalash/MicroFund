@@ -355,7 +355,7 @@ interface MemberInvestment {
     </div>
   `,
   styles: [`
-    .investments-wrapper { max-width: 1600px; margin: 0 auto; }
+    .investments-wrapper { max-width: 1600px; margin: 0 auto; padding: 24px; box-sizing: border-box; }
     
     /* Stats */
     .stats-section { margin-bottom: 24px; }
@@ -519,10 +519,14 @@ interface MemberInvestment {
       .investments-table { min-width: 600px; }
     }
     @media (max-width: 576px) {
+      .investments-wrapper { padding: 16px; }
       .stat-card { padding: 16px; }
       .stat-card .stat-value { font-size: 20px; }
       .btn { padding: 8px 12px; font-size: 13px; }
       .modal-content { margin: 12px; }
+    }
+    @media (max-width: 480px) {
+      .investments-wrapper { padding: 12px; }
     }
   `]
 })

@@ -274,7 +274,7 @@ interface SummaryReport {
     </div>
   `,
   styles: [`
-    .reports-wrapper { max-width: 1600px; margin: 0 auto; position: relative; }
+    .reports-wrapper { max-width: 1600px; margin: 0 auto; padding: 24px; box-sizing: border-box; position: relative; }
     
     /* Header */
     .reports-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
@@ -381,9 +381,13 @@ interface SummaryReport {
       .btn { padding: 8px 12px; font-size: 13px; }
     }
     @media (max-width: 576px) {
+      .reports-wrapper { padding: 16px; }
       .report-card { padding: 16px; }
       .report-card h3 { font-size: 16px; }
       .btn-primary, .btn-secondary { width: 100%; }
+    }
+    @media (max-width: 480px) {
+      .reports-wrapper { padding: 12px; }
     }
   `]
 })
