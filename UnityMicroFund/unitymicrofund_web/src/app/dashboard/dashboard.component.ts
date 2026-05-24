@@ -310,8 +310,8 @@ interface MonthlyTrend {
     </div>
   `,
   styles: [`
-    .dashboard-wrapper { max-width: 1600px; margin: 0 auto; }
-    
+    .dashboard-wrapper { max-width: 1600px; margin: 0 auto; padding: 24px; box-sizing: border-box; }
+
     /* Header */
     .dashboard-header { margin-bottom: 32px; }
     .welcome-section { display: flex; justify-content: space-between; align-items: flex-start; }
@@ -444,14 +444,14 @@ interface MonthlyTrend {
       .pending-alert { flex-direction: column; text-align: center; gap: 8px; }
     }
     @media (max-width: 576px) {
-      .dashboard-content { padding: 16px; }
+      .dashboard-wrapper { padding: 16px; }
       .welcome-content { flex-direction: column; align-items: flex-start; gap: 12px; }
       .welcome-content h1 { font-size: 20px; }
       .quick-actions-grid { grid-template-columns: 1fr; }
       .action-item { flex-direction: column; text-align: center; gap: 8px; }
     }
     @media (max-width: 480px) {
-      .dashboard-content { padding: 12px; }
+      .dashboard-wrapper { padding: 12px; }
       .welcome-content h1 { font-size: 18px; }
       .section-title { font-size: 16px; }
     }
