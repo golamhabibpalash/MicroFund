@@ -5,7 +5,7 @@ namespace UnityMicroFund.API.Areas.Auth.Services;
 
 public interface IJwtService
 {
-    string GenerateAccessToken(User user);
+    string GenerateAccessToken(User user, string memberStatus = "none");
     (string token, DateTime expiry) GenerateRefreshToken();
     int GetRefreshTokenValidityDays();
 }

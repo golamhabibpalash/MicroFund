@@ -16,7 +16,7 @@ public class JwtService : IJwtService
         _configuration = configuration;
     }
 
-    public string GenerateAccessToken(User user)
+    public string GenerateAccessToken(User user, string memberStatus = "none")
     {
         var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Secret"]!);
         var issuer = _configuration["Jwt:Issuer"]!;
@@ -30,7 +30,8 @@ public class JwtService : IJwtService
             new(ClaimTypes.Email, user.Email),
             new(ClaimTypes.Role, user.Role.ToString()),
             new("role", user.Role.ToString()),
-            new("memberId", user.Id.ToString())
+            new("memberId", user.Id.ToString()),
+            new("memberStatus", memberStatus)
         };
 
         var tokenDescriptor = new SecurityTokenDescriptor

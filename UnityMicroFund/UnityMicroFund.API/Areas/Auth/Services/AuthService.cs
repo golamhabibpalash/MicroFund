@@ -241,11 +241,6 @@ public class AuthService : IAuthService
             return null;
         }
 
-        if (isAdmin)
-        {
-            await _context.SaveChangesAsync();
-        }
-
         return await GenerateAuthResponseAsync(user);
     }
 
@@ -263,7 +258,6 @@ public class AuthService : IAuthService
 
         user.RefreshToken = null;
         user.RefreshTokenExpiry = null;
-        await _context.SaveChangesAsync();
 
         return await GenerateAuthResponseAsync(user);
     }
@@ -311,20 +305,17 @@ public class AuthService : IAuthService
                 existingUser.Role = UserRole.Admin;
                 existingUser.IsApproved = true;
                 existingUser.IsActive = true;
-                await _context.SaveChangesAsync();
                 return await GenerateAuthResponseAsync(existingUser);
             }
 
             if (existingUser.IsApproved)
             {
-                await _context.SaveChangesAsync();
                 return await GenerateAuthResponseAsync(existingUser);
             }
 
             var hasMember = await _context.Members.AnyAsync(m => m.UserId == existingUser.Id);
             if (!hasMember)
             {
-                await _context.SaveChangesAsync();
                 var existingResult = await GenerateAuthResponseAsync(existingUser);
                 existingResult.RequiresMemberRegistration = true;
                 existingResult.Message = "Please complete your member registration.";
@@ -363,7 +354,6 @@ public class AuthService : IAuthService
         };
 
         _context.Users.Add(newUser);
-        await _context.SaveChangesAsync();
 
         var newUserResult = await GenerateAuthResponseAsync(newUser);
         if (!isAdmin)
@@ -430,20 +420,17 @@ public class AuthService : IAuthService
                 existingUser.Role = UserRole.Admin;
                 existingUser.IsApproved = true;
                 existingUser.IsActive = true;
-                await _context.SaveChangesAsync();
                 return await GenerateAuthResponseAsync(existingUser);
             }
 
             if (existingUser.IsApproved)
             {
-                await _context.SaveChangesAsync();
                 return await GenerateAuthResponseAsync(existingUser);
             }
 
             var hasMember = await _context.Members.AnyAsync(m => m.UserId == existingUser.Id);
             if (!hasMember)
             {
-                await _context.SaveChangesAsync();
                 var fbExistingResult = await GenerateAuthResponseAsync(existingUser);
                 fbExistingResult.RequiresMemberRegistration = true;
                 fbExistingResult.Message = "Please complete your member registration.";
@@ -482,7 +469,6 @@ public class AuthService : IAuthService
         };
 
         _context.Users.Add(newUser);
-        await _context.SaveChangesAsync();
 
         var fbNewUserResult = await GenerateAuthResponseAsync(newUser);
         if (!isAdmin)
@@ -834,7 +820,8 @@ public class AuthService : IAuthService
 
     private async Task<AuthResponseDto> GenerateAuthResponseAsync(User user)
     {
-        var accessToken = _jwtService.GenerateAccessToken(user);
+        var memberStatus = await ResolveMemberStatusAsync(user);
+        var accessToken = _jwtService.GenerateAccessToken(user, memberStatus);
         var (refreshToken, refreshExpiry) = _jwtService.GenerateRefreshToken();
 
         user.RefreshToken = refreshToken;
@@ -858,6 +845,26 @@ public class AuthService : IAuthService
                 IsApproved = user.IsApproved
             }
         };
+    }
+
+    private async Task<string> ResolveMemberStatusAsync(User user)
+    {
+        if (user.Role == UserRole.Admin || user.Role == UserRole.Manager)
+            return "active";
+
+        var member = await _context.Members.FirstOrDefaultAsync(m => m.UserId == user.Id);
+        if (member == null && !string.IsNullOrEmpty(user.Email))
+        {
+            member = await _context.Members
+                .FirstOrDefaultAsync(m => m.Email != null && m.Email.ToLower() == user.Email.ToLower());
+            if (member != null && member.UserId == null)
+            {
+                member.UserId = user.Id;
+            }
+        }
+
+        if (member == null) return "none";
+        return member.IsActive ? "active" : "pending";
     }
 
     private static string HashPassword(string password)
