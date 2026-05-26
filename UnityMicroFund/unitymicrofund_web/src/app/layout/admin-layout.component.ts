@@ -214,7 +214,7 @@ const NAV_POLICY: NavPolicy = {
       border-bottom: 1px solid rgba(255,255,255,0.08);
       display: flex;
       align-items: center;
-      padding: 8px;
+      padding: 12px 10px;
     }
 
     .logo-toggle {
@@ -478,6 +478,7 @@ const NAV_POLICY: NavPolicy = {
       flex: 1;
       margin-left: 260px;
       min-width: 0;
+      padding: 24px;
       transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -489,9 +490,9 @@ const NAV_POLICY: NavPolicy = {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 14px 24px;
+      padding: 12px 24px;
       background: white;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid #e8eaed;
       position: sticky;
       top: 0;
       z-index: 50;
@@ -602,6 +603,7 @@ const NAV_POLICY: NavPolicy = {
       .main-content {
         margin-left: 0 !important;
         margin-top: 50px;
+        padding: 16px;
       }
 
       .top-bar { top: 50px; }
