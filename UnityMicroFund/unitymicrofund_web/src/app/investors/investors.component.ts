@@ -266,7 +266,6 @@ interface Member {
             <thead>
               <tr>
                 <th>Investor</th>
-                <th>Email</th>
                 <th>Phone</th>
                 <th>Monthly Amount</th>
                 <th *ngIf="isAdmin">Contributions</th>
@@ -281,9 +280,11 @@ interface Member {
               <tr *ngFor="let member of filteredMembers">
                 <td class="investor-cell">
                   <div class="investor-avatar">{{ getInitials(member.name) }}</div>
-                  <strong>{{ member.name }}</strong>
+                  <div class="investor-info">
+                    <span class="investor-name">{{ member.name }}</span>
+                    <span class="investor-email">{{ member.email }}</span>
+                  </div>
                 </td>
-                <td>{{ member.email }}</td>
                 <td>{{ member.phone }}</td>
                 <td class="amount">{{ member.monthlyAmount | bdtCurrency }}</td>
                 <td *ngIf="isAdmin" class="contributions">{{ member.totalContributions | bdtCurrency }}</td>
@@ -308,7 +309,7 @@ interface Member {
                 </td>
               </tr>
               <tr *ngIf="filteredMembers.length === 0">
-                <td [attr.colspan]="isAdmin ? 10 : 7" class="empty-row">
+                <td [attr.colspan]="isAdmin ? 9 : 6" class="empty-row">
                   <span class="material-icons">people</span>
                   <span>No investors found</span>
                 </td>
@@ -375,7 +376,7 @@ interface Member {
     </div>
   `,
   styles: [`
-    .investors-wrapper { width: 100%; margin: 0 auto; padding: 24px; box-sizing: border-box; }
+    .investors-wrapper { width: 100%; margin: 0 auto; box-sizing: border-box; }
     .top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
     .header-left { display: flex; align-items: center; gap: 12px; }
     .header-left h1 { font-size: 28px; font-weight: 600; color: #1a1a2e; margin: 0; }
@@ -405,11 +406,13 @@ interface Member {
     .table-container { overflow-x: auto; }
     .investors-table { width: 100%; border-collapse: collapse; }
     .investors-table th { text-align: left; padding: 12px 16px; background: #f8f9fa; color: #666; font-weight: 600; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #e9ecef; }
-    .investors-table td { padding: 16px; border-bottom: 1px solid #e9ecef; vertical-align: middle; }
+    .investors-table td { padding: 12px 16px; border-bottom: 1px solid #e9ecef; vertical-align: middle; }
     .investors-table tbody tr:hover { background: #f8f9fa; }
     .investor-cell { display: flex; align-items: center; gap: 12px; }
-    .investor-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; }
-    .investor-cell strong { color: #1a1a2e; }
+    .investor-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; flex-shrink: 0; }
+    .investor-cell .investor-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .investor-cell .investor-name { font-weight: 500; color: #1a1a2e; font-size: 14px; line-height: 1.3; }
+    .investor-cell .investor-email { font-size: 12px; color: #999; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .amount { font-weight: 600; color: #667eea; }
     .contributions { color: #27ae60; font-weight: 600; }
     .share { font-weight: 600; color: #f39c12; }
