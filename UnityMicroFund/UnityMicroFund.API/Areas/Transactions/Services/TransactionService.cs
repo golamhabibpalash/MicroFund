@@ -99,7 +99,7 @@ public class TransactionService : ITransactionService
             throw new ArgumentException("Invalid transaction status. Must be 'Fund' or 'Refund'");
         }
 
-        var requiresAccount = dto.ReceiptType is "DBBL" or "UCB" or "EBL" or "SBL";
+        var requiresAccount = dto.ReceiptType is "DBBL" or "UCB" or "EBL" or "PBL";
         if (requiresAccount && !dto.AccountId.HasValue)
         {
             throw new ArgumentException("Account is required for bank transactions");

@@ -297,12 +297,19 @@ interface Member {
               <div class="form-group">
                 <label for="transactionId">Transaction ID</label>
                 <input type="text" id="transactionId" [(ngModel)]="transactionId" name="transactionId" 
-                       [placeholder]="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' || selectedReceiptType === 'SBL' ? 'From receipt' : 'Auto-generated'" />
+                       [placeholder]="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' || selectedReceiptType === 'PBL' ? 'From receipt' : 'Auto-generated'" />
                 <small class="hint" *ngIf="selectedReceiptType === 'DBBL'">DBBL Transaction ID from receipt</small>
                 <small class="hint" *ngIf="selectedReceiptType === 'UCB'">UCB Transaction ID from receipt</small>
                 <small class="hint" *ngIf="selectedReceiptType === 'EBL'">EBL Transaction ID from receipt</small>
-                <small class="hint" *ngIf="selectedReceiptType === 'SBL'">SBL Transaction ID from receipt</small>
+                <small class="hint" *ngIf="selectedReceiptType === 'PBL'">PBL Transaction ID from receipt</small>
               </div>
+              <div class="form-group">
+                <label for="transactionDate">Transaction Date</label>
+                <input type="date" id="transactionDate" [(ngModel)]="transactionDate" name="transactionDate"
+                       class="form-control" />
+              </div>
+            </div>
+            <div class="form-row">
               <div class="form-group">
                 <label for="receiptTypeField">Receipt Type</label>
                 <select id="receiptTypeField" [(ngModel)]="newTransaction.receiptType" name="receiptType">
@@ -312,17 +319,16 @@ interface Member {
                   </option>
                 </select>
               </div>
-            </div>
-<div class="form-row">
-              <div class="form-group" *ngIf="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' || selectedReceiptType === 'SBL'">
-                <label for="accountId">Account *</label>
-                <select id="accountId" [(ngModel)]="newTransaction.accountId" name="accountId" required>
-                  <option value="">Select Account</option>
-                  <option *ngFor="let account of accounts" [value]="account.id">
-                    {{ account.name }} ({{ account.accountType }})
-                  </option>
-                </select>
+              <div class="form-group">
+                <label for="amount">Amount (BDT) *</label>
+                <div class="amount-input">
+                  <span class="currency-symbol">৳</span>
+                  <input type="number" id="amount" [(ngModel)]="newTransaction.amount" name="amount" 
+                         placeholder="0.00" step="0.01" min="0.01" required />
+                </div>
               </div>
+            </div>
+            <div class="form-row">
               <div class="form-group">
                 <label for="memberId">Member *</label>
                 <select *ngIf="isAdmin" id="memberId" [(ngModel)]="newTransaction.memberId" name="memberId" required>
@@ -337,19 +343,20 @@ interface Member {
                 <input type="hidden" [ngModel]="newTransaction.memberId" name="memberIdNonAdmin" *ngIf="!isAdmin" />
               </div>
               <div class="form-group">
-                <label for="amount">Amount (BDT) *</label>
-                <div class="amount-input">
-                  <span class="currency-symbol">৳</span>
-                  <input type="number" id="amount" [(ngModel)]="newTransaction.amount" name="amount" 
-                         placeholder="0.00" step="0.01" min="0.01" required />
-                </div>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
                 <label for="transferFromInput">Transfer From</label>
                 <input type="text" id="transferFromInput" [(ngModel)]="newTransaction.transferFrom" name="transferFromInput" 
                        placeholder="e.g., Sender name, Account, Phone" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group" *ngIf="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' || selectedReceiptType === 'PBL'">
+                <label for="accountId">Account *</label>
+                <select id="accountId" [(ngModel)]="newTransaction.accountId" name="accountId" required>
+                  <option value="">Select Account</option>
+                  <option *ngFor="let account of accounts" [value]="account.id">
+                    {{ account.name }} ({{ account.accountType }})
+                  </option>
+                </select>
               </div>
               <div class="form-group">
                 <label for="transferTo">Transfer To *</label>
@@ -357,10 +364,12 @@ interface Member {
                        placeholder="e.g., Monthly Investment, bKash Payment, Business Fund" required />
               </div>
             </div>
-            <div class="form-group">
-              <label for="remarks">Remarks</label>
-              <textarea id="remarks" [(ngModel)]="newTransaction.remarks" name="remarks" 
-                        placeholder="Optional notes about this transaction..." rows="3"></textarea>
+            <div class="form-row">
+              <div class="form-group full-width">
+                <label for="remarks">Remarks</label>
+                <textarea id="remarks" [(ngModel)]="newTransaction.remarks" name="remarks" 
+                          placeholder="Optional notes about this transaction..." rows="3"></textarea>
+              </div>
             </div>
             <div class="form-actions">
               <button type="button" class="btn-secondary" (click)="closeModal()">Cancel</button>
@@ -1394,6 +1403,9 @@ interface Member {
       grid-template-columns: 1fr 1fr;
       gap: 16px;
     }
+    .form-row .full-width {
+      grid-column: 1 / -1;
+    }
 
     .amount-input {
       position: relative;
@@ -1671,7 +1683,7 @@ export class PaymentsComponent implements OnInit {
           { id: 'DBBL', name: 'DBBL (Dutch-Bangla Bank)', icon: 'account_balance' },
           { id: 'UCB', name: 'UCB (United Credit Bank)', icon: 'account_balance' },
           { id: 'EBL', name: 'EBL (Eastern Bank)', icon: 'account_balance' },
-          { id: 'SBL', name: 'SBL (Sonali Bank)', icon: 'account_balance' },
+          { id: 'PBL', name: 'PBL (Pubaly Bank Limited)', icon: 'account_balance' },
           { id: 'bKash', name: 'bKash', icon: 'phone_android' },
           { id: 'Rocket', name: 'Rocket', icon: 'phone_android' },
           { id: 'Nagad', name: 'Nagad', icon: 'phone_android' },
@@ -2074,7 +2086,7 @@ export class PaymentsComponent implements OnInit {
     if (!t.amount || t.amount <= 0) { this.toastService.warning('Please enter a valid Amount greater than 0'); return; }
 
     const receiptType = this.selectedReceiptType;
-    const requiresAccount = receiptType === 'DBBL' || receiptType === 'UCB' || receiptType === 'EBL' || receiptType === 'SBL';
+    const requiresAccount = receiptType === 'DBBL' || receiptType === 'UCB' || receiptType === 'EBL' || receiptType === 'PBL';
     if (requiresAccount && !t.accountId) { this.toastService.warning('Please select an Account'); return; }
 
     const transactionData: CreateTransactionRequest = {

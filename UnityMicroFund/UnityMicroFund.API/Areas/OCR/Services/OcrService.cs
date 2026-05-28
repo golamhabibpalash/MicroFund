@@ -45,9 +45,9 @@ public class OcrService : IOcrService
                 {
                     ParseEblReceipt(text, result);
                 }
-                else if (receiptType == "SBL")
+                else if (receiptType == "PBL")
                 {
-                    ParseSblReceipt(text, result);
+                    ParsePblReceipt(text, result);
                 }
                 else
                 {
@@ -263,7 +263,7 @@ public class OcrService : IOcrService
         result.TransactionId = transactionId ?? string.Empty;
     }
 
-    private void ParseSblReceiptApply(string text, OcrScanResponse result)
+    private void ParsePblReceiptApply(string text, OcrScanResponse result)
     {
         var textLower = text.ToLower();
 
@@ -352,9 +352,9 @@ public class OcrService : IOcrService
         result.Remarks = remarks ?? string.Empty;
         result.TransactionId = transactionId ?? string.Empty;
     }
-    private void ParseSblReceipt(string text, OcrScanResponse result)
+    private void ParsePblReceipt(string text, OcrScanResponse result)
     {
-        ParseSblReceiptApply(text, result);
+        ParsePblReceiptApply(text, result);
     }
 
     private void ParseGenericReceipt(string text, OcrScanResponse result)
