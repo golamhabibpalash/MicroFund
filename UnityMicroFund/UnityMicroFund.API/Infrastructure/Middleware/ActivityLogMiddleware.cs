@@ -1,8 +1,9 @@
 using System.Diagnostics;
 using System.Security.Claims;
 using System.Text;
+using UnityMicroFund.API.Areas.Logging.Models;
+using UnityMicroFund.API.Areas.Logging.Services;
 using UnityMicroFund.API.Infrastructure.ExceptionHandling;
-using UnityMicroFund.API.Infrastructure.Logging;
 
 namespace UnityMicroFund.API.Infrastructure.Middleware;
 
@@ -17,11 +18,13 @@ public class ActivityLogMiddleware
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, IActivityLogService activityLogService)
+    public async Task InvokeAsync(HttpContext context, ILogManager logManager)
     {
         var stopwatch = Stopwatch.StartNew();
         string? requestBody = null;
         int responseStatusCode = 200;
+        string? exceptionMessage = null;
+        string? exceptionType = null;
 
         if (context.Request.ContentLength > 0 && context.Request.ContentLength < 10000)
         {
@@ -38,91 +41,86 @@ public class ActivityLogMiddleware
         }
         catch (Exception ex)
         {
-            // GlobalExceptionHandler (outer middleware) writes the actual error response.
-            // Infer the status code here so the activity log reflects the real outcome.
+            // GlobalExceptionHandler (outer middleware) will write the HTTP error response.
+            // Capture exception details here so the log entry explains the reason.
             responseStatusCode = InferStatusCode(ex);
+            exceptionMessage = ex.Message;
+            exceptionType = ex.GetType().Name;
             throw;
         }
         finally
         {
             stopwatch.Stop();
 
-            var userId = GetUserId(context);
-            if (userId.HasValue)
+            var action = GetAction(context.Request.Method);
+            if (GetUserId(context).HasValue && action != "VIEW")
             {
-                try
-                {
-                    var action = GetAction(context.Request.Method, context.Request.Path);
-                    var module = GetModule(context.Request.Path);
-                    var endpoint = context.Request.Path.Value;
-                    var requestMethod = context.Request.Method;
+                var module  = GetModule(context.Request.Path);
+                var method  = context.Request.Method;
+                var path    = context.Request.Path.Value ?? string.Empty;
 
-                    await activityLogService.LogActivityAsync(
-                        userId.Value,
-                        action,
-                        module,
-                        $"{requestMethod} {endpoint}",
-                        endpoint,
-                        requestMethod,
-                        requestBody,
+                var message = exceptionMessage != null
+                    ? $"{method} {path} -> {responseStatusCode}: {exceptionMessage}"
+                    : $"{method} {path} -> {responseStatusCode} ({stopwatch.Elapsed.TotalMilliseconds:F0}ms)";
+
+                var level = responseStatusCode >= 500 ? AppLogLevel.Error
+                          : responseStatusCode >= 400 ? AppLogLevel.Warning
+                          : AppLogLevel.Info;
+
+                object? extra = responseStatusCode >= 400
+                    ? new
+                    {
+                        exceptionType,
+                        exceptionMessage,
                         responseStatusCode,
-                        stopwatch.Elapsed.TotalMilliseconds
-                    );
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to log activity");
-                }
+                        durationMs = stopwatch.Elapsed.TotalMilliseconds,
+                        requestBody
+                    }
+                    : null;
+
+                await logManager.LogAsync(level, action, message, module, additionalData: extra);
             }
         }
     }
 
     private static int InferStatusCode(Exception ex) => ex switch
     {
-        ArgumentException => 400,
-        ValidationException => 400,
+        ArgumentException           => 400,
+        ValidationException         => 400,
         UnauthorizedAccessException => 401,
-        UnauthorizedException => 403,
-        NotFoundException => 404,
-        KeyNotFoundException => 404,
-        InvalidOperationException => 409,
-        ConflictException => 409,
-        OperationCanceledException => 408,
-        _ => 500
+        UnauthorizedException       => 403,
+        NotFoundException           => 404,
+        KeyNotFoundException        => 404,
+        InvalidOperationException or ConflictException => 409,
+        OperationCanceledException  => 408,
+        _                           => 500
     };
 
-    private Guid? GetUserId(HttpContext context)
+    private static Guid? GetUserId(HttpContext context)
     {
-        var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier);
-        if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
-            return userId;
-        return null;
+        var claim = context.User.FindFirst(ClaimTypes.NameIdentifier);
+        return claim != null && Guid.TryParse(claim.Value, out var id) ? id : null;
     }
 
-    private string GetAction(string method, PathString path)
+    private static string GetAction(string method) => method.ToUpperInvariant() switch
     {
-        return method.ToUpperInvariant() switch
-        {
-            "GET" => "VIEW",
-            "POST" => "CREATE",
-            "PUT" or "PATCH" => "UPDATE",
-            "DELETE" => "DELETE",
-            _ => "UNKNOWN"
-        };
-    }
+        "GET"              => "VIEW",
+        "POST"             => "CREATE",
+        "PUT" or "PATCH"   => "UPDATE",
+        "DELETE"           => "DELETE",
+        _                  => "UNKNOWN"
+    };
 
-    private string? GetModule(PathString path)
+    private static string? GetModule(PathString path)
     {
-        var pathValue = path.Value?.ToLowerInvariant() ?? "";
-
-        if (pathValue.Contains("/api/members")) return "Members";
-        if (pathValue.Contains("/api/contributions")) return "Contributions";
-        if (pathValue.Contains("/api/investments")) return "Investments";
-        if (pathValue.Contains("/api/transactions")) return "Transactions";
-        if (pathValue.Contains("/api/dashboard")) return "Dashboard";
-        if (pathValue.Contains("/api/settings")) return "Settings";
-        if (pathValue.Contains("/api/auth")) return "Auth";
-
+        var p = path.Value?.ToLowerInvariant() ?? string.Empty;
+        if (p.Contains("/api/members"))       return "Members";
+        if (p.Contains("/api/contributions")) return "Contributions";
+        if (p.Contains("/api/investments"))   return "Investments";
+        if (p.Contains("/api/transactions"))  return "Transactions";
+        if (p.Contains("/api/dashboard"))     return "Dashboard";
+        if (p.Contains("/api/settings"))      return "Settings";
+        if (p.Contains("/api/auth"))          return "Auth";
         return "Unknown";
     }
 }
@@ -130,7 +128,5 @@ public class ActivityLogMiddleware
 public static class ActivityLogMiddlewareExtensions
 {
     public static IApplicationBuilder UseActivityLogging(this IApplicationBuilder app)
-    {
-        return app.UseMiddleware<ActivityLogMiddleware>();
-    }
+        => app.UseMiddleware<ActivityLogMiddleware>();
 }

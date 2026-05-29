@@ -2091,6 +2091,8 @@ export class PaymentsComponent implements OnInit {
 
     const transactionData: CreateTransactionRequest = {
       ...this.newTransaction,
+      accountId: this.newTransaction.accountId || undefined,
+      memberId: this.newTransaction.memberId,
       transactionId: this.transactionId || undefined,
       transactionDate: this.transactionDate || undefined
     };
