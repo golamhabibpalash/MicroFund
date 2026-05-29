@@ -3,6 +3,7 @@ using UnityMicroFund.API.Areas.Transactions.DTOs;
 using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Infrastructure.Email;
 using UnityMicroFund.API.Infrastructure.ExceptionHandling;
+using UnityMicroFund.API.Infrastructure.Logging;
 using UnityMicroFund.API.Models;
 
 namespace UnityMicroFund.API.Areas.Transactions.Services;
@@ -11,11 +12,13 @@ public class TransactionService : ITransactionService
 {
     private readonly AppDbContext _context;
     private readonly IEmailService _emailService;
+    private readonly IAuditService _auditService;
 
-    public TransactionService(AppDbContext context, IEmailService emailService)
+    public TransactionService(AppDbContext context, IEmailService emailService, IAuditService auditService)
     {
         _context = context;
         _emailService = emailService;
+        _auditService = auditService;
     }
 
     public async Task<IEnumerable<TransactionResponseDto>> GetTransactionsAsync(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false)
@@ -169,6 +172,16 @@ public class TransactionService : ITransactionService
         _context.MemberTransactionMaps.Add(memberTransactionMap);
         await _context.SaveChangesAsync();
 
+        await _auditService.LogAsync("Transaction", "CREATE", null, new
+        {
+            transaction.Id,
+            transaction.TransactionId,
+            transaction.Amount,
+            transaction.Status,
+            transaction.TransferTo,
+            MemberId = dto.MemberId
+        });
+
         return (await GetTransactionByIdAsync(transaction.Id))!;
     }
 
@@ -194,6 +207,15 @@ public class TransactionService : ITransactionService
         transaction.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+
+        await _auditService.LogAsync("Transaction", "UPDATE", null, new
+        {
+            transaction.Id,
+            transaction.TransactionId,
+            transaction.Amount,
+            transaction.Status,
+            transaction.TransferTo
+        });
 
         return await GetTransactionByIdAsync(id);
     }
@@ -255,6 +277,14 @@ public class TransactionService : ITransactionService
 
         await _context.SaveChangesAsync();
 
+        await _auditService.LogAsync("Transaction", dto.IsApproved ? "APPROVE" : "REJECT", null, new
+        {
+            transaction.Id,
+            transaction.TransactionId,
+            transaction.ApprovalStatus,
+            ApprovedBy = approvedByUserId
+        });
+
         if (transaction.CreatedBy != null && !string.IsNullOrEmpty(transaction.CreatedBy.Email))
         {
             var statusText = dto.IsApproved ? "Approved" : "Rejected";
@@ -281,8 +311,16 @@ public class TransactionService : ITransactionService
             throw new InvalidOperationException("Cannot delete an approved transaction");
         }
 
+        var deletedId = transaction.TransactionId;
         _context.Transactions.Remove(transaction);
         await _context.SaveChangesAsync();
+
+        await _auditService.LogAsync("Transaction", "DELETE", new
+        {
+            transaction.Id,
+            TransactionId = deletedId
+        }, null);
+
         return true;
     }
 

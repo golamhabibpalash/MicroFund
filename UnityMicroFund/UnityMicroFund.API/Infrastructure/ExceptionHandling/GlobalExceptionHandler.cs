@@ -35,7 +35,40 @@ public class GlobalExceptionHandler
 
         switch (exception)
         {
+            case UnauthorizedException unauthorizedEx:
+                _logger.LogWarning(unauthorizedEx, "Authorization failure. TraceId: {TraceId}", context.TraceIdentifier);
+                response.StatusCode = (int)HttpStatusCode.Forbidden;
+                errorResponse.StatusCode = (int)HttpStatusCode.Forbidden;
+                errorResponse.Message = unauthorizedEx.Message;
+                errorResponse.ErrorCode = "FORBIDDEN";
+                break;
+
+            case NotFoundException notFoundCustomEx:
+                _logger.LogWarning(notFoundCustomEx, "Resource not found. TraceId: {TraceId}", context.TraceIdentifier);
+                response.StatusCode = (int)HttpStatusCode.NotFound;
+                errorResponse.StatusCode = (int)HttpStatusCode.NotFound;
+                errorResponse.Message = notFoundCustomEx.Message;
+                errorResponse.ErrorCode = "NOT_FOUND";
+                break;
+
+            case ValidationException validationEx:
+                _logger.LogWarning(validationEx, "Validation failure. TraceId: {TraceId}", context.TraceIdentifier);
+                response.StatusCode = (int)HttpStatusCode.BadRequest;
+                errorResponse.StatusCode = (int)HttpStatusCode.BadRequest;
+                errorResponse.Message = validationEx.Message;
+                errorResponse.ErrorCode = "VALIDATION_ERROR";
+                break;
+
+            case ConflictException conflictEx:
+                _logger.LogWarning(conflictEx, "Conflict. TraceId: {TraceId}", context.TraceIdentifier);
+                response.StatusCode = (int)HttpStatusCode.Conflict;
+                errorResponse.StatusCode = (int)HttpStatusCode.Conflict;
+                errorResponse.Message = conflictEx.Message;
+                errorResponse.ErrorCode = "CONFLICT";
+                break;
+
             case ArgumentException argEx:
+                _logger.LogWarning(argEx, "Bad request argument. TraceId: {TraceId}", context.TraceIdentifier);
                 response.StatusCode = (int)HttpStatusCode.BadRequest;
                 errorResponse.StatusCode = (int)HttpStatusCode.BadRequest;
                 errorResponse.Message = argEx.Message;
@@ -43,6 +76,7 @@ public class GlobalExceptionHandler
                 break;
 
             case UnauthorizedAccessException unauthEx:
+                _logger.LogWarning(unauthEx, "Unauthorized access. TraceId: {TraceId}", context.TraceIdentifier);
                 response.StatusCode = (int)HttpStatusCode.Unauthorized;
                 errorResponse.StatusCode = (int)HttpStatusCode.Unauthorized;
                 errorResponse.Message = unauthEx.Message;
@@ -50,6 +84,7 @@ public class GlobalExceptionHandler
                 break;
 
             case KeyNotFoundException notFoundEx:
+                _logger.LogWarning(notFoundEx, "Resource not found. TraceId: {TraceId}", context.TraceIdentifier);
                 response.StatusCode = (int)HttpStatusCode.NotFound;
                 errorResponse.StatusCode = (int)HttpStatusCode.NotFound;
                 errorResponse.Message = notFoundEx.Message;
@@ -57,6 +92,7 @@ public class GlobalExceptionHandler
                 break;
 
             case InvalidOperationException invalidOpEx:
+                _logger.LogWarning(invalidOpEx, "Invalid operation. TraceId: {TraceId}", context.TraceIdentifier);
                 response.StatusCode = (int)HttpStatusCode.Conflict;
                 errorResponse.StatusCode = (int)HttpStatusCode.Conflict;
                 errorResponse.Message = invalidOpEx.Message;
@@ -74,8 +110,21 @@ public class GlobalExceptionHandler
                 _logger.LogError(exception, "Unhandled exception occurred. TraceId: {TraceId}", context.TraceIdentifier);
                 response.StatusCode = (int)HttpStatusCode.InternalServerError;
                 errorResponse.StatusCode = (int)HttpStatusCode.InternalServerError;
-                errorResponse.Message = "An internal server error occurred. Please try again later.";
+
+                var isAdmin = context.User.IsInRole("Admin");
+                errorResponse.Message = isAdmin
+                    ? $"[{exception.GetType().Name}] {exception.Message}"
+                    : "An internal server error occurred. Please try again later.";
                 errorResponse.ErrorCode = "INTERNAL_ERROR";
+
+                if (isAdmin)
+                {
+                    errorResponse.Errors = new Dictionary<string, string[]>
+                    {
+                        ["exceptionType"] = [exception.GetType().FullName ?? exception.GetType().Name],
+                        ["stackTrace"] = [exception.StackTrace ?? "N/A"]
+                    };
+                }
                 break;
         }
 
