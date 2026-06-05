@@ -64,7 +64,7 @@ interface Member {
       <!-- Stats -->
       <div class="stats-grid">
         <div class="stat-card">
-          <div class="stat-icon" style="background-color: #27ae60;">
+          <div class="stat-icon stat-icon-funded">
             <span class="material-icons">account_balance_wallet</span>
           </div>
           <div class="stat-info">
@@ -73,7 +73,7 @@ interface Member {
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background-color: #e74c3c;">
+          <div class="stat-icon stat-icon-refunded">
             <span class="material-icons">money_off</span>
           </div>
           <div class="stat-info">
@@ -82,8 +82,8 @@ interface Member {
           </div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon" style="background-color: #f39c12;">
-            <span class="material-icons">pending</span>
+          <div class="stat-icon stat-icon-pending">
+            <span class="material-icons">pending_actions</span>
           </div>
           <div class="stat-info">
             <span class="stat-value">{{ pendingCount }}</span>
@@ -96,47 +96,47 @@ interface Member {
       <div class="content-section">
         <div class="section-header">
           <h2>All Transactions</h2>
-          <div class="table-controls">
-            <div class="search-box">
-              <span class="material-icons">search</span>
-              <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" placeholder="Search transactions..." />
-            </div>
-            <div class="filter-group">
-              <select *ngIf="isAdmin" [(ngModel)]="filterMemberId" (ngModelChange)="applyFilters()">
-                <option value="">All Members</option>
-                <option *ngFor="let member of members" [value]="member.id">
-                  {{ member.name }}
-                </option>
-              </select>
-              <select [(ngModel)]="filterAccountId" (ngModelChange)="applyFilters()">
-                <option value="">All Accounts</option>
-                <option *ngFor="let account of accounts" [value]="account.id">
-                  {{ account.name }}
-                </option>
-              </select>
-              <select [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()">
-                <option value="">All Types</option>
-                <option value="Fund">Fund</option>
-                <option value="Refund">Refund</option>
-              </select>
-              <select [(ngModel)]="filterApprovalStatus" (ngModelChange)="applyFilters()">
-                <option value="">All Status</option>
-                <option value="Pending">Pending</option>
-                <option value="Approved">Approved</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-              <div class="date-filter">
-                <span class="material-icons">date_range</span>
-                <input type="date" [(ngModel)]="filterFromDate" (ngModelChange)="applyFilters()" placeholder="From Date" />
-                <span class="date-separator">to</span>
-                <input type="date" [(ngModel)]="filterToDate" (ngModelChange)="applyFilters()" placeholder="To Date" />
-              </div>
-              <button class="btn-clear" *ngIf="hasActiveFilters()" (click)="clearFilters()">
-                <span class="material-icons">clear</span>
-                Clear
-              </button>
-            </div>
+        </div>
+        <div class="filter-bar">
+          <div class="search-box">
+            <span class="material-icons">search</span>
+            <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" placeholder="Search transactions..." />
           </div>
+          <div class="filter-group">
+            <select *ngIf="isAdmin" [(ngModel)]="filterMemberId" (ngModelChange)="applyFilters()">
+              <option value="">All Members</option>
+              <option *ngFor="let member of members" [value]="member.id">
+                {{ member.name }}
+              </option>
+            </select>
+            <select [(ngModel)]="filterAccountId" (ngModelChange)="applyFilters()">
+              <option value="">All Accounts</option>
+              <option *ngFor="let account of accounts" [value]="account.id">
+                {{ account.name }}
+              </option>
+            </select>
+            <select [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()">
+              <option value="">All Types</option>
+              <option value="Fund">Fund</option>
+              <option value="Refund">Refund</option>
+            </select>
+            <select [(ngModel)]="filterApprovalStatus" (ngModelChange)="applyFilters()">
+              <option value="">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+          <div class="date-filter">
+            <span class="material-icons">date_range</span>
+            <input type="date" [(ngModel)]="filterFromDate" (ngModelChange)="applyFilters()" placeholder="From" />
+            <span class="date-divider">—</span>
+            <input type="date" [(ngModel)]="filterToDate" (ngModelChange)="applyFilters()" placeholder="To" />
+          </div>
+          <button class="btn-clear" *ngIf="hasActiveFilters()" (click)="clearFilters()">
+            <span class="material-icons">close</span>
+            Clear
+          </button>
         </div>
         <div class="transactions-table">
           <table>
@@ -686,6 +686,18 @@ interface Member {
       color: white;
     }
 
+    .stat-icon-funded {
+      background: var(--color-success);
+    }
+
+    .stat-icon-refunded {
+      background: var(--color-error);
+    }
+
+    .stat-icon-pending {
+      background: #d97706;
+    }
+
     .stat-info {
       display: flex;
       flex-direction: column;
@@ -714,9 +726,7 @@ interface Member {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: var(--space-5);
-      flex-wrap: wrap;
-      gap: var(--space-4);
+      margin-bottom: var(--space-4);
     }
 
     .section-header h2 {
@@ -726,20 +736,65 @@ interface Member {
       margin: 0;
     }
 
-    .table-controls {
+    .filter-bar {
       display: flex;
+      align-items: center;
       gap: var(--space-3);
+      margin-bottom: var(--space-5);
       flex-wrap: wrap;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-light);
+      border-radius: var(--radius-lg);
+      padding: var(--space-3) var(--space-4);
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 0 var(--space-3);
+      background: var(--color-background-alt);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      min-height: 36px;
+      flex: 0 1 240px;
+      transition: all var(--transition-fast);
+    }
+
+    .search-box:focus-within {
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+    }
+
+    .search-box .material-icons {
+      font-size: 18px;
+      color: var(--text-light);
+      flex-shrink: 0;
+    }
+
+    .search-box input {
+      border: none;
+      background: transparent;
+      outline: none;
+      font-size: var(--text-sm);
+      color: var(--text-primary);
+      width: 100%;
+      min-width: 140px;
+    }
+
+    .search-box input::placeholder {
+      color: var(--text-light);
     }
 
     .filter-group {
       display: flex;
       gap: var(--space-2);
       align-items: center;
+      flex-wrap: wrap;
     }
 
     .filter-group select {
-      padding: 8px 32px 8px 12px;
+      padding: 0 32px 0 12px;
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
       font-size: var(--text-sm);
@@ -753,6 +808,11 @@ interface Member {
       background-position: right 10px center;
       transition: all var(--transition-fast);
       min-height: 36px;
+      min-width: 140px;
+    }
+
+    .filter-group select:hover {
+      border-color: var(--color-accent);
     }
 
     .filter-group select:focus {
@@ -760,45 +820,78 @@ interface Member {
       box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
     }
 
-    .btn-clear {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 8px 12px;
-      background: var(--color-error-bg);
-      color: var(--color-error);
-      border: none;
-      border-radius: var(--radius-md);
-      font-size: var(--text-sm);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-    }
-
-    .btn-clear:hover {
-      background: #fee2e2;
-    }
-
     .date-filter {
       display: flex;
       align-items: center;
       gap: var(--space-2);
-      padding: 6px 12px;
-      background: var(--color-background-alt);
+      padding: 0 var(--space-3);
+      background: var(--color-surface);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
+      min-height: 36px;
+      transition: all var(--transition-fast);
+    }
+
+    .date-filter:focus-within {
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
     }
 
     .date-filter .material-icons {
       font-size: 18px;
       color: var(--text-light);
+      flex-shrink: 0;
     }
 
     .date-filter input[type="date"] {
-      font-size: var(--text-base);
+      font-size: var(--text-sm);
       color: var(--text-secondary);
       border: none;
       background: transparent;
       outline: none;
+      min-height: 34px;
+      width: 130px;
+      cursor: pointer;
+    }
+
+    .date-filter input[type="date"]::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+      opacity: 0.5;
+    }
+
+    .date-filter input[type="date"]::-webkit-calendar-picker-indicator:hover {
+      opacity: 1;
+    }
+
+    .date-divider {
+      color: var(--text-light);
+      font-size: var(--text-sm);
+    }
+
+    .btn-clear {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 var(--space-3);
+      background: transparent;
+      color: var(--color-error);
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      min-height: 36px;
+      white-space: nowrap;
+    }
+
+    .btn-clear:hover {
+      background: var(--color-error-bg);
+      border-color: var(--color-error);
+    }
+
+    .btn-clear .material-icons {
+      font-size: 16px;
     }
 
     .page-size-select {
@@ -1308,15 +1401,16 @@ interface Member {
       .top-header { flex-direction: column; align-items: flex-start; gap: var(--space-4); }
       .header-actions { width: 100%; }
       .stats-grid { grid-template-columns: 1fr; }
+      .filter-bar { flex-direction: column; align-items: stretch; }
+      .search-box { flex: auto; width: auto; }
+      .filter-group select { min-width: 0; flex: 1; }
+      .date-filter input[type="date"] { width: 100%; }
     }
     @media (max-width: 768px) {
       .payments-wrapper { padding: var(--space-4); }
       .top-header h1 { font-size: var(--text-2xl); }
-      .header-actions { flex-wrap: wrap; gap: var(--space-2); }
-      .filter-group { width: 100%; }
-      .filter-group select { width: 100%; }
-      .date-filter { flex-wrap: wrap; width: 100%; }
-      .date-filter input[type="date"] { width: 100%; }
+      .filter-group { flex-wrap: wrap; }
+      .filter-group select { min-width: calc(50% - var(--space-2)); flex: 1 1 auto; }
       .modal-content { margin: var(--space-3); max-width: calc(100% - 24px); }
     }
     @media (max-width: 576px) {
@@ -1324,6 +1418,9 @@ interface Member {
       .stat-value { font-size: var(--text-xl); }
       .stat-label { font-size: var(--text-xs); }
       .form-row { grid-template-columns: 1fr; }
+      .filter-group select { min-width: 100%; }
+      .date-filter { flex-wrap: wrap; }
+      .date-filter input[type="date"] { width: 100%; }
     }
   `]
 })
