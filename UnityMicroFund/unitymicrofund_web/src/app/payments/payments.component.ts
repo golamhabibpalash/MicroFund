@@ -1,14 +1,18 @@
-import { Component, OnInit, ChangeDetectorRef, inject } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, HostListener, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router, NavigationEnd } from '@angular/router';
 import { Subject, debounceTime } from 'rxjs';
-import { TransactionService, Account, Transaction, CreateTransactionRequest, ReceiptType, OcrScanResult } from '../core/services/transaction';
+import { filter } from 'rxjs/operators';
+import { saveAs } from 'file-saver';
+import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { TransactionService, Account, Transaction, CreateTransactionRequest, ReceiptType, OcrScanResult, TransactionFilter } from '../core/services/transaction';
 import { ToastService } from '../core/services/toast.service';
 import { UserService } from '../core/services/user';
 import { ParamBusConfigService, ParamBusConfig } from '../core/services/param-bus-config.service';
-import { filter } from 'rxjs/operators';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 
 interface Member {
@@ -28,10 +32,33 @@ interface Member {
       <!-- Header -->
       <header class="top-header">
         <h1>Transactions</h1>
-        <button class="btn-primary" (click)="openTransactionModal()">
-          <span class="material-icons">add</span>
-          New Transaction
-        </button>
+        <div class="header-actions">
+          <div class="export-dropdown">
+            <button class="btn-export" (click)="toggleExportMenu()">
+              <span class="material-icons">file_download</span>
+              Export
+              <span class="material-icons dropdown-arrow">arrow_drop_down</span>
+            </button>
+            <div class="export-menu" *ngIf="showExportMenu" (click)="$event.stopPropagation()">
+              <button class="export-option" (click)="exportToExcel()">
+                <span class="material-icons">table_chart</span>
+                Export as Excel
+              </button>
+              <button class="export-option" (click)="exportToCsv()">
+                <span class="material-icons">description</span>
+                Export as CSV
+              </button>
+              <button class="export-option" (click)="exportToPdf()">
+                <span class="material-icons">picture_as_pdf</span>
+                Export as PDF
+              </button>
+            </div>
+          </div>
+          <button class="btn-primary" (click)="openTransactionModal()">
+            <span class="material-icons">add</span>
+            New Transaction
+          </button>
+        </div>
       </header>
 
       <!-- Stats -->
@@ -547,6 +574,84 @@ interface Member {
       font-size: 28px;
       font-weight: 600;
       color: #1a1a2e;
+      margin: 0;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .export-dropdown {
+      position: relative;
+    }
+
+    .btn-export {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 20px;
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-export:hover {
+      background: #f8f9ff;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+
+    .btn-export .dropdown-arrow {
+      font-size: 18px;
+      transition: transform 0.2s;
+    }
+
+    .btn-export:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .export-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      right: 0;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+      z-index: 100;
+      min-width: 200px;
+      overflow: hidden;
+    }
+
+    .export-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 12px 16px;
+      background: none;
+      border: none;
+      font-size: 14px;
+      color: #333;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.2s;
+    }
+
+    .export-option:hover {
+      background: #f5f6fa;
+    }
+
+    .export-option .material-icons {
+      font-size: 20px;
+      color: #667eea;
     }
 
     .btn-primary {
@@ -1578,6 +1683,17 @@ export class PaymentsComponent implements OnInit {
   transactionDate = '';
   transactionId = '';
   
+  newTransaction: CreateTransactionRequest = {
+    transferTo: '',
+    amount: 0,
+    status: 'Fund',
+    remarks: '',
+    accountId: '',
+    receiptType: '',
+    transferFrom: '',
+    memberId: ''
+  };
+  
   totalFunded = 0;
   totalRefunded = 0;
   pendingCount = 0;
@@ -1602,17 +1718,14 @@ export class PaymentsComponent implements OnInit {
   memberLoadFailed = false;
   primaryFundingAccountId = '';
 
-  newTransaction: CreateTransactionRequest = {
-    transferTo: '',
-    amount: 0,
-    status: 'Fund',
-    remarks: '',
-    accountId: '',
-    receiptType: '',
-    transferFrom: '',
-    memberId: ''
-  };
-  
+  showExportMenu = false;
+  isExporting = false;
+
+  @HostListener('document:click')
+  onDocumentClick() {
+    this.showExportMenu = false;
+  }
+
   constructor(
     private http: HttpClient,
     private transactionService: TransactionService,
@@ -1761,15 +1874,15 @@ export class PaymentsComponent implements OnInit {
   }
 
   calculateStats() {
-    this.totalFunded = this.transactions
+    this.totalFunded = this.filteredTransactions
       .filter(t => t.status === 'Fund' && t.approvalStatus === 'Approved')
       .reduce((sum, t) => sum + t.amount, 0);
     
-    this.totalRefunded = this.transactions
+    this.totalRefunded = this.filteredTransactions
       .filter(t => t.status === 'Refund' && t.approvalStatus === 'Approved')
       .reduce((sum, t) => sum + t.amount, 0);
     
-    this.pendingCount = this.transactions.filter(t => t.approvalStatus === 'Pending').length;
+    this.pendingCount = this.filteredTransactions.filter(t => t.approvalStatus === 'Pending').length;
   }
 
   onSearchChange() {
@@ -1875,6 +1988,7 @@ export class PaymentsComponent implements OnInit {
     this.totalPages = Math.ceil(this.filteredTransactions.length / this.pageSize) || 1;
     if (this.currentPage > this.totalPages) this.currentPage = 1;
     this.updatePaginatedTransactions();
+    this.calculateStats();
   }
 
   updatePaginatedTransactions() {
@@ -2225,5 +2339,96 @@ export class PaymentsComponent implements OnInit {
     };
     this.transactionDate = '';
     this.transactionId = '';
+  }
+
+  toggleExportMenu() {
+    this.showExportMenu = !this.showExportMenu;
+  }
+
+  private buildFilterParams(): TransactionFilter {
+    const params: TransactionFilter = {};
+    if (this.searchTerm) params.search = this.searchTerm;
+    if (this.filterAccountId) params.accountId = this.filterAccountId;
+    if (this.isAdmin && this.filterMemberId) params.memberId = this.filterMemberId;
+    if (this.filterStatus) params.status = this.filterStatus;
+    if (this.filterApprovalStatus) params.approvalStatus = this.filterApprovalStatus;
+    if (this.filterFromDate) params.fromDate = this.filterFromDate;
+    if (this.filterToDate) params.toDate = this.filterToDate;
+    return params;
+  }
+
+  exportToExcel() {
+    this.isExporting = true;
+    this.showExportMenu = false;
+    const filter = this.buildFilterParams();
+    this.transactionService.exportTransactions(filter, 'excel').subscribe({
+      next: (blob) => {
+        saveAs(blob, `transactions_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        this.isExporting = false;
+        this.toastService.success('Excel export completed');
+      },
+      error: () => {
+        this.isExporting = false;
+        this.toastService.error('Failed to export Excel');
+      }
+    });
+  }
+
+  exportToCsv() {
+    this.isExporting = true;
+    this.showExportMenu = false;
+    const filter = this.buildFilterParams();
+    this.transactionService.exportTransactions(filter, 'csv').subscribe({
+      next: (blob) => {
+        saveAs(blob, `transactions_${new Date().toISOString().slice(0, 10)}.csv`);
+        this.isExporting = false;
+        this.toastService.success('CSV export completed');
+      },
+      error: () => {
+        this.isExporting = false;
+        this.toastService.error('Failed to export CSV');
+      }
+    });
+  }
+
+  exportToPdf() {
+    this.showExportMenu = false;
+    const data = this.filteredTransactions;
+
+    if (data.length === 0) {
+      this.toastService.warning('No transactions to export');
+      return;
+    }
+
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFontSize(16);
+    doc.text('Transactions Report', pageWidth / 2, 15, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth / 2, 22, { align: 'center' });
+
+    const rows = data.map(tx => [
+      tx.transactionId,
+      tx.memberName || tx.createdByName || '-',
+      tx.transferFrom || '-',
+      tx.transferTo,
+      `৳${tx.amount.toLocaleString()}`,
+      tx.accountName,
+      tx.approvalStatus,
+      new Date(tx.createdAt).toLocaleDateString()
+    ]);
+
+    autoTable(doc, {
+      head: [['Transaction ID', 'Member', 'From', 'To', 'Amount', 'Account', 'Status', 'Date']],
+      body: rows,
+      startY: 28,
+      styles: { fontSize: 7 },
+      headStyles: { fillColor: [102, 126, 234] }
+    });
+
+    doc.save(`transactions_${new Date().toISOString().slice(0, 10)}.pdf`);
+    this.toastService.success('PDF export completed');
   }
 }
