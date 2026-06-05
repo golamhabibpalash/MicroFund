@@ -12,4 +12,7 @@ public interface ITransactionService
     Task<bool> DeleteTransactionAsync(Guid id);
     Task<string> GenerateTransactionIdAsync();
     Task<bool> UpdateReceiptUrlAsync(Guid transactionId, string receiptUrl);
+    Task<TransactionSummaryDto> GetTransactionSummaryAsync(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false);
+    Task<byte[]> ExportTransactionsToExcelAsync(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false);
+    Task<byte[]> ExportTransactionsToCsvAsync(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false);
 }

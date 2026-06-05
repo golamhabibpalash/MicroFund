@@ -96,3 +96,10 @@ public class TransactionFilterDto
     public DateTime? ToDate { get; set; }
     public Guid? MemberId { get; set; }
 }
+
+public class TransactionSummaryDto
+{
+    public decimal TotalFunded { get; set; }
+    public decimal TotalRefunded { get; set; }
+    public int PendingCount { get; set; }
+}

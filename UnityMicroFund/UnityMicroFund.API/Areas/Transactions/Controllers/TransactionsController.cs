@@ -129,6 +129,38 @@ public class TransactionsController : ControllerBase
         }
     }
 
+    [HttpGet("summary")]
+    public async Task<IActionResult> GetTransactionSummary([FromQuery] TransactionFilterDto filter)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Guid.Empty.ToString());
+        var userRole = User.FindFirstValue(ClaimTypes.Role) ?? User.FindFirstValue("role") ?? string.Empty;
+        var isAdminOrManager = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) || 
+                              userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+        
+        var summary = await _transactionService.GetTransactionSummaryAsync(filter, userId, isAdminOrManager);
+        return Ok(summary);
+    }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> ExportTransactions([FromQuery] TransactionFilterDto filter, [FromQuery] string format = "excel")
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Guid.Empty.ToString());
+        var userRole = User.FindFirstValue(ClaimTypes.Role) ?? User.FindFirstValue("role") ?? string.Empty;
+        var isAdminOrManager = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) || 
+                              userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+
+        switch (format.ToLower())
+        {
+            case "csv":
+                var csvBytes = await _transactionService.ExportTransactionsToCsvAsync(filter, userId, isAdminOrManager);
+                return File(csvBytes, "text/csv", $"transactions_{DateTime.UtcNow:yyyyMMdd}.csv");
+            case "excel":
+            default:
+                var excelBytes = await _transactionService.ExportTransactionsToExcelAsync(filter, userId, isAdminOrManager);
+                return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"transactions_{DateTime.UtcNow:yyyyMMdd}.xlsx");
+        }
+    }
+
     [HttpPost("{id}/receipt")]
     public async Task<IActionResult> UploadReceipt(Guid id, IFormFile file)
     {

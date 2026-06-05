@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text;
+using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Areas.Transactions.DTOs;
 using UnityMicroFund.API.Data;
@@ -21,7 +24,7 @@ public class TransactionService : ITransactionService
         _auditService = auditService;
     }
 
-    public async Task<IEnumerable<TransactionResponseDto>> GetTransactionsAsync(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false)
+    private IQueryable<Transaction> BuildFilteredQuery(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false)
     {
         var query = _context.Transactions
             .Include(t => t.TransferBy)
@@ -39,11 +42,14 @@ public class TransactionService : ITransactionService
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
+            var search = filter.Search.ToLower();
             query = query.Where(t =>
-                t.TransactionId.Contains(filter.Search) ||
-                (t.TransferFrom != null && t.TransferFrom.Contains(filter.Search)) ||
-                t.TransferTo.Contains(filter.Search) ||
-                (t.Remarks != null && t.Remarks.Contains(filter.Search)));
+                t.TransactionId.ToLower().Contains(search) ||
+                (t.TransferFrom != null && t.TransferFrom.ToLower().Contains(search)) ||
+                t.TransferTo.ToLower().Contains(search) ||
+                (t.Remarks != null && t.Remarks.ToLower().Contains(search)) ||
+                (t.Account != null && t.Account.Name.ToLower().Contains(search)) ||
+                t.MemberTransactionMaps.Any(m => m.Member != null && m.Member.Name.ToLower().Contains(search)));
         }
 
         if (filter.AccountId.HasValue)
@@ -76,11 +82,165 @@ public class TransactionService : ITransactionService
             query = query.Where(t => t.MemberTransactionMaps.Any(m => m.MemberId == filter.MemberId.Value));
         }
 
+        return query;
+    }
+
+    public async Task<IEnumerable<TransactionResponseDto>> GetTransactionsAsync(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false)
+    {
+        var query = BuildFilteredQuery(filter, userId, isAdmin);
+
         var transactions = await query
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
         return transactions.Select(MapToDto);
+    }
+
+    public async Task<TransactionSummaryDto> GetTransactionSummaryAsync(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false)
+    {
+        var query = BuildFilteredQuery(filter, userId, isAdmin);
+
+        var totalFunded = await query
+            .Where(t => t.Status == TransactionStatus.Fund && t.ApprovalStatus == TransactionApprovalStatus.Approved)
+            .SumAsync(t => (decimal?)t.Amount) ?? 0;
+
+        var totalRefunded = await query
+            .Where(t => t.Status == TransactionStatus.Refund && t.ApprovalStatus == TransactionApprovalStatus.Approved)
+            .SumAsync(t => (decimal?)t.Amount) ?? 0;
+
+        var pendingCount = await query
+            .Where(t => t.ApprovalStatus == TransactionApprovalStatus.Pending)
+            .CountAsync();
+
+        return new TransactionSummaryDto
+        {
+            TotalFunded = totalFunded,
+            TotalRefunded = totalRefunded,
+            PendingCount = pendingCount
+        };
+    }
+
+    public async Task<byte[]> ExportTransactionsToExcelAsync(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false)
+    {
+        var query = BuildFilteredQuery(filter, userId, isAdmin);
+
+        var transactions = await query
+            .OrderByDescending(t => t.CreatedAt)
+            .Select(t => new
+            {
+                t.TransactionId,
+                MemberName = t.MemberTransactionMaps.Select(m => m.Member != null ? m.Member.Name : null).FirstOrDefault(),
+                t.TransferFrom,
+                t.TransferTo,
+                t.Amount,
+                AccountName = t.Account != null ? t.Account.Name : null,
+                Status = t.Status.ToString(),
+                ApprovalStatus = t.ApprovalStatus.ToString(),
+                ReceiptType = t.ReceiptType ?? "",
+                CreatedByName = t.CreatedBy != null ? t.CreatedBy.Name : null,
+                t.CreatedAt,
+                ApprovedByName = t.ApprovedByUser != null ? t.ApprovedByUser.Name : null,
+                t.ApprovedAt
+            })
+            .ToListAsync();
+
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Transactions");
+
+        var headers = new[] { "Transaction ID", "Member", "Transfer From", "Transfer To", "Amount",
+            "Account", "Type", "Approval Status", "Receipt Type", "Created By", "Created At",
+            "Approved By", "Approved At" };
+
+        for (int i = 0; i < headers.Length; i++)
+        {
+            ws.Cell(1, i + 1).Value = headers[i];
+            ws.Cell(1, i + 1).Style.Font.Bold = true;
+            ws.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.FromArgb(102, 126, 234);
+            ws.Cell(1, i + 1).Style.Font.FontColor = XLColor.White;
+        }
+
+        int row = 2;
+        foreach (var t in transactions)
+        {
+            ws.Cell(row, 1).Value = t.TransactionId;
+            ws.Cell(row, 2).Value = t.MemberName ?? t.CreatedByName ?? "";
+            ws.Cell(row, 3).Value = t.TransferFrom ?? "";
+            ws.Cell(row, 4).Value = t.TransferTo;
+            ws.Cell(row, 5).Value = t.Amount;
+            ws.Cell(row, 5).Style.NumberFormat.Format = "#,##0.00";
+            ws.Cell(row, 6).Value = t.AccountName ?? "";
+            ws.Cell(row, 7).Value = t.Status;
+            ws.Cell(row, 8).Value = t.ApprovalStatus;
+            ws.Cell(row, 9).Value = t.ReceiptType;
+            ws.Cell(row, 10).Value = t.CreatedByName ?? "";
+            ws.Cell(row, 11).Value = t.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss");
+            ws.Cell(row, 12).Value = t.ApprovedByName ?? "";
+            ws.Cell(row, 13).Value = t.ApprovedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "";
+            row++;
+        }
+
+        ws.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    public async Task<byte[]> ExportTransactionsToCsvAsync(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false)
+    {
+        var query = BuildFilteredQuery(filter, userId, isAdmin);
+
+        var transactions = await query
+            .OrderByDescending(t => t.CreatedAt)
+            .Select(t => new
+            {
+                t.TransactionId,
+                MemberName = t.MemberTransactionMaps.Select(m => m.Member != null ? m.Member.Name : null).FirstOrDefault(),
+                t.TransferFrom,
+                t.TransferTo,
+                t.Amount,
+                AccountName = t.Account != null ? t.Account.Name : null,
+                Status = t.Status.ToString(),
+                ApprovalStatus = t.ApprovalStatus.ToString(),
+                ReceiptType = t.ReceiptType ?? "",
+                CreatedByName = t.CreatedBy != null ? t.CreatedBy.Name : null,
+                t.CreatedAt,
+                ApprovedByName = t.ApprovedByUser != null ? t.ApprovedByUser.Name : null,
+                t.ApprovedAt
+            })
+            .ToListAsync();
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Transaction ID,Member,Transfer From,Transfer To,Amount,Account,Type,Approval Status,Receipt Type,Created By,Created At,Approved By,Approved At");
+
+        foreach (var t in transactions)
+        {
+            sb.AppendLine(
+                $"{EscapeCsv(t.TransactionId)}," +
+                $"{EscapeCsv(t.MemberName ?? t.CreatedByName ?? "")}," +
+                $"{EscapeCsv(t.TransferFrom ?? "")}," +
+                $"{EscapeCsv(t.TransferTo)}," +
+                $"{t.Amount.ToString("F2", CultureInfo.InvariantCulture)}," +
+                $"{EscapeCsv(t.AccountName ?? "")}," +
+                $"{EscapeCsv(t.Status)}," +
+                $"{EscapeCsv(t.ApprovalStatus)}," +
+                $"{EscapeCsv(t.ReceiptType)}," +
+                $"{EscapeCsv(t.CreatedByName ?? "")}," +
+                $"{EscapeCsv(t.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"))}," +
+                $"{EscapeCsv(t.ApprovedByName ?? "")}," +
+                $"{EscapeCsv(t.ApprovedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "")}"
+            );
+        }
+
+        return Encoding.UTF8.GetBytes(sb.ToString());
+    }
+
+    private static string EscapeCsv(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
     }
 
     public async Task<TransactionResponseDto?> GetTransactionByIdAsync(Guid id)
