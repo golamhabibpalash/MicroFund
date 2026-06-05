@@ -332,6 +332,24 @@ public class TransactionService : ITransactionService
         _context.MemberTransactionMaps.Add(memberTransactionMap);
         await _context.SaveChangesAsync();
 
+        var targetMember = await _context.Members.FindAsync(dto.MemberId);
+        var accountName = dto.AccountId.HasValue
+            ? (await _context.Accounts.FindAsync(dto.AccountId.Value))?.Name ?? "N/A"
+            : "N/A";
+        var admins = await _context.Users.Where(u => u.Role == Models.UserRole.Admin && u.IsActive).ToListAsync();
+        foreach (var admin in admins)
+        {
+            _ = _emailService.SendTransactionCreatedEmailAsync(
+                admin.Email,
+                admin.Name,
+                targetMember?.Name ?? "Unknown",
+                transaction.Amount,
+                transaction.Status.ToString(),
+                accountName,
+                transaction.Remarks ?? ""
+            );
+        }
+
         await _auditService.LogAsync("Transaction", "CREATE", null, new
         {
             transaction.Id,
