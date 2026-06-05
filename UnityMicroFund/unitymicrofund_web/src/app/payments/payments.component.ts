@@ -138,72 +138,62 @@ interface Member {
             Clear
           </button>
         </div>
-        <div class="transactions-table">
+        <div class="table-container">
           <table>
             <thead>
               <tr>
                 <th class="sortable" (click)="sort('transactionId')">
-                  Transaction Id
-                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'transactionId'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
+                  Transaction
+                  <span class="sort-icon material-icons" *ngIf="sortColumn === 'transactionId'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
                 </th>
                 <th class="sortable" (click)="sort('memberName')">
                   Member
-                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'memberName'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
+                  <span class="sort-icon material-icons" *ngIf="sortColumn === 'memberName'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
                 </th>
-                <th class="sortable" (click)="sort('transferFrom')">
-                  Transfer From
-                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'transferFrom'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
-                </th>
-                <th class="sortable" (click)="sort('transferTo')">
-                  Transfer To
-                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'transferTo'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
-                </th>
+                <th>From / To</th>
                 <th class="sortable" (click)="sort('amount')">
                   Amount
-                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'amount'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
+                  <span class="sort-icon material-icons" *ngIf="sortColumn === 'amount'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
                 </th>
                 <th>Account</th>
-                <th>Type</th>
                 <th class="sortable" (click)="sort('approvalStatus')">
-                  Approval
-                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'approvalStatus'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
+                  Status
+                  <span class="sort-icon material-icons" *ngIf="sortColumn === 'approvalStatus'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
                 </th>
                 <th class="sortable" (click)="sort('createdAt')">
                   Date
-                  <span class="material-icons sort-icon" *ngIf="sortColumn === 'createdAt'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_drop_down' }}</span>
+                  <span class="sort-icon material-icons" *ngIf="sortColumn === 'createdAt'">{{ sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
                 </th>
-                <th>Action</th>
+                <th class="actions-col">Action</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let tx of paginatedTransactions">
-                <td class="transaction-id">{{ tx.transactionId }}</td>
-                <td class="member-name">{{ tx.memberName || tx.createdByName || '-' }}</td>
-                <td class="transfer-from">{{ tx.transferFrom || '-' }}</td>
-                <td>{{ tx.transferTo }}</td>
-                <td class="amount">{{ tx.amount | bdtCurrency }}</td>
-                <td>{{ tx.accountName }}</td>
-                <td>
-                  <span class="receipt-type" *ngIf="tx.receiptType">{{ tx.receiptType }}</span>
-                  <span class="receipt-type empty" *ngIf="!tx.receiptType">-</span>
+                <td class="cell-id">{{ tx.transactionId }}</td>
+                <td class="cell-member">{{ tx.memberName || tx.createdByName || '-' }}</td>
+                <td class="cell-transfer">
+                  <span class="transfer-label">From:</span> {{ tx.transferFrom || '-' }}<br>
+                  <span class="transfer-label">To:</span> {{ tx.transferTo }}
                 </td>
+                <td class="cell-amount">{{ tx.amount | bdtCurrency }}</td>
+                <td class="cell-account">{{ tx.accountName }}</td>
                 <td>
-                  <span class="status" [class.pending]="tx.approvalStatus === 'Pending'"
-                        [class.approved]="tx.approvalStatus === 'Approved'"
-                        [class.rejected]="tx.approvalStatus === 'Rejected'">
+                  <span class="badge" [class.badge-pending]="tx.approvalStatus === 'Pending'"
+                        [class.badge-success]="tx.approvalStatus === 'Approved'"
+                        [class.badge-danger]="tx.approvalStatus === 'Rejected'">
                     {{ tx.approvalStatus }}
                   </span>
                 </td>
-                <td>{{ tx.createdAt | date:'short' }}</td>
-                <td class="actions">
+                <td class="cell-date">{{ tx.createdAt | date:'MMM d, yyyy' }}</td>
+                <td class="cell-actions">
                   <button *ngIf="tx.approvalStatus === 'Pending'" 
-                          class="btn-approve" 
+                          class="btn-icon btn-icon-approve" 
                           (click)="openApproveModal(tx)"
-                          title="Approve/Reject">
-                    <span class="material-icons">check_circle</span>
+                          title="Approve / Reject">
+                    <span class="material-icons">gavel</span>
                   </button>
                   <button *ngIf="tx.approvalStatus !== 'Pending'"
-                          class="btn-view"
+                          class="btn-icon btn-icon-view"
                           (click)="viewTransaction(tx)"
                           title="View Details">
                     <span class="material-icons">visibility</span>
@@ -211,7 +201,7 @@ interface Member {
                 </td>
               </tr>
               <tr *ngIf="paginatedTransactions.length === 0">
-                <td colspan="10" class="empty-row">No transactions found</td>
+                <td colspan="8" class="empty-row">No transactions found</td>
               </tr>
             </tbody>
           </table>
@@ -220,37 +210,39 @@ interface Member {
         <!-- Pagination -->
         <div class="pagination" *ngIf="filteredTransactions.length > 0">
           <div class="page-info">
-            Showing {{ (currentPage - 1) * pageSize + 1 }} to {{ Math.min(currentPage * pageSize, filteredTransactions.length) }} of {{ filteredTransactions.length }} entries
+            Showing {{ (currentPage - 1) * pageSize + 1 }}–{{ Math.min(currentPage * pageSize, filteredTransactions.length) }} of {{ filteredTransactions.length }}
           </div>
-          <div class="page-size-select">
-            <label>Rows per page:</label>
-            <select [(ngModel)]="pageSize" (ngModelChange)="onPageSizeChange()">
-              <option [value]="10">10</option>
-              <option [value]="25">25</option>
-              <option [value]="50">50</option>
-              <option [value]="100">100</option>
-            </select>
-          </div>
-          <div class="page-buttons">
-            <button class="btn-page" (click)="goToPage(1)" [disabled]="currentPage === 1" title="First">
-              <span class="material-icons">first_page</span>
-            </button>
-            <button class="btn-page" (click)="previousPage()" [disabled]="currentPage === 1" title="Previous">
-              <span class="material-icons">chevron_left</span>
-            </button>
-            <button *ngFor="let page of visiblePages" 
-                    class="btn-page" 
-                    [class.active]="page === currentPage"
-                    (click)="goToPage(page)"
-                    [disabled]="page === -1">
-              {{ page === -1 ? '...' : page }}
-            </button>
-            <button class="btn-page" (click)="nextPage()" [disabled]="currentPage === totalPages" title="Next">
-              <span class="material-icons">chevron_right</span>
-            </button>
-            <button class="btn-page" (click)="goToPage(totalPages)" [disabled]="currentPage === totalPages" title="Last">
-              <span class="material-icons">last_page</span>
-            </button>
+          <div class="pagination-right">
+            <div class="page-size-select">
+              <label>Rows:</label>
+              <select [(ngModel)]="pageSize" (ngModelChange)="onPageSizeChange()">
+                <option [value]="10">10</option>
+                <option [value]="25">25</option>
+                <option [value]="50">50</option>
+                <option [value]="100">100</option>
+              </select>
+            </div>
+            <div class="page-buttons">
+              <button class="btn-page" (click)="goToPage(1)" [disabled]="currentPage === 1" title="First">
+                <span class="material-icons">first_page</span>
+              </button>
+              <button class="btn-page" (click)="previousPage()" [disabled]="currentPage === 1" title="Previous">
+                <span class="material-icons">chevron_left</span>
+              </button>
+              <button *ngFor="let page of visiblePages" 
+                      class="btn-page" 
+                      [class.active]="page === currentPage"
+                      (click)="goToPage(page)"
+                      [disabled]="page === -1">
+                {{ page === -1 ? '...' : page }}
+              </button>
+              <button class="btn-page" (click)="nextPage()" [disabled]="currentPage === totalPages" title="Next">
+                <span class="material-icons">chevron_right</span>
+              </button>
+              <button class="btn-page" (click)="goToPage(totalPages)" [disabled]="currentPage === totalPages" title="Last">
+                <span class="material-icons">last_page</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -569,7 +561,7 @@ interface Member {
     }
 
     .top-header h1 {
-      font-size: var(--text-4xl);
+      font-size: var(--text-2xl);
       font-weight: 700;
       color: var(--text-primary);
       margin: 0;
@@ -589,24 +581,23 @@ interface Member {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 10px 20px;
+      padding: 8px 16px;
       background: var(--color-surface);
-      color: var(--color-accent);
-      border: 1px solid var(--color-accent);
+      color: var(--text-secondary);
+      border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
-      font-size: var(--text-base);
+      font-size: var(--text-sm);
       font-weight: 500;
       cursor: pointer;
-      transition: all var(--transition-base);
-      min-height: 40px;
+      transition: all var(--transition-fast);
     }
 
     .btn-export:hover {
-      background: var(--color-accent-subtle);
-      box-shadow: 0 2px 8px rgba(13, 148, 136, 0.2);
+      border-color: var(--color-accent);
+      color: var(--color-accent);
     }
 
-    .btn-export .dropdown-arrow {
+    .btn-export .material-icons {
       font-size: 18px;
     }
 
@@ -655,7 +646,7 @@ interface Member {
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: var(--space-5);
+      gap: var(--space-4);
       margin-bottom: var(--space-6);
     }
 
@@ -663,27 +654,31 @@ interface Member {
       display: flex;
       align-items: center;
       gap: var(--space-4);
-      padding: var(--space-5);
+      padding: var(--space-4) var(--space-5);
       background: var(--color-surface);
       border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-card);
       border: 1px solid var(--color-border-light);
       transition: all var(--transition-base);
     }
 
     .stat-card:hover {
+      border-color: var(--color-border);
       box-shadow: var(--shadow-card-hover);
-      transform: translateY(-2px);
     }
 
     .stat-icon {
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
       border-radius: var(--radius-md);
       display: flex;
       align-items: center;
       justify-content: center;
       color: white;
+      flex-shrink: 0;
+    }
+
+    .stat-icon .material-icons {
+      font-size: 22px;
     }
 
     .stat-icon-funded {
@@ -704,21 +699,24 @@ interface Member {
     }
 
     .stat-value {
-      font-size: var(--text-2xl);
+      font-size: var(--text-xl);
       font-weight: 700;
       color: var(--text-primary);
+      line-height: 1.2;
     }
 
     .stat-label {
-      font-size: var(--text-sm);
+      font-size: var(--text-xs);
       color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 2px;
     }
 
     .content-section {
       background: var(--color-surface);
       border-radius: var(--radius-lg);
-      padding: var(--space-6);
-      box-shadow: var(--shadow-card);
+      padding: var(--space-5) var(--space-6);
       border: 1px solid var(--color-border-light);
     }
 
@@ -742,10 +740,10 @@ interface Member {
       gap: var(--space-3);
       margin-bottom: var(--space-5);
       flex-wrap: wrap;
-      background: var(--color-surface);
+      background: var(--color-background-alt);
       border: 1px solid var(--color-border-light);
       border-radius: var(--radius-lg);
-      padding: var(--space-3) var(--space-4);
+      padding: var(--space-3);
     }
 
     .search-box {
@@ -753,17 +751,17 @@ interface Member {
       align-items: center;
       gap: var(--space-2);
       padding: 0 var(--space-3);
-      background: var(--color-background-alt);
+      background: var(--color-surface);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
       min-height: 36px;
-      flex: 0 1 240px;
+      flex: 0 1 220px;
       transition: all var(--transition-fast);
     }
 
     .search-box:focus-within {
       border-color: var(--color-accent);
-      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+      box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.12);
     }
 
     .search-box .material-icons {
@@ -779,7 +777,7 @@ interface Member {
       font-size: var(--text-sm);
       color: var(--text-primary);
       width: 100%;
-      min-width: 140px;
+      min-width: 120px;
     }
 
     .search-box input::placeholder {
@@ -794,7 +792,7 @@ interface Member {
     }
 
     .filter-group select {
-      padding: 0 32px 0 12px;
+      padding: 0 30px 0 10px;
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
       font-size: var(--text-sm);
@@ -803,12 +801,12 @@ interface Member {
       cursor: pointer;
       outline: none;
       appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
       background-repeat: no-repeat;
-      background-position: right 10px center;
+      background-position: right 9px center;
       transition: all var(--transition-fast);
       min-height: 36px;
-      min-width: 140px;
+      min-width: 130px;
     }
 
     .filter-group select:hover {
@@ -817,7 +815,7 @@ interface Member {
 
     .filter-group select:focus {
       border-color: var(--color-accent);
-      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+      box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.12);
     }
 
     .date-filter {
@@ -834,7 +832,7 @@ interface Member {
 
     .date-filter:focus-within {
       border-color: var(--color-accent);
-      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+      box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.12);
     }
 
     .date-filter .material-icons {
@@ -850,17 +848,17 @@ interface Member {
       background: transparent;
       outline: none;
       min-height: 34px;
-      width: 130px;
+      width: 120px;
       cursor: pointer;
     }
 
     .date-filter input[type="date"]::-webkit-calendar-picker-indicator {
       cursor: pointer;
-      opacity: 0.5;
+      opacity: 0.4;
     }
 
     .date-filter input[type="date"]::-webkit-calendar-picker-indicator:hover {
-      opacity: 1;
+      opacity: 0.8;
     }
 
     .date-divider {
@@ -891,7 +889,29 @@ interface Member {
     }
 
     .btn-clear .material-icons {
-      font-size: 16px;
+      font-size: 15px;
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: var(--space-4);
+      margin-top: var(--space-1);
+      border-top: 1px solid var(--color-divider);
+      flex-wrap: wrap;
+      gap: var(--space-3);
+    }
+
+    .page-info {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+    }
+
+    .pagination-right {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
     }
 
     .page-size-select {
@@ -902,32 +922,38 @@ interface Member {
 
     .page-size-select label {
       font-size: var(--text-sm);
-      color: var(--text-secondary);
+      color: var(--text-muted);
+      white-space: nowrap;
     }
 
     .page-size-select select {
-      padding: 6px 10px;
+      padding: 4px 26px 4px 8px;
       border: 1px solid var(--color-border);
       border-radius: var(--radius-sm);
       font-size: var(--text-sm);
-      color: var(--text-primary);
+      color: var(--text-secondary);
       background: var(--color-surface);
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      cursor: pointer;
     }
 
     .page-buttons {
       display: flex;
-      gap: 4px;
+      gap: 2px;
     }
 
     .btn-page {
       display: flex;
       align-items: center;
       justify-content: center;
-      min-width: 36px;
-      height: 36px;
-      padding: 0 8px;
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
+      min-width: 32px;
+      height: 32px;
+      padding: 0 6px;
+      background: transparent;
+      border: 1px solid transparent;
       border-radius: var(--radius-sm);
       font-size: var(--text-sm);
       color: var(--text-secondary);
@@ -936,461 +962,126 @@ interface Member {
     }
 
     .btn-page:hover:not(:disabled) {
-      border-color: var(--color-accent);
-      color: var(--color-accent);
+      background: var(--color-background-alt);
+      border-color: var(--color-border);
     }
 
     .btn-page.active {
-      background: var(--brand-gradient);
-      border-color: transparent;
+      background: var(--color-accent);
+      border-color: var(--color-accent);
       color: white;
+      font-weight: 600;
     }
 
     .btn-page:disabled {
-      opacity: 0.5;
+      opacity: 0.35;
       cursor: not-allowed;
     }
 
     .btn-page .material-icons {
-      font-size: 20px;
+      font-size: 18px;
     }
 
     .empty-row {
       text-align: center;
       color: var(--text-muted);
-      padding: var(--space-10);
+      padding: var(--space-12) var(--space-6) !important;
     }
 
-    /* Modal - use global .modal-overlay, .modal-content, etc. from styles.scss */
-    .modal-content {
-      border-radius: var(--radius-lg);
-    }
-
-    .modal-header h3 {
-      font-size: var(--text-lg);
-      font-weight: 600;
-      margin: 0;
-    }
-
-    .modal-actions {
-      display: flex;
-      gap: var(--space-3);
-      justify-content: flex-end;
-      padding: var(--space-4) var(--space-6);
-      border-top: 1px solid var(--color-border);
-      background: var(--color-background-alt);
-    }
-
-    .btn-approve-action {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 10px 20px;
-      background: var(--color-success);
-      color: white;
-      border: none;
-      border-radius: var(--radius-md);
-      font-size: var(--text-base);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-    }
-
-    .btn-approve-action:hover {
-      background: #059669;
-    }
-
-    .btn-reject {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 10px 20px;
-      background: var(--color-error);
-      color: white;
-      border: none;
-      border-radius: var(--radius-md);
-      font-size: var(--text-base);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-    }
-
-    .btn-reject:hover {
-      background: #dc2626;
-    }
-
-    .transaction-details {
-      background: var(--color-background-alt);
-      border-radius: var(--radius-md);
-      padding: var(--space-4);
-      margin-bottom: var(--space-5);
-    }
-
-    .detail-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--color-border-light);
-    }
-
-    .detail-row:last-child {
-      border-bottom: none;
-    }
-
-    .detail-row .label {
-      font-weight: 500;
-      color: var(--text-secondary);
-    }
-
-    .detail-row .value {
-      color: var(--text-primary);
-    }
-
-    .detail-row .value.amount {
-      font-weight: 700;
-      color: var(--color-accent);
-      font-size: var(--text-base);
-    }
-
-    .receipt-link {
+    /* Badges */
+    .badge {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      color: var(--color-accent);
-      text-decoration: none;
-      font-size: var(--text-sm);
-    }
-
-    .receipt-link:hover {
-      text-decoration: underline;
-    }
-
-    .receipt-link .material-icons {
-      font-size: 16px;
-    }
-
-    /* OCR Section Styles */
-    .modal-large {
-      max-width: 700px;
-    }
-
-    .modal-body-content {
-      padding: 0;
-    }
-
-    .ocr-section {
-      background: rgba(13, 148, 136, 0.06);
-      padding: var(--space-6);
-      border-bottom: 1px solid var(--color-border);
-    }
-
-    .ocr-header {
-      display: flex;
-      align-items: flex-start;
-      gap: var(--space-3);
-      margin-bottom: var(--space-4);
-    }
-
-    .ocr-icon {
-      color: var(--color-accent);
-      font-size: 32px;
-    }
-
-    .ocr-info h4 {
-      margin: 0 0 4px 0;
-      font-size: var(--text-base);
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .ocr-info p {
-      margin: 0;
-      font-size: var(--text-sm);
-      color: var(--text-muted);
-    }
-
-    .ocr-upload {
-      background: var(--color-surface);
-      border: 2px dashed var(--color-accent);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      transition: all var(--transition-base);
-    }
-
-    .ocr-upload:hover {
-      border-color: var(--color-accent-dark);
-      box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);
-    }
-
-    .ocr-upload.has-preview {
-      border-style: solid;
-    }
-
-    .upload-area {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 40px 20px;
-      cursor: pointer;
-      transition: all var(--transition-base);
-    }
-
-    .upload-area:hover {
-      background: rgba(13, 148, 136, 0.04);
-    }
-
-    .upload-area .material-icons {
-      font-size: 48px;
-      color: var(--color-accent);
-      margin-bottom: var(--space-3);
-    }
-
-    .upload-area p {
-      margin: 0 0 8px 0;
-      font-size: var(--text-base);
-      font-weight: 500;
-      color: var(--text-primary);
-    }
-
-    .file-types {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-    }
-
-    .preview-area {
-      padding: var(--space-4);
-    }
-
-    .receipt-preview {
-      width: 100%;
-      max-height: 200px;
-      object-fit: contain;
-      border-radius: var(--radius-md);
-      margin-bottom: var(--space-3);
-    }
-
-    .preview-actions {
-      display: flex;
-      gap: var(--space-3);
-      justify-content: center;
-    }
-
-    .btn-rescan, .btn-scan {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 10px 20px;
-      border: none;
-      border-radius: var(--radius-md);
-      font-size: var(--text-base);
-      cursor: pointer;
-      transition: all var(--transition-base);
-    }
-
-    .btn-rescan {
-      background: var(--color-background-alt);
-      color: var(--text-secondary);
-    }
-
-    .btn-rescan:hover {
-      background: var(--color-border);
-    }
-
-    .btn-scan {
-      background: var(--brand-gradient);
-      color: white;
-    }
-
-    .btn-scan:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35);
-    }
-
-    .btn-scan:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .spinning {
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-
-    .ocr-hint {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      margin-top: var(--space-3);
-      padding: var(--space-3);
-      background: #fef3c7;
-      border-radius: var(--radius-md);
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-    }
-
-    .ocr-hint .material-icons {
-      font-size: 18px;
-      color: #d97706;
-    }
-
-    .transaction-form {
-      padding: var(--space-6);
-    }
-
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--space-4);
-    }
-    .form-row .full-width {
-      grid-column: 1 / -1;
-    }
-
-    .amount-input {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-
-    .currency-symbol {
-      position: absolute;
-      left: 12px;
-      font-size: var(--text-base);
-      font-weight: 600;
-      color: var(--color-accent);
-    }
-
-    .amount-input input {
-      padding-left: 32px;
-    }
-
-    .readonly-input {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-md);
-      font-size: var(--text-base);
-      background: var(--color-background-alt);
-      color: var(--text-primary);
-      box-sizing: border-box;
-    }
-
-    .receipt-type-selector {
-      margin-bottom: var(--space-4);
-    }
-
-    .receipt-type-selector label {
-      display: block;
-      font-size: var(--text-sm);
-      font-weight: 500;
-      color: var(--text-primary);
-      margin-bottom: var(--space-2);
-    }
-
-    .receipt-type-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--space-2);
-    }
-
-    .type-chip {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 8px 12px;
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
+      padding: 3px 10px;
       border-radius: 20px;
       font-size: var(--text-xs);
-      cursor: pointer;
-      transition: all var(--transition-base);
+      font-weight: 600;
+      white-space: nowrap;
     }
-
-    .type-chip .material-icons {
-      font-size: 16px;
-      color: var(--text-secondary);
+    .badge-pending {
+      background: var(--color-warning-bg);
+      color: var(--color-warning);
     }
-
-    .type-chip:hover {
-      border-color: var(--color-accent);
-      background: var(--color-accent-subtle);
-    }
-
-    .type-chip.selected {
-      background: var(--brand-gradient);
-      color: white;
-      border-color: transparent;
-    }
-
-    .type-chip.selected .material-icons {
-      color: white;
-    }
-
-    .hint {
-      display: block;
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
-
-    .file-upload-section {
-      background: var(--color-background-alt);
-      border: 1px dashed var(--color-border);
-      border-radius: var(--radius-md);
-      padding: var(--space-4);
-      text-align: center;
-    }
-
-    .file-upload-section .material-icons {
-      font-size: 32px;
-      color: var(--color-accent);
-      margin-bottom: var(--space-2);
-    }
-
-    .file-upload-section p {
-      margin: 0 0 8px 0;
-      font-size: var(--text-base);
-      color: var(--text-primary);
-    }
-
-    .file-upload-section input {
-      display: none;
-    }
-
-    .upload-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      background: var(--color-background-alt);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm);
-      font-size: var(--text-sm);
-      cursor: pointer;
-      transition: all var(--transition-base);
-    }
-
-    .upload-btn:hover {
-      background: var(--color-border);
-      border-color: var(--color-accent);
-    }
-
-    .selected-file {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin-top: 8px;
-      font-size: var(--text-xs);
+    .badge-success {
+      background: var(--color-success-bg);
       color: var(--color-success);
     }
+    .badge-danger {
+      background: var(--color-error-bg);
+      color: var(--color-error);
+    }
 
-    .selected-file .material-icons {
-      font-size: 16px;
+    /* Table cell helpers */
+    .cell-id {
+      font-family: 'Inter', monospace;
+      font-size: var(--text-sm);
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .cell-member {
+      font-weight: 500;
+    }
+    .cell-transfer {
+      font-size: var(--text-sm);
+      line-height: 1.5;
+    }
+    .cell-transfer .transfer-label {
+      color: var(--text-light);
+      font-size: var(--text-xs);
+    }
+    .cell-amount {
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+    .cell-account {
+      color: var(--text-secondary);
+      font-size: var(--text-sm);
+    }
+    .cell-date {
+      color: var(--text-muted);
+      font-size: var(--text-sm);
+      white-space: nowrap;
+    }
+    .cell-actions {
+      white-space: nowrap;
+    }
+
+    /* Icon buttons */
+    .btn-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      background: transparent;
+    }
+    .btn-icon .material-icons {
+      font-size: 18px;
+    }
+    .btn-icon-approve {
+      color: var(--color-accent);
+    }
+    .btn-icon-approve:hover {
+      background: var(--color-accent-subtle);
+    }
+    .btn-icon-view {
+      color: var(--text-muted);
+    }
+    .btn-icon-view:hover {
+      background: var(--color-background-alt);
+      color: var(--color-accent);
+    }
+
+    /* Sort icon */
+    .sort-icon {
+      font-size: 14px !important;
+      vertical-align: middle;
+      margin-left: 2px;
     }
 
     /* Responsive */
@@ -1398,29 +1089,29 @@ interface Member {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 992px) {
-      .top-header { flex-direction: column; align-items: flex-start; gap: var(--space-4); }
+      .top-header { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
       .header-actions { width: 100%; }
       .stats-grid { grid-template-columns: 1fr; }
       .filter-bar { flex-direction: column; align-items: stretch; }
-      .search-box { flex: auto; width: auto; }
+      .search-box { flex: auto; }
       .filter-group select { min-width: 0; flex: 1; }
-      .date-filter input[type="date"] { width: 100%; }
+      .pagination { flex-direction: column; align-items: flex-start; }
+      .pagination-right { width: 100%; justify-content: space-between; }
     }
     @media (max-width: 768px) {
-      .payments-wrapper { padding: var(--space-4); }
-      .top-header h1 { font-size: var(--text-2xl); }
+      .top-header h1 { font-size: var(--text-xl); }
       .filter-group { flex-wrap: wrap; }
       .filter-group select { min-width: calc(50% - var(--space-2)); flex: 1 1 auto; }
       .modal-content { margin: var(--space-3); max-width: calc(100% - 24px); }
+      .pagination-right { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
     }
     @media (max-width: 576px) {
-      .stat-card { padding: var(--space-4); }
-      .stat-value { font-size: var(--text-xl); }
-      .stat-label { font-size: var(--text-xs); }
-      .form-row { grid-template-columns: 1fr; }
+      .stat-card { padding: var(--space-3) var(--space-4); }
+      .stat-value { font-size: var(--text-lg); }
       .filter-group select { min-width: 100%; }
       .date-filter { flex-wrap: wrap; }
       .date-filter input[type="date"] { width: 100%; }
+      .form-row { grid-template-columns: 1fr; }
     }
   `]
 })
