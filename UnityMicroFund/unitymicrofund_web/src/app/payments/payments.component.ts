@@ -98,45 +98,49 @@ interface Member {
           <h2>All Transactions</h2>
         </div>
         <div class="filter-bar">
-          <div class="search-box">
-            <span class="material-icons">search</span>
-            <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" placeholder="Search transactions..." />
+          <div class="filter-row filter-row-top">
+            <div class="search-box">
+              <span class="material-icons">search</span>
+              <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" placeholder="Search transactions..." />
+            </div>
+            <div class="date-filter">
+              <span class="material-icons">date_range</span>
+              <input type="date" [(ngModel)]="filterFromDate" (ngModelChange)="applyFilters()" placeholder="From" />
+              <span class="date-divider">—</span>
+              <input type="date" [(ngModel)]="filterToDate" (ngModelChange)="applyFilters()" placeholder="To" />
+            </div>
+            <button class="btn-clear" *ngIf="hasActiveFilters()" (click)="clearFilters()">
+              <span class="material-icons">close</span>
+              Clear
+            </button>
           </div>
-          <div class="filter-group">
-            <select *ngIf="isAdmin" [(ngModel)]="filterMemberId" (ngModelChange)="applyFilters()">
-              <option value="">All Members</option>
-              <option *ngFor="let member of members" [value]="member.id">
-                {{ member.name }}
-              </option>
-            </select>
-            <select [(ngModel)]="filterAccountId" (ngModelChange)="applyFilters()">
-              <option value="">All Accounts</option>
-              <option *ngFor="let account of accounts" [value]="account.id">
-                {{ account.name }}
-              </option>
-            </select>
-            <select [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()">
-              <option value="">All Types</option>
-              <option value="Fund">Fund</option>
-              <option value="Refund">Refund</option>
-            </select>
-            <select [(ngModel)]="filterApprovalStatus" (ngModelChange)="applyFilters()">
-              <option value="">All Status</option>
-              <option value="Pending">Pending</option>
-              <option value="Approved">Approved</option>
-              <option value="Rejected">Rejected</option>
-            </select>
+          <div class="filter-row filter-row-bottom">
+            <div class="filter-group">
+              <select *ngIf="isAdmin" [(ngModel)]="filterMemberId" (ngModelChange)="applyFilters()">
+                <option value="">All Members</option>
+                <option *ngFor="let member of members" [value]="member.id">
+                  {{ member.name }}
+                </option>
+              </select>
+              <select [(ngModel)]="filterAccountId" (ngModelChange)="applyFilters()">
+                <option value="">All Accounts</option>
+                <option *ngFor="let account of accounts" [value]="account.id">
+                  {{ account.name }}
+                </option>
+              </select>
+              <select [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()">
+                <option value="">All Types</option>
+                <option value="Fund">Fund</option>
+                <option value="Refund">Refund</option>
+              </select>
+              <select [(ngModel)]="filterApprovalStatus" (ngModelChange)="applyFilters()">
+                <option value="">All Status</option>
+                <option value="Pending">Pending</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
           </div>
-          <div class="date-filter">
-            <span class="material-icons">date_range</span>
-            <input type="date" [(ngModel)]="filterFromDate" (ngModelChange)="applyFilters()" placeholder="From" />
-            <span class="date-divider">—</span>
-            <input type="date" [(ngModel)]="filterToDate" (ngModelChange)="applyFilters()" placeholder="To" />
-          </div>
-          <button class="btn-clear" *ngIf="hasActiveFilters()" (click)="clearFilters()">
-            <span class="material-icons">close</span>
-            Clear
-          </button>
         </div>
         <div class="table-container">
           <table>
@@ -736,14 +740,28 @@ interface Member {
 
     .filter-bar {
       display: flex;
-      align-items: center;
-      gap: var(--space-3);
+      flex-direction: column;
+      gap: var(--space-2);
       margin-bottom: var(--space-5);
-      flex-wrap: wrap;
       background: var(--color-background-alt);
       border: 1px solid var(--color-border-light);
       border-radius: var(--radius-lg);
       padding: var(--space-3);
+    }
+
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+
+    .filter-row-top {
+      flex: 1;
+    }
+
+    .filter-row-bottom {
+      flex: 1;
     }
 
     .search-box {
@@ -755,7 +773,8 @@ interface Member {
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
       min-height: 36px;
-      flex: 0 1 220px;
+      flex: 1 1 260px;
+      max-width: 360px;
       transition: all var(--transition-fast);
     }
 
@@ -792,7 +811,7 @@ interface Member {
     }
 
     .filter-group select {
-      padding: 0 30px 0 10px;
+      padding: 0 26px 0 10px;
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
       font-size: var(--text-sm);
@@ -803,10 +822,11 @@ interface Member {
       appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
       background-repeat: no-repeat;
-      background-position: right 9px center;
+      background-position: right 7px center;
       transition: all var(--transition-fast);
       min-height: 36px;
-      min-width: 130px;
+      min-width: 120px;
+      max-width: 160px;
     }
 
     .filter-group select:hover {
@@ -848,7 +868,7 @@ interface Member {
       background: transparent;
       outline: none;
       min-height: 34px;
-      width: 120px;
+      width: 110px;
       cursor: pointer;
     }
 
@@ -1092,25 +1112,26 @@ interface Member {
       .top-header { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
       .header-actions { width: 100%; }
       .stats-grid { grid-template-columns: 1fr; }
-      .filter-bar { flex-direction: column; align-items: stretch; }
-      .search-box { flex: auto; }
-      .filter-group select { min-width: 0; flex: 1; }
+      .filter-row-top { flex-direction: column; align-items: stretch; }
+      .search-box { max-width: none; flex: auto; }
+      .date-filter { width: 100%; }
+      .date-filter input[type="date"] { width: 100%; flex: 1; }
+      .filter-group select { flex: 1; max-width: none; }
       .pagination { flex-direction: column; align-items: flex-start; }
       .pagination-right { width: 100%; justify-content: space-between; }
     }
     @media (max-width: 768px) {
       .top-header h1 { font-size: var(--text-xl); }
-      .filter-group { flex-wrap: wrap; }
-      .filter-group select { min-width: calc(50% - var(--space-2)); flex: 1 1 auto; }
+      .filter-row-bottom .filter-group { flex-wrap: wrap; }
+      .filter-group select { flex: 1 1 auto; min-width: calc(50% - var(--space-2)); }
       .modal-content { margin: var(--space-3); max-width: calc(100% - 24px); }
       .pagination-right { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
     }
     @media (max-width: 576px) {
       .stat-card { padding: var(--space-3) var(--space-4); }
       .stat-value { font-size: var(--text-lg); }
-      .filter-group select { min-width: 100%; }
+      .filter-group select { min-width: 100%; max-width: none; }
       .date-filter { flex-wrap: wrap; }
-      .date-filter input[type="date"] { width: 100%; }
       .form-row { grid-template-columns: 1fr; }
     }
   `]
