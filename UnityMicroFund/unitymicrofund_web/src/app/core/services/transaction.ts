@@ -76,9 +76,16 @@ export interface ReceiptType {
   icon: string;
 }
 
+export interface TransactionSummary {
+  totalFunded: number;
+  totalRefunded: number;
+  pendingCount: number;
+}
+
 export interface TransactionFilter {
   search?: string;
   accountId?: string;
+  memberId?: string;
   status?: string;
   approvalStatus?: string;
   fromDate?: string;
@@ -140,12 +147,27 @@ export class TransactionService {
     return this.http.post<OcrScanResult>('/api/ocr/scan', formData);
   }
 
+  getTransactionSummary(filter?: TransactionFilter): Observable<TransactionSummary> {
+    const params = this.buildQueryParams(filter);
+    return this.http.get<TransactionSummary>(`${this.apiUrl}/summary`, { params });
+  }
+
+  exportTransactions(filter: TransactionFilter | undefined, format: 'excel' | 'csv'): Observable<Blob> {
+    let params = this.buildQueryParams(filter);
+    params['format'] = format;
+    return this.http.get(`${this.apiUrl}/export`, {
+      params,
+      responseType: 'blob',
+    });
+  }
+
   private buildQueryParams(filter?: TransactionFilter): { [key: string]: string } {
     const params: { [key: string]: string } = {};
     if (!filter) return params;
     
     if (filter.search) params['search'] = filter.search;
     if (filter.accountId) params['accountId'] = filter.accountId;
+    if (filter.memberId) params['memberId'] = filter.memberId;
     if (filter.status) params['status'] = filter.status;
     if (filter.approvalStatus) params['approvalStatus'] = filter.approvalStatus;
     if (filter.fromDate) params['fromDate'] = filter.fromDate;
