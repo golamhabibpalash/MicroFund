@@ -34,7 +34,7 @@ interface Member {
         <h1>Transactions</h1>
         <div class="header-actions">
           <div class="export-dropdown">
-            <button class="btn-export" (click)="toggleExportMenu()">
+            <button class="btn-export" (click)="$event.stopPropagation(); toggleExportMenu()">
               <span class="material-icons">file_download</span>
               Export
               <span class="material-icons dropdown-arrow">arrow_drop_down</span>
