@@ -141,6 +141,9 @@
 }
 
 .card-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
   margin-bottom: 2rem;
 
@@ -170,6 +173,8 @@
   }
 
   .welcome-title {
+    display: block;
+    width: 100%;
     font-size: 1.5rem;
     font-weight: 700;
     color: #f1f5f9;
@@ -178,6 +183,8 @@
   }
 
   .welcome-subtitle {
+    display: block;
+    width: 100%;
     font-size: 0.9rem;
     color: #64748b;
     margin: 0 0 1.5rem;
