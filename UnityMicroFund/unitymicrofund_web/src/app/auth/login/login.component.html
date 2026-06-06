@@ -1,9 +1,18 @@
 <div class="login-wrapper">
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-growth" aria-hidden="true"></div>
+  <div class="bg-glow" aria-hidden="true"></div>
+
   <div class="login-card">
     <div class="card-header">
-      <img [src]="logoUrl" alt="Unity MicroFund" class="brand-logo" />
-      <h1>Welcome back</h1>
-      <p class="subtitle">Sign in to your account to continue</p>
+      <div class="brand-row">
+        <img [src]="logoUrl" alt="Unity MicroFund" class="brand-logo" />
+        <span class="brand-name">Unity<br/>MicroFund</span>
+      </div>
+      <div class="welcome-section">
+        <h1>Welcome back</h1>
+        <p class="subtitle">Sign in to your account to continue</p>
+      </div>
     </div>
 
     <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">

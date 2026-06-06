@@ -6,10 +6,87 @@
   padding: 1.5rem;
   position: relative;
   overflow: hidden;
-  background: #070b14;
+  background: #060a14;
   background-image:
-    radial-gradient(ellipse at 20% 50%, rgba(13, 148, 136, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 50%, rgba(56, 132, 255, 0.06) 0%, transparent 60%);
+    radial-gradient(ellipse at 15% 35%, rgba(13, 148, 136, 0.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 30%, rgba(56, 132, 255, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 90%, rgba(13, 148, 136, 0.05) 0%, transparent 45%);
+}
+
+.bg-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at center, #000 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 0%, transparent 75%);
+}
+
+.bg-growth {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 55%;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.20;
+  background-repeat: no-repeat;
+  background-position: bottom center;
+  background-size: cover;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 400' preserveAspectRatio='none'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%232dd4bf' stop-opacity='0.35'/%3E%3Cstop offset='1' stop-color='%232dd4bf' stop-opacity='0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0,340 L140,310 L280,325 L420,270 L560,290 L700,220 L840,245 L980,170 L1120,140 L1200,120 L1200,400 L0,400 Z' fill='url(%23g)'/%3E%3Cpath d='M0,340 L140,310 L280,325 L420,270 L560,290 L700,220 L840,245 L980,170 L1120,140 L1200,120' fill='none' stroke='%232dd4bf' stroke-width='2.5' stroke-opacity='0.45' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='700' cy='220' r='4' fill='%232dd4bf' fill-opacity='0.5'/%3E%3Ccircle cx='1120' cy='140' r='4' fill='%232dd4bf' fill-opacity='0.5'/%3E%3Cpath d='M0,370 L140,350 L280,358 L420,330 L560,342 L700,305 L840,315 L980,280 L1120,260 L1200,245' fill='none' stroke='%233884ff' stroke-width='1.5' stroke-opacity='0.20' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.bg-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+  }
+
+  &::before {
+    width: 400px;
+    height: 400px;
+    right: 8%;
+    top: 2%;
+    background: radial-gradient(circle, rgba(45, 212, 191, 0.35), transparent 70%);
+    opacity: 0.4;
+    animation: drift 20s ease-in-out infinite alternate;
+  }
+
+  &::after {
+    width: 350px;
+    height: 350px;
+    left: 5%;
+    bottom: 5%;
+    background: radial-gradient(circle, rgba(56, 132, 255, 0.30), transparent 70%);
+    opacity: 0.35;
+    animation: drift 26s ease-in-out infinite alternate-reverse;
+  }
+}
+
+@keyframes drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(35px, -25px) scale(1.1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-glow::before,
+  .bg-glow::after {
+    animation: none;
+  }
 }
 
 .login-card {
@@ -28,29 +105,48 @@
 }
 
 .card-header {
-  text-align: center;
   margin-bottom: 2rem;
 
-  .brand-logo {
-    width: 64px;
-    height: 64px;
-    margin-bottom: 1.25rem;
-    border-radius: 16px;
-    object-fit: contain;
+  .brand-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+
+    .brand-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .brand-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: 0.3px;
+      line-height: 1.3;
+      text-transform: uppercase;
+    }
   }
 
-  h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #f1f5f9;
-    margin: 0 0 0.35rem;
-    letter-spacing: -0.3px;
-  }
+  .welcome-section {
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin: 0 0 0.35rem;
+      letter-spacing: -0.3px;
+    }
 
-  .subtitle {
-    font-size: 0.9rem;
-    color: #64748b;
-    margin: 0;
+    .subtitle {
+      font-size: 0.9rem;
+      color: #64748b;
+      margin: 0;
+    }
   }
 }
 
@@ -321,13 +417,12 @@
   .card-header {
     margin-bottom: 1.5rem;
 
-    .brand-logo {
-      width: 52px;
-      height: 52px;
-      margin-bottom: 1rem;
+    .brand-row {
+      margin-bottom: 1.25rem;
+      padding-bottom: 1rem;
     }
 
-    h1 {
+    .welcome-section h1 {
       font-size: 1.3rem;
     }
   }
