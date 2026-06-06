@@ -55,13 +55,11 @@ export class NotificationService {
   loadUnreadCount(): void {
     const token = this.tokenService.getToken();
     if (!token) {
-      console.log('NotificationService: No token found, skipping unread count load');
       return;
     }
     this.getUnreadCount().subscribe({
       next: (response) => this.unreadCount$.next(response.count),
       error: (err) => {
-        console.error('NotificationService: Failed to load unread count', err);
         this.unreadCount$.next(0);
       }
     });

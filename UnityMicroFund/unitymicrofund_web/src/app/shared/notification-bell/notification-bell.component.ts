@@ -252,10 +252,7 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
 
   loadNotifications(): void {
     const token = this.notificationService.getToken();
-    console.log('NotificationBell - Token exists:', !!token);
-    
     if (!token) {
-      console.log('NotificationBell: No token found, skipping notification load');
       return;
     }
     
@@ -263,9 +260,7 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
       next: (notifications) => {
         this.notifications = notifications;
       },
-      error: (err) => {
-        console.error('Notifications load error:', err);
-      }
+      error: () => {}
     });
   }
 

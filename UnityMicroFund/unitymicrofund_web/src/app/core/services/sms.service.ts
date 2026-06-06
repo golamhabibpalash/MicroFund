@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap, catchError, throwError } from 'rxjs';
+import { Observable, catchError, throwError } from 'rxjs';
 
 export interface SmsResponse {
   uid: string;
@@ -61,11 +61,7 @@ export class SmsService {
         'Accept': 'application/json',
       },
     }).pipe(
-      tap((response) => {
-        console.log('SMS sent successfully:', response);
-      }),
       catchError((error) => {
-        console.error('SMS send error:', error);
         return throwError(() => error);
       })
     );
@@ -77,11 +73,7 @@ export class SmsService {
     const message = `Your UnityMicroFund verification code is: ${code}. This code will expire in 10 minutes.`;
 
     return this.sendSms(formattedNumber, message).pipe(
-      tap(() => {
-        console.log('OTP sent to:', formattedNumber, 'Code:', code);
-      }),
       catchError((error) => {
-        console.error('OTP send error:', error);
         return throwError(() => error);
       }),
       () => new Observable<{ sessionId: string; code: string }>((subscriber) => {

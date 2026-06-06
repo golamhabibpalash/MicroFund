@@ -36,7 +36,6 @@ export class ParamBusConfigService {
   constructor(private http: HttpClient) {}
 
   getAll(): Observable<ParamBusConfig[]> {
-    console.log('Calling API:', this.apiUrl);
     return this.http.get<ParamBusConfig[]>(this.apiUrl);
   }
 

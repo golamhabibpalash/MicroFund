@@ -547,8 +547,7 @@ export class AccountsComponent implements OnInit, OnDestroy {
         this.isLoading = false;
         this.cdr.detectChanges();
       },
-      error: (err) => {
-        console.error('Failed to load accounts:', err);
+      error: () => {
         this.accounts = [];
         this.filteredAccounts = [];
         this.isLoading = false;

@@ -1233,7 +1233,6 @@ export class PaymentsComponent implements OnInit {
 
   private initializeUser() {
     this.isAdmin = this.userService.isAdmin();
-    console.log('initializeUser: isAdmin =', this.isAdmin);
     
     if (!this.isAdmin) {
       this.loadCurrentUserMember();
@@ -1243,15 +1242,13 @@ export class PaymentsComponent implements OnInit {
   private loadCurrentUserMember() {
     this.http.get<{ id: string; name: string; email?: string }>('/api/members/me').subscribe({
       next: (member) => {
-        console.log('loadCurrentUserMember: success', member);
         this.loggedInMemberId = member.id;
         this.loggedInMemberName = member.name;
         this.memberLoadFailed = false;
         this.newTransaction.memberId = member.id;
         this.cdr.detectChanges();
       },
-      error: (err) => {
-        console.error('loadCurrentUserMember: error', err.status, err.error);
+      error: () => {
         this.memberLoadFailed = true;
         this.loggedInMemberName = this.userService.getUserName() || '';
         this.cdr.detectChanges();
@@ -1554,21 +1551,17 @@ export class PaymentsComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files[0]) {
       this.receiptFile = input.files[0];
-      console.log('Receipt file selected:', this.receiptFile.name, this.receiptFile.size, this.receiptFile.type);
       const reader = new FileReader();
       reader.onload = (e) => {
         this.ocrPreviewUrl = e.target?.result as string;
         this.cdr.detectChanges();
       };
       reader.readAsDataURL(this.receiptFile);
-    } else {
-      console.log('No file selected');
     }
   }
 
   async processOcr() {
     if (!this.receiptFile || !this.selectedReceiptType) {
-      console.log('Missing receiptFile or selectedReceiptType:', this.receiptFile, this.selectedReceiptType);
       this.toastService.warning('Please select a receipt type and upload an image first.');
       return;
     }
@@ -1577,15 +1570,11 @@ export class PaymentsComponent implements OnInit {
     this.ocrProgress = 0;
     this.ocrError = '';
 
-    console.log('Calling OCR API with:', { file: this.receiptFile.name, type: this.selectedReceiptType });
-
     try {
       this.transactionService.scanReceipt(this.receiptFile, this.selectedReceiptType).subscribe({
         next: (result) => {
           this.ocrProgress = 100;
-          console.log('OCR Result:', result);
           if (result.success) {
-            console.log('OCR Raw Text:', result.rawText);
             this.applyOcrResult(result);
             this.toastService.success(`Receipt scanned! Amount: ৳${result.amount.toLocaleString()} extracted.`);
           } else {
@@ -1595,9 +1584,6 @@ export class PaymentsComponent implements OnInit {
           this.cdr.detectChanges();
         },
         error: (err) => {
-          console.error('OCR Error Full:', err);
-          console.error('OCR Error Status:', err.status);
-          console.error('OCR Error Error:', err.error);
           this.ocrError = err.message || err.statusText || 'Unknown error';
           this.toastService.error('Failed to process receipt. Please fill the form manually.');
           this.isOcrProcessing = false;
@@ -1605,7 +1591,6 @@ export class PaymentsComponent implements OnInit {
         }
       });
     } catch (error) {
-      console.error('OCR Exception:', error);
       this.toastService.error('Failed to process receipt. Please fill the form manually.');
       this.isOcrProcessing = false;
       this.ocrProgress = 0;
@@ -1614,7 +1599,6 @@ export class PaymentsComponent implements OnInit {
   }
 
   applyOcrResult(result: OcrScanResult) {
-    console.log('OCR Result:', result);
     
     if (result.amount > 0) {
       this.newTransaction.amount = result.amount;
@@ -1649,8 +1633,6 @@ export class PaymentsComponent implements OnInit {
     if (result.remarks) {
       this.newTransaction.remarks = result.remarks;
     }
-
-    console.log('After apply - transactionId:', this.transactionId, 'transferFrom:', this.newTransaction.transferFrom);
 
     setTimeout(() => {
       this.cdr.detectChanges();
@@ -1702,8 +1684,7 @@ export class PaymentsComponent implements OnInit {
           this.handleTransactionSuccess();
         }
       },
-      error: (err) => {
-        console.error('Transaction creation error:', err);
+      error: (err: any) => {
         this.isSubmitting = false;
         const errorMessage = err.error?.message || 'Failed to create transaction. Please try again.';
         this.toastService.error(errorMessage);

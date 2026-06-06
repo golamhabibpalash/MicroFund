@@ -194,18 +194,13 @@ export class BusinessConfigComponent implements OnInit, AfterViewInit, OnDestroy
 
   loadConfigs(): void {
     this.loading = true;
-    console.log('Loading configs...');
     this.configService.getAll().subscribe({
       next: (data) => {
-        console.log('Configs loaded:', data);
         this.configs = data;
         this.loading = false;
         this.cdr.detectChanges();
       },
       error: (err) => {
-        console.error('Failed to load configurations:', err);
-        console.error('Error status:', err.status);
-        console.error('Error message:', err.message);
         this.toastService.error('Failed to load: ' + (err.message || err.statusText || 'Unknown error'));
         this.loading = false;
         this.cdr.detectChanges();

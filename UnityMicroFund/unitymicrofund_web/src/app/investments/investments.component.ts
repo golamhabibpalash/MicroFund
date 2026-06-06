@@ -601,8 +601,7 @@ export class InvestmentsComponent implements OnInit {
         this.isLoading = false;
         this.cdr.detectChanges();
       },
-      error: (err) => {
-        console.error('Failed to load investments:', err);
+      error: () => {
         this.investments = [];
         this.filteredInvestments = [];
         this.isLoading = false;

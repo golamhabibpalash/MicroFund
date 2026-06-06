@@ -192,8 +192,7 @@ export class InvestorEditComponent implements OnInit {
         this.member = data;
         this.isLoading = false;
       },
-      error: (err) => {
-        console.error('Error loading member:', err);
+      error: () => {
         this.errorMessage = 'Failed to load member details';
         this.isLoading = false;
       }
@@ -212,8 +211,7 @@ export class InvestorEditComponent implements OnInit {
         this.isSaving = false;
         this.router.navigate(['/investors']);
       },
-      error: (err) => {
-        console.error('Error saving member:', err);
+      error: () => {
         this.errorMessage = 'Failed to save changes';
         this.isSaving = false;
       }

@@ -563,8 +563,7 @@ export class InvestorsComponent implements OnInit {
           this.isLoading = false;
           this.cdr.detectChanges();
         },
-        error: (err) => {
-          console.error('Error loading members:', err);
+        error: () => {
           this.errorMessage = 'Failed to load members';
           this.isLoading = false;
           this.cdr.detectChanges();
@@ -624,8 +623,7 @@ export class InvestorsComponent implements OnInit {
         this.closeEditModal();
         this.cdr.detectChanges();
       },
-      error: (err) => {
-        console.error('Error saving member:', err);
+      error: (err: any) => {
         this.isSaving = false;
         this.errorMessage = err.error?.message || 'Failed to save member. Please try again.';
         this.cdr.detectChanges();

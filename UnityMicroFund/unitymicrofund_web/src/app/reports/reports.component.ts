@@ -545,8 +545,7 @@ export class ReportsComponent implements OnInit {
         this.isLoading = false;
         this.cdr.detectChanges();
       },
-      error: (err) => {
-        console.error('Failed to load report data:', err);
+      error: () => {
         this.reportData = [];
         this.filteredData = [];
         this.isLoading = false;

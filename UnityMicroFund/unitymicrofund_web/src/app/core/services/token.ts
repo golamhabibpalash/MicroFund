@@ -12,9 +12,7 @@ export class Token {
   saveToken(token: string): void {
     try {
       localStorage.setItem(this.tokenKey, token);
-      console.log('Token saved to localStorage, length:', token.length);
     } catch (e) {
-      console.error('Failed to save token:', e);
     }
   }
 
@@ -23,7 +21,6 @@ export class Token {
       const token = localStorage.getItem(this.tokenKey);
       return token;
     } catch (e) {
-      console.error('Failed to get token:', e);
       return null;
     }
   }
@@ -101,7 +98,6 @@ removeToken(): void {
       }
       return JSON.parse(atob(base64));
     } catch (error) {
-      console.error('Failed to decode token:', error);
       return null;
     }
   }

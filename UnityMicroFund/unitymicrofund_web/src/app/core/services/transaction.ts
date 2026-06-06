@@ -140,7 +140,6 @@ export class TransactionService {
   }
 
   scanReceipt(file: File, receiptType: string): Observable<OcrScanResult> {
-    console.log('TransactionService.scanReceipt called:', file.name, receiptType);
     const formData = new FormData();
     formData.append('file', file);
     formData.append('receiptType', receiptType);
