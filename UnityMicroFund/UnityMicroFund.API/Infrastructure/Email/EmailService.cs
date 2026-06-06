@@ -12,7 +12,7 @@ public interface IEmailService
     Task SendUserApprovedEmailAsync(string userEmail, string userName);
     Task SendPasswordResetCodeEmailAsync(string userEmail, string userName, string code, int expiryMinutes);
     Task SendNewRegistrationEmailAsync(string adminEmail, string adminName, string memberName, string memberEmail);
-    Task SendTransactionCreatedEmailAsync(string adminEmail, string adminName, string memberName, decimal amount, string transactionType, string accountName, string remarks);
+    Task SendTransactionCreatedEmailAsync(string adminEmail, string adminName, string memberName, decimal amount, string transactionType, string accountName, string remarks, string transactionId, DateTime createdAt);
 }
 
 public class EmailService : IEmailService
@@ -259,7 +259,7 @@ public class EmailService : IEmailService
         await SendEmailAsync(adminEmail, subject, body);
     }
 
-    public async Task SendTransactionCreatedEmailAsync(string adminEmail, string adminName, string memberName, decimal amount, string transactionType, string accountName, string remarks)
+    public async Task SendTransactionCreatedEmailAsync(string adminEmail, string adminName, string memberName, decimal amount, string transactionType, string accountName, string remarks, string transactionId, DateTime createdAt)
     {
         var subject = $"New {transactionType} Transaction - UnityMicroFund";
 
@@ -281,6 +281,10 @@ public class EmailService : IEmailService
         <div style='background: white; padding: 20px; border-radius: 8px; margin: 20px 0;'>
             <table style='width: 100%; border-collapse: collapse;'>
                 <tr>
+                    <td style='padding: 10px 0; border-bottom: 1px solid #eee;'><strong>Transaction ID:</strong></td>
+                    <td style='padding: 10px 0; border-bottom: 1px solid #eee; text-align: right; font-family: monospace;'>{transactionId}</td>
+                </tr>
+                <tr>
                     <td style='padding: 10px 0; border-bottom: 1px solid #eee;'><strong>Member:</strong></td>
                     <td style='padding: 10px 0; border-bottom: 1px solid #eee; text-align: right;'>{memberName}</td>
                 </tr>
@@ -295,6 +299,10 @@ public class EmailService : IEmailService
                 <tr>
                     <td style='padding: 10px 0; border-bottom: 1px solid #eee;'><strong>Account:</strong></td>
                     <td style='padding: 10px 0; border-bottom: 1px solid #eee; text-align: right;'>{accountName}</td>
+                </tr>
+                <tr>
+                    <td style='padding: 10px 0; border-bottom: 1px solid #eee;'><strong>Date &amp; Time:</strong></td>
+                    <td style='padding: 10px 0; border-bottom: 1px solid #eee; text-align: right;'>{createdAt:dd MMM yyyy, hh:mm tt}</td>
                 </tr>
                 <tr>
                     <td style='padding: 10px 0;'><strong>Remarks:</strong></td>

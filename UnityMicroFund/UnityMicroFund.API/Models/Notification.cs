@@ -8,7 +8,8 @@ public enum NotificationType
     PaymentApproved,
     InvestmentUpdate,
     SystemAlert,
-    UserAdded
+    UserAdded,
+    TransactionCreated
 }
 
 public class Notification

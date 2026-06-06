@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
+using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Areas.Transactions.DTOs;
 using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Infrastructure.Email;
@@ -16,12 +17,14 @@ public class TransactionService : ITransactionService
     private readonly AppDbContext _context;
     private readonly IEmailService _emailService;
     private readonly IAuditService _auditService;
+    private readonly INotificationService _notificationService;
 
-    public TransactionService(AppDbContext context, IEmailService emailService, IAuditService auditService)
+    public TransactionService(AppDbContext context, IEmailService emailService, IAuditService auditService, INotificationService notificationService)
     {
         _context = context;
         _emailService = emailService;
         _auditService = auditService;
+        _notificationService = notificationService;
     }
 
     private IQueryable<Transaction> BuildFilteredQuery(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false)
@@ -339,6 +342,16 @@ public class TransactionService : ITransactionService
         var admins = await _context.Users.Where(u => u.Role == Models.UserRole.Admin && u.IsActive).ToListAsync();
         foreach (var admin in admins)
         {
+            await _notificationService.CreateNotificationAsync(
+                "New Transaction",
+                $"User {targetMember?.Name ?? "Unknown"} created a {transaction.Status.ToString().ToLower()} transaction of ৳{transaction.Amount:N2}. Transaction ID: {transaction.TransactionId}",
+                NotificationType.TransactionCreated,
+                admin.Id,
+                userId,
+                relatedUserId: userId,
+                relatedMemberId: dto.MemberId
+            );
+
             _ = _emailService.SendTransactionCreatedEmailAsync(
                 admin.Email,
                 admin.Name,
@@ -346,7 +359,9 @@ public class TransactionService : ITransactionService
                 transaction.Amount,
                 transaction.Status.ToString(),
                 accountName,
-                transaction.Remarks ?? ""
+                transaction.Remarks ?? "",
+                transaction.TransactionId,
+                transaction.CreatedAt
             );
         }
 
