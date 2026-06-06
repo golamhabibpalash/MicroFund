@@ -77,6 +77,41 @@
   }
 }
 
+.bg-currency {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+
+  .cur {
+    position: absolute;
+    font-weight: 600;
+    color: rgba(45, 212, 191, 0.10);
+    text-shadow: 0 0 20px rgba(45, 212, 191, 0.08);
+    user-select: none;
+    animation: floatSymbol 20s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  .c1 { top: 12%; left: 6%;  font-size: 2.8rem; animation-delay: 0s; }
+  .c2 { top: 8%;  left: 82%; font-size: 2rem;   animation-delay: -3s; color: rgba(56, 132, 255, 0.09); }
+  .c3 { top: 55%; left: 4%;  font-size: 2.4rem; animation-delay: -6s; color: rgba(56, 132, 255, 0.08); }
+  .c4 { top: 72%; left: 88%; font-size: 3rem;   animation-delay: -2s; }
+  .c5 { top: 35%; left: 90%; font-size: 1.8rem; animation-delay: -8s; color: rgba(56, 132, 255, 0.09); }
+  .c6 { top: 82%; left: 18%; font-size: 2.2rem; animation-delay: -5s; }
+  .c7 { top: 45%; left: 78%; font-size: 1.6rem; animation-delay: -10s; }
+  .c8 { top: 18%; left: 52%; font-size: 2rem;   animation-delay: -4s; color: rgba(56, 132, 255, 0.08); }
+}
+
+@keyframes floatSymbol {
+  0%   { transform: translateY(0) translateX(0) rotate(0deg); }
+  25%  { transform: translateY(-18px) translateX(8px) rotate(4deg); }
+  50%  { transform: translateY(10px) translateX(-6px) rotate(-3deg); }
+  75%  { transform: translateY(-8px) translateX(4px) rotate(2deg); }
+  100% { transform: translateY(0) translateX(0) rotate(0deg); }
+}
+
 @keyframes drift {
   0%   { transform: translate(0, 0) scale(1); }
   100% { transform: translate(35px, -25px) scale(1.1); }
@@ -84,7 +119,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .bg-glow::before,
-  .bg-glow::after {
+  .bg-glow::after,
+  .bg-currency .cur {
     animation: none;
   }
 }
@@ -105,48 +141,47 @@
 }
 
 .card-header {
+  text-align: center;
   margin-bottom: 2rem;
 
-  .brand-row {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1.25rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-
-    .brand-logo {
-      width: 48px;
-      height: 48px;
-      border-radius: 12px;
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-
-    .brand-name {
-      font-size: 1rem;
-      font-weight: 700;
-      color: #f1f5f9;
-      letter-spacing: 0.3px;
-      line-height: 1.3;
-      text-transform: uppercase;
-    }
+  .brand-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    object-fit: contain;
+    margin-bottom: 0.75rem;
+    filter: drop-shadow(0 2px 8px rgba(13, 148, 136, 0.25));
   }
 
-  .welcome-section {
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: #f1f5f9;
-      margin: 0 0 0.35rem;
-      letter-spacing: -0.3px;
-    }
+  .brand-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin: 0 0 1rem;
+  }
 
-    .subtitle {
-      font-size: 0.9rem;
-      color: #64748b;
-      margin: 0;
-    }
+  .header-divider {
+    width: 40px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #14b8a6, transparent);
+    margin: 0 auto 1.25rem;
+    border-radius: 2px;
+  }
+
+  .welcome-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin: 0 0 0.35rem;
+    letter-spacing: -0.3px;
+  }
+
+  .welcome-subtitle {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin: 0;
   }
 }
 
@@ -417,12 +452,21 @@
   .card-header {
     margin-bottom: 1.5rem;
 
-    .brand-row {
-      margin-bottom: 1.25rem;
-      padding-bottom: 1rem;
+    .brand-logo {
+      width: 48px;
+      height: 48px;
     }
 
-    .welcome-section h1 {
+    .brand-name {
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .header-divider {
+      margin-bottom: 1rem;
+    }
+
+    .welcome-title {
       font-size: 1.3rem;
     }
   }
