@@ -2,17 +2,24 @@
   <div class="bg-grid" aria-hidden="true"></div>
   <div class="bg-growth" aria-hidden="true"></div>
   <div class="bg-glow" aria-hidden="true"></div>
+  <div class="bg-currency" aria-hidden="true">
+    <span class="cur c1">৳</span>
+    <span class="cur c2">$</span>
+    <span class="cur c3">€</span>
+    <span class="cur c4">£</span>
+    <span class="cur c5">¥</span>
+    <span class="cur c6">৳</span>
+    <span class="cur c7">$</span>
+    <span class="cur c8">€</span>
+  </div>
 
   <div class="login-card">
     <div class="card-header">
-      <div class="brand-row">
-        <img [src]="logoUrl" alt="Unity MicroFund" class="brand-logo" />
-        <span class="brand-name">Unity<br/>MicroFund</span>
-      </div>
-      <div class="welcome-section">
-        <h1>Welcome back</h1>
-        <p class="subtitle">Sign in to your account to continue</p>
-      </div>
+      <img [src]="logoUrl" alt="Unity MicroFund" class="brand-logo" />
+      <h2 class="brand-name">Unity MicroFund</h2>
+      <div class="header-divider"></div>
+      <h1 class="welcome-title">Welcome back</h1>
+      <p class="welcome-subtitle">Sign in to your account to continue</p>
     </div>
 
     <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
