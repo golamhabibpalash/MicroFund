@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export interface AppConfig {
   googleClientId: string;
@@ -24,7 +25,10 @@ export class AppConfigService {
         this.config = c;
         return c;
       }).catch(() => {
-        this.config = { googleClientId: '', facebookAppId: '' };
+        this.config = {
+          googleClientId: environment.googleClientId,
+          facebookAppId: environment.facebookAppId
+        };
         return this.config;
       });
     }
@@ -32,10 +36,10 @@ export class AppConfigService {
   }
 
   get googleClientId(): string {
-    return this.config?.googleClientId ?? '';
+    return this.config?.googleClientId ?? environment.googleClientId;
   }
 
   get facebookAppId(): string {
-    return this.config?.facebookAppId ?? '';
+    return this.config?.facebookAppId ?? environment.facebookAppId;
   }
 }
