@@ -39,6 +39,9 @@ testem.log
 /typings
 __screenshots__/
 
+# Runtime config (contains secrets — never commit)
+/src/assets/config/app-config.json
+
 # System files
 .DS_Store
 Thumbs.db

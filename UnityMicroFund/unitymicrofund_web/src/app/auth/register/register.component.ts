@@ -5,7 +5,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { Token } from '../../core/services/token';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { environment } from '../../../environments/environment';
+import { AppConfigService } from '../../core/services/app-config.service';
 
 declare const google: any;
 declare const FB: any;
@@ -29,8 +29,8 @@ export class RegisterComponent implements OnInit, AfterViewInit {
   isGoogleLoading = false;
   isFacebookLoading = false;
 
-  private googleClientId = environment.googleClientId;
-  private facebookAppId = environment.facebookAppId;
+  private googleClientId = '';
+  private facebookAppId = '';
 
   togglePasswordVisibility() {
     this.showPassword = !this.showPassword;
@@ -47,7 +47,10 @@ export class RegisterComponent implements OnInit, AfterViewInit {
     private tokenService: Token,
     private router: Router,
     private cdr: ChangeDetectorRef,
+    private configService: AppConfigService,
   ) {
+    this.googleClientId = this.configService.googleClientId;
+    this.facebookAppId = this.configService.facebookAppId;
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       phone: ['', [Validators.required, Validators.pattern(/^[0-9]{10,15}$/)]],

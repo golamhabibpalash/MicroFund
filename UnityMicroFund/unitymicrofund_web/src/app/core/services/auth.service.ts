@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { AppConfigService } from './app-config.service';
 
 export interface AuthUser {
   id: string;
@@ -28,7 +29,7 @@ export interface GoogleAuthResponse {
 export class AuthService {
   private readonly apiUrl = `${environment.apiUrl}/auth`;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private configService: AppConfigService) {}
 
   googleLogin(token: string): Observable<GoogleAuthResponse> {
     return this.http.post<GoogleAuthResponse>(`${this.apiUrl}/google-login`, { token });
@@ -65,10 +66,10 @@ export class AuthService {
   }
 
   getGoogleClientId(): string {
-    return environment.googleClientId;
+    return this.configService.googleClientId;
   }
 
   getFacebookAppId(): string {
-    return environment.facebookAppId;
+    return this.configService.facebookAppId;
   }
 }

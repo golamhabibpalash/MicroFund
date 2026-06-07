@@ -5,8 +5,8 @@ import { AuthService } from '../../core/services/auth.service';
 import { Token } from '../../core/services/token';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { environment } from '../../../environments/environment';
 import { BrandingService } from '../../core/services/branding.service';
+import { AppConfigService } from '../../core/services/app-config.service';
 
 declare const google: any;
 declare const FB: any;
@@ -26,8 +26,8 @@ export class LoginComponent implements OnInit, AfterViewInit {
   isFacebookLoading = false;
   logoUrl = 'assets/organization/logo.png';
 
-  private googleClientId = environment.googleClientId;
-  private facebookAppId = environment.facebookAppId;
+  private googleClientId = '';
+  private facebookAppId = '';
 
   constructor(
     private fb: FormBuilder,
@@ -37,7 +37,10 @@ export class LoginComponent implements OnInit, AfterViewInit {
     private router: Router,
     private cdr: ChangeDetectorRef,
     private brandingService: BrandingService,
+    private configService: AppConfigService,
   ) {
+    this.googleClientId = this.configService.googleClientId;
+    this.facebookAppId = this.configService.facebookAppId;
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', Validators.required],
