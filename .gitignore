@@ -129,6 +129,11 @@ connect.lock/
 .claude/settings.local.json
 
 # ----------------------
+# Angular runtime config
+# ----------------------
+UnityMicroFund/unitymicrofund_web/src/assets/config/app-config.json
+
+# ----------------------
 # Uploaded assets
 # ----------------------
 UnityMicroFund/unitymicrofund_web/src/assets/member/
