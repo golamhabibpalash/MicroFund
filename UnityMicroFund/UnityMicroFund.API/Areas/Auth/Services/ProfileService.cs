@@ -34,9 +34,10 @@ public class ProfileService : IProfileService
             };
         }
 
-        var totalPool = await _context.Contributions
-            .Where(c => c.Status == ContributionStatus.Paid)
-            .SumAsync(c => c.Amount);
+        var totalPool = await _context.Transactions
+            .Where(t => t.Status == TransactionStatus.Fund
+                     && t.ApprovalStatus == TransactionApprovalStatus.Approved)
+            .SumAsync(t => t.Amount);
 
         var accountBalance = await _context.Accounts
             .Where(a => a.IsActive)
@@ -44,9 +45,20 @@ public class ProfileService : IProfileService
 
         totalPool += accountBalance;
 
-        var totalContributions = await _context.Contributions
-            .Where(c => c.MemberId == member.Id && c.Status == ContributionStatus.Paid)
-            .SumAsync(c => c.Amount);
+        var memberTransactionIds = _context.MemberTransactionMaps
+            .Where(mtm => mtm.MemberId == member.Id)
+            .Select(mtm => mtm.TransactionId);
+
+        var totalContributions = await _context.Transactions
+            .Where(t => memberTransactionIds.Contains(t.Id)
+                     && t.Status == TransactionStatus.Fund
+                     && t.ApprovalStatus == TransactionApprovalStatus.Approved)
+            .SumAsync(t => t.Amount);
+
+        var totalInstallmentsPaid = await _context.Transactions
+            .CountAsync(t => memberTransactionIds.Contains(t.Id)
+                          && t.Status == TransactionStatus.Fund
+                          && t.ApprovalStatus == TransactionApprovalStatus.Approved);
 
         var sharePercentage = totalPool > 0 ? (totalContributions / totalPool) * 100 : 0;
         var shareValue = await _context.MemberInvestments
@@ -90,8 +102,7 @@ public class ProfileService : IProfileService
                 SwiftCode = member.SwiftCode
             },
             TotalContributions = totalContributions,
-            TotalInstallmentsPaid = await _context.Contributions
-                .CountAsync(c => c.MemberId == member.Id && c.Status == ContributionStatus.Paid),
+            TotalInstallmentsPaid = totalInstallmentsPaid,
             CurrentShareValue = shareValue,
             SharePercentage = sharePercentage,
             IsActive = member.IsActive
