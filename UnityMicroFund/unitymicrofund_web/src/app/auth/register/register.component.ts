@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Auth } from '../../core/services/auth';
 import { AuthService } from '../../core/services/auth.service';
@@ -17,7 +17,7 @@ declare const FB: any;
   standalone: true,
   imports: [ReactiveFormsModule, CommonModule, RouterLink],
 })
-export class RegisterComponent implements OnInit, AfterViewInit {
+export class RegisterComponent implements OnInit {
   form: FormGroup;
   error: string = '';
   success: string = '';
@@ -31,6 +31,9 @@ export class RegisterComponent implements OnInit, AfterViewInit {
 
   private googleClientId = '';
   private facebookAppId = '';
+  private configLoaded = false;
+  private googleReady = false;
+  private facebookReady = false;
 
   togglePasswordVisibility() {
     this.showPassword = !this.showPassword;
@@ -49,8 +52,6 @@ export class RegisterComponent implements OnInit, AfterViewInit {
     private cdr: ChangeDetectorRef,
     private configService: AppConfigService,
   ) {
-    this.googleClientId = this.configService.googleClientId;
-    this.facebookAppId = this.configService.facebookAppId;
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
       phone: ['', [Validators.required, Validators.pattern(/^[0-9]{10,15}$/)]],
@@ -79,21 +80,34 @@ export class RegisterComponent implements OnInit, AfterViewInit {
     });
   }
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.configService.load().then(() => {
+      this.googleClientId = this.configService.googleClientId;
+      this.facebookAppId = this.configService.facebookAppId;
+      this.configLoaded = true;
+      if (this.googleReady) this.initializeGoogleSignIn();
+      if (this.facebookReady) this.initializeFacebookSdk();
+    });
 
-  ngAfterViewInit(): void {
     this.loadGoogleScript();
     this.loadFacebookSdk();
   }
 
   loadGoogleScript(): void {
-    if (typeof google !== 'undefined' && google.accounts) return;
+    if (typeof google !== 'undefined' && google.accounts) {
+      this.googleReady = true;
+      if (this.configLoaded) this.initializeGoogleSignIn();
+      return;
+    }
     const script = document.createElement('script');
     script.id = 'google-gsi-script';
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
-    script.onload = () => this.initializeGoogleSignIn();
+    script.onload = () => {
+      this.googleReady = true;
+      if (this.configLoaded) this.initializeGoogleSignIn();
+    };
     document.head.appendChild(script);
   }
 
@@ -170,7 +184,10 @@ export class RegisterComponent implements OnInit, AfterViewInit {
     script.src = 'https://connect.facebook.net/en_US/sdk.js';
     script.async = true;
     script.defer = true;
-    script.onload = () => this.initializeFacebookSdk();
+    script.onload = () => {
+      this.facebookReady = true;
+      if (this.configLoaded) this.initializeFacebookSdk();
+    };
     document.head.appendChild(script);
   }
 

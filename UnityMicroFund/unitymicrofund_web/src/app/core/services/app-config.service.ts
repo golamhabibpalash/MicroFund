@@ -12,19 +12,23 @@ export interface AppConfig {
 })
 export class AppConfigService {
   private config: AppConfig | null = null;
+  private loadPromise: Promise<AppConfig> | null = null;
 
   constructor(private http: HttpClient) {}
 
   load(): Promise<AppConfig> {
-    return firstValueFrom(
-      this.http.get<AppConfig>('assets/config/app-config.json')
-    ).then(c => {
-      this.config = c;
-      return c;
-    }).catch(() => {
-      this.config = { googleClientId: '', facebookAppId: '' };
-      return this.config;
-    });
+    if (!this.loadPromise) {
+      this.loadPromise = firstValueFrom(
+        this.http.get<AppConfig>('assets/config/app-config.json')
+      ).then(c => {
+        this.config = c;
+        return c;
+      }).catch(() => {
+        this.config = { googleClientId: '', facebookAppId: '' };
+        return this.config;
+      });
+    }
+    return this.loadPromise;
   }
 
   get googleClientId(): string {

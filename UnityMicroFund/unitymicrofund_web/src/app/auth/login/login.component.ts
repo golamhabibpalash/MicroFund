@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Auth } from '../../core/services/auth';
 import { AuthService } from '../../core/services/auth.service';
@@ -18,7 +18,7 @@ declare const FB: any;
   standalone: true,
   imports: [ReactiveFormsModule, CommonModule, RouterLink],
 })
-export class LoginComponent implements OnInit, AfterViewInit {
+export class LoginComponent implements OnInit {
   loginForm: FormGroup;
   error = '';
   isLoading = false;
@@ -28,6 +28,9 @@ export class LoginComponent implements OnInit, AfterViewInit {
 
   private googleClientId = '';
   private facebookAppId = '';
+  private configLoaded = false;
+  private googleReady = false;
+  private facebookReady = false;
 
   constructor(
     private fb: FormBuilder,
@@ -39,8 +42,6 @@ export class LoginComponent implements OnInit, AfterViewInit {
     private brandingService: BrandingService,
     private configService: AppConfigService,
   ) {
-    this.googleClientId = this.configService.googleClientId;
-    this.facebookAppId = this.configService.facebookAppId;
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', Validators.required],
@@ -53,21 +54,34 @@ export class LoginComponent implements OnInit, AfterViewInit {
       next: (b) => { this.logoUrl = b.logoUrl; this.cdr.detectChanges(); },
       error: () => { /* keep default logo */ },
     });
-  }
 
-  ngAfterViewInit(): void {
+    this.configService.load().then(() => {
+      this.googleClientId = this.configService.googleClientId;
+      this.facebookAppId = this.configService.facebookAppId;
+      this.configLoaded = true;
+      if (this.googleReady) this.initializeGoogleSignIn();
+      if (this.facebookReady) this.initializeFacebookSdk();
+    });
+
     this.loadGoogleScript();
     this.loadFacebookSdk();
   }
 
   loadGoogleScript(): void {
-    if (typeof google !== 'undefined' && google.accounts) return;
+    if (typeof google !== 'undefined' && google.accounts) {
+      this.googleReady = true;
+      if (this.configLoaded) this.initializeGoogleSignIn();
+      return;
+    }
     const script = document.createElement('script');
     script.id = 'google-gsi-script';
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
-    script.onload = () => this.initializeGoogleSignIn();
+    script.onload = () => {
+      this.googleReady = true;
+      if (this.configLoaded) this.initializeGoogleSignIn();
+    };
     document.head.appendChild(script);
   }
 
@@ -156,7 +170,10 @@ export class LoginComponent implements OnInit, AfterViewInit {
     script.src = 'https://connect.facebook.net/en_US/sdk.js';
     script.async = true;
     script.defer = true;
-    script.onload = () => this.initializeFacebookSdk();
+    script.onload = () => {
+      this.facebookReady = true;
+      if (this.configLoaded) this.initializeFacebookSdk();
+    };
     document.head.appendChild(script);
   }
 
