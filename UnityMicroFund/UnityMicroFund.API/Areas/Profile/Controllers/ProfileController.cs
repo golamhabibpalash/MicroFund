@@ -73,6 +73,33 @@ public class ProfileController : ControllerBase
         return Ok(new { message = "Profile image updated successfully" });
     }
 
+    [AllowAnonymous]
+    [HttpGet("image/{filename}")]
+    public IActionResult GetImage(string filename)
+    {
+        var configPath = _configuration["Uploads:MemberImagesPath"];
+        var uploadsFolder = !string.IsNullOrEmpty(configPath)
+            ? configPath
+            : Path.Combine(_environment.ContentRootPath, "..", "uploads", "member");
+
+        var filePath = Path.Combine(uploadsFolder, filename);
+
+        if (!System.IO.File.Exists(filePath))
+        {
+            return NotFound();
+        }
+
+        var extension = Path.GetExtension(filename).ToLowerInvariant();
+        var contentType = extension switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            _ => "application/octet-stream"
+        };
+
+        return PhysicalFile(filePath, contentType);
+    }
+
     [HttpPost("upload-image")]
     public async Task<IActionResult> UploadImage(IFormFile file)
     {
@@ -129,23 +156,7 @@ public class ProfileController : ControllerBase
             System.IO.File.Copy(filePath, Path.Combine(devFolder, fileName), overwrite: true);
         }
 
-        // Production fallback: copy to Angular dist output so nginx can serve it
-        try
-        {
-            var distFolder = Path.Combine(_environment.ContentRootPath, "..", "unitymicrofund_web", "dist", "unitymicrofund_web", "browser", "assets", "member");
-            var distParent = Path.GetDirectoryName(distFolder);
-            if (distParent != null && Directory.Exists(distParent))
-            {
-                Directory.CreateDirectory(distFolder);
-                System.IO.File.Copy(filePath, Path.Combine(distFolder, fileName), overwrite: true);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Failed to copy image to dist folder: {ex.Message}");
-        }
-
-        var imageUrl = $"/assets/member/{fileName}";
+        var imageUrl = $"/api/profile/image/{fileName}";
         await _profileService.UpdateProfileImageAsync(id, imageUrl);
 
         return Ok(new { imageUrl });
