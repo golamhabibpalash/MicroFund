@@ -163,9 +163,9 @@ export class LoginComponent implements OnInit {
             this.navigateToDashboard();
           }
         },
-        error: () => {
+        error: (err) => {
           this.isGoogleLoading = false;
-          this.error = 'Google login failed.';
+          this.error = err?.error?.message || 'Google login failed. Please check configuration.';
           this.cdr.detectChanges();
         }
       });
@@ -230,9 +230,9 @@ export class LoginComponent implements OnInit {
               this.navigateToDashboard();
             }
           },
-          error: () => {
+          error: (err) => {
             this.isFacebookLoading = false;
-            this.error = 'Facebook login failed.';
+            this.error = err?.error?.message || 'Facebook login failed. Please check configuration.';
             this.cdr.detectChanges();
           }
         });

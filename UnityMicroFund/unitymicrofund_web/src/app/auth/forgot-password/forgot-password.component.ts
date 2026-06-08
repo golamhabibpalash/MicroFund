@@ -192,14 +192,26 @@ export class ForgotPasswordComponent implements OnInit {
   /** Maps an HTTP/timeout error to a user-friendly message so the UI never gets stuck on a spinner. */
   private describeError(err: any, fallback: string): string {
     if (err?.name === 'TimeoutError') {
+      console.error('ForgotPassword: Request timed out after', REQUEST_TIMEOUT_MS, 'ms');
       return 'The request timed out. Please check your connection and try again.';
     }
+    if (err?.status === 0) {
+      console.error('ForgotPassword: Network error - server unreachable');
+      return 'Could not reach the server. Please check your internet connection and try again.';
+    }
     if (err?.status === 404) {
+      console.error('ForgotPassword: Account not found');
       return 'No account found with this email address.';
     }
-    if (err?.status === 0) {
-      return 'Could not reach the server. Please try again later.';
+    if (err?.status === 502) {
+      console.error('ForgotPassword: Email service returned error', err?.error?.message);
+      return err?.error?.message || 'Email service is not responding. Please try again later or contact support.';
     }
+    if (err?.status === 500) {
+      console.error('ForgotPassword: Internal server error', err?.error?.message);
+      return 'An internal server error occurred. Please try again later.';
+    }
+    console.error('ForgotPassword: Unexpected error', err?.status, err?.error?.message);
     return err?.error?.message || fallback;
   }
 }
