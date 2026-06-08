@@ -59,7 +59,10 @@ interface Member {
           </div>
           <div class="modal-body" *ngIf="selectedMember">
             <div class="profile-header">
-              <div class="profile-avatar">{{ getInitials(selectedMember.name) }}</div>
+              <div class="profile-avatar">
+                <img *ngIf="selectedMember.profileImageUrl" [src]="selectedMember.profileImageUrl" [alt]="selectedMember.name" (error)="selectedMember.profileImageUrl = undefined" />
+                <span *ngIf="!selectedMember.profileImageUrl">{{ getInitials(selectedMember.name) }}</span>
+              </div>
               <div class="profile-title">
                 <h3>{{ selectedMember.name }}</h3>
                 <span class="status-badge" [class.active]="selectedMember.isActive" [class.inactive]="!selectedMember.isActive">
@@ -279,7 +282,10 @@ interface Member {
             <tbody>
               <tr *ngFor="let member of filteredMembers">
                 <td class="investor-cell">
-                  <div class="investor-avatar">{{ getInitials(member.name) }}</div>
+                  <div class="investor-avatar">
+                    <img *ngIf="member.profileImageUrl" [src]="member.profileImageUrl" [alt]="member.name" (error)="member.profileImageUrl = undefined" />
+                    <span *ngIf="!member.profileImageUrl">{{ getInitials(member.name) }}</span>
+                  </div>
                   <div class="investor-info">
                     <span class="investor-name">{{ member.name }}</span>
                     <span class="investor-email">{{ member.email }}</span>
@@ -323,7 +329,10 @@ interface Member {
       <div class="members-grid" *ngIf="!isLoading && viewMode === 'card'">
         <div class="member-card" *ngFor="let member of filteredMembers">
           <div class="card-header">
-            <div class="member-avatar-large">{{ getInitials(member.name) }}</div>
+            <div class="member-avatar-large">
+              <img *ngIf="member.profileImageUrl" [src]="member.profileImageUrl" [alt]="member.name" (error)="member.profileImageUrl = undefined" />
+              <span *ngIf="!member.profileImageUrl">{{ getInitials(member.name) }}</span>
+            </div>
             <span class="status-badge" [class.active]="member.isActive" [class.inactive]="!member.isActive">
               {{ member.isActive ? 'Active' : 'Inactive' }}
             </span>
@@ -409,7 +418,8 @@ interface Member {
     .investors-table td { padding: 12px 16px; border-bottom: 1px solid #e9ecef; vertical-align: middle; }
     .investors-table tbody tr:hover { background: #f8f9fa; }
     .investor-cell { display: flex; align-items: center; gap: 12px; }
-    .investor-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; flex-shrink: 0; }
+    .investor-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; flex-shrink: 0; overflow: hidden; }
+    .investor-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .investor-cell .investor-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
     .investor-cell .investor-name { font-weight: 500; color: #1a1a2e; font-size: 14px; line-height: 1.3; }
     .investor-cell .investor-email { font-size: 12px; color: #999; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -428,7 +438,8 @@ interface Member {
     .member-card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s ease; }
     .member-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
     .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .member-avatar-large { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 18px; }
+    .member-avatar-large { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 18px; overflow: hidden; }
+    .member-avatar-large img { width: 100%; height: 100%; object-fit: cover; }
     .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
     .status-badge.active { background: #e8f5e9; color: #27ae60; }
     .status-badge.inactive { background: #ffebee; color: #e74c3c; }
@@ -483,7 +494,8 @@ interface Member {
     .modal-body { padding: 24px; }
     .modal-footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid #eee; }
     .profile-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
-    .profile-avatar { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 24px; }
+    .profile-avatar { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 24px; overflow: hidden; }
+    .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .profile-title h3 { margin: 0 0 8px 0; font-size: 24px; color: #1a1a2e; }
     .profile-section { margin-bottom: 24px; }
     .profile-section h4 { font-size: 14px; color: #666; text-transform: uppercase; margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid #eee; }
