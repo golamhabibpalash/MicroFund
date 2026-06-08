@@ -548,7 +548,10 @@ server {
     }
 
     # ── .NET API ─────────────────────────────────────────────────────────────
-    location /api/ {
+    # ^~ stops nginx from evaluating the static-asset regex below; without it,
+    # API responses ending in an image extension (e.g. /api/profile/image/x.png)
+    # get captured by that regex and 404 from the web root instead of proxying.
+    location ^~ /api/ {
         proxy_pass          http://127.0.0.1:${API_PORT}/api/;
         proxy_http_version  1.1;
         proxy_set_header    Host              \$host;
@@ -585,7 +588,9 @@ server {
     }
 
     # ── Uploaded payment receipts ─────────────────────────────────────────────
-    location /assets/paymentReceipt/ {
+    # ^~ for the same reason as /api/: receipts ending in .png/.jpg must proxy,
+    # not be captured by the static-asset regex.
+    location ^~ /assets/paymentReceipt/ {
         proxy_pass http://127.0.0.1:${API_PORT}/assets/paymentReceipt/;
         proxy_set_header Host \$host;
     }
