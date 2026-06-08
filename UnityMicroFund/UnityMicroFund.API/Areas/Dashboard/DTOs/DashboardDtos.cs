@@ -24,13 +24,19 @@ public class RecentActivityDto
     public string MemberName { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public DateTime Date { get; set; }
+    public string? AvatarUrl { get; set; }
+    public Guid? UserId { get; set; }
 }
 
 public class TopInvestorDto
 {
     public string MemberName { get; set; } = string.Empty;
-    public decimal TotalContributions { get; set; }
+    public string? AvatarUrl { get; set; }
+    public decimal TotalAmount { get; set; }
     public decimal SharePercentage { get; set; }
+    public int TransactionCount { get; set; }
+    public DateTime LatestDate { get; set; }
+    public int Rank { get; set; }
 }
 
 public class MonthlyTrendDto

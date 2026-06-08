@@ -51,62 +51,146 @@ public class DashboardService : IDashboardService
 
         var averageContribution = totalMembers > 0 ? monthlyTotal / totalMembers : 0;
 
-        var recentContributions = await _context.Contributions
+        // === Recent Activities (from multiple business sources) ===
+        const int recentActivityCount = 10;
+
+        // 1. New member registrations
+        var newMemberActivities = await _context.Members
+            .Where(m => m.IsActive)
+            .OrderByDescending(m => m.JoinDate)
+            .Take(3)
+            .Select(m => new RecentActivityDto
+            {
+                Type = "New Registration",
+                Description = m.Name + " registered as a new member",
+                MemberName = m.Name,
+                AvatarUrl = m.ProfileImageUrl,
+                UserId = m.UserId,
+                Date = m.JoinDate
+            })
+            .ToListAsync();
+
+        // 2. Recent paid contributions
+        var contributionActivities = await _context.Contributions
             .Include(c => c.Member)
-            .Where(c => c.Status == ContributionStatus.Paid)
+            .Where(c => c.Status == ContributionStatus.Paid && c.Member != null)
             .OrderByDescending(c => c.PaidDate)
-            .Take(5)
+            .Take(4)
             .Select(c => new RecentActivityDto
             {
                 Type = "Contribution",
-                Description = $"Monthly contribution for {c.Month}",
-                MemberName = c.Member != null ? c.Member.Name : "Unknown",
+                Description = "Monthly contribution for " + c.Month + " " + c.Year,
+                MemberName = c.Member!.Name,
+                AvatarUrl = c.Member.ProfileImageUrl,
+                UserId = c.Member.UserId,
                 Amount = c.Amount,
                 Date = c.PaidDate ?? DateTime.UtcNow
             })
             .ToListAsync();
 
-        var recentInvestments = await _context.Investments
-            .OrderByDescending(i => i.DateInvested)
+        // 3. Recent approved/rejected transactions
+        var transactionActivities = await _context.Transactions
+            .Include(t => t.MemberTransactionMaps)
+                .ThenInclude(mtm => mtm.Member)
+            .Where(t => t.ApprovalStatus != TransactionApprovalStatus.Pending
+                        && t.MemberTransactionMaps.Any(mtm => mtm.Member != null))
+            .OrderByDescending(t => t.CreatedAt)
+            .Take(4)
+            .Select(t => new RecentActivityDto
+            {
+                Type = t.ApprovalStatus == TransactionApprovalStatus.Approved
+                    ? "Transaction Approved" : "Transaction Rejected",
+                Description = "Transaction " + t.TransactionId + " was "
+                    + (t.ApprovalStatus == TransactionApprovalStatus.Approved ? "approved" : "rejected"),
+                MemberName = t.MemberTransactionMaps
+                    .Select(mtm => mtm.Member!.Name).FirstOrDefault() ?? "Unknown",
+                AvatarUrl = t.MemberTransactionMaps
+                    .Select(mtm => mtm.Member!.ProfileImageUrl).FirstOrDefault(),
+                UserId = t.MemberTransactionMaps
+                    .Select(mtm => mtm.Member!.UserId).FirstOrDefault(),
+                Amount = t.Amount,
+                Date = t.CreatedAt
+            })
+            .ToListAsync();
+
+        // 4. Recent member investments
+        var investmentActivities = await _context.MemberInvestments
+            .Include(mi => mi.Member)
+            .Include(mi => mi.Investment)
+            .Where(mi => mi.Member != null && mi.Investment != null)
+            .OrderByDescending(mi => mi.CreatedAt)
             .Take(3)
-            .Select(i => new RecentActivityDto
+            .Select(mi => new RecentActivityDto
             {
                 Type = "Investment",
-                Description = i.Name,
-                MemberName = i.Type.ToString(),
-                Amount = i.PrincipalAmount,
-                Date = i.DateInvested
+                Description = "Invested in " + mi.Investment!.Name,
+                MemberName = mi.Member!.Name,
+                AvatarUrl = mi.Member.ProfileImageUrl,
+                UserId = mi.Member.UserId,
+                Amount = mi.ShareValue,
+                Date = mi.CreatedAt
             })
             .ToListAsync();
 
-        var recentActivities = recentContributions
-            .Concat(recentInvestments)
+        var recentActivities = newMemberActivities
+            .Concat(contributionActivities)
+            .Concat(transactionActivities)
+            .Concat(investmentActivities)
             .OrderByDescending(a => a.Date)
-            .Take(8)
+            .Take(recentActivityCount)
             .ToList();
 
-        var topInvestorData = await _context.Contributions
-            .Where(c => c.Status == ContributionStatus.Paid)
-            .GroupBy(c => c.MemberId)
-            .Select(g => new { MemberId = g.Key, Total = g.Sum(c => c.Amount) })
-            .OrderByDescending(x => x.Total)
-            .Take(5)
+        // === Top Investors ===
+        const int topInvestorCount = 10;
+
+        var memberInvestmentTotals = await _context.Members
+            .Where(m => m.IsActive)
+            .Select(m => new
+            {
+                Member = m,
+                TotalContributions = m.Contributions
+                    .Where(c => c.Status == ContributionStatus.Paid)
+                    .Sum(c => (decimal?)c.Amount) ?? 0,
+                ContributionCount = m.Contributions
+                    .Where(c => c.Status == ContributionStatus.Paid)
+                    .Count(),
+                TotalInvestments = m.MemberInvestments
+                    .Sum(mi => (decimal?)mi.ShareValue) ?? 0,
+                InvestmentCount = m.MemberInvestments.Count(),
+                LatestContribution = m.Contributions
+                    .Where(c => c.Status == ContributionStatus.Paid)
+                    .Max(c => (DateTime?)c.PaidDate),
+                LatestInvestment = m.MemberInvestments
+                    .Max(mi => (DateTime?)mi.CreatedAt)
+            })
+            .Select(x => new
+            {
+                x.Member,
+                TotalAmount = x.TotalContributions + x.TotalInvestments,
+                TransactionCount = x.ContributionCount + x.InvestmentCount,
+                LatestDate = x.LatestContribution ?? x.LatestInvestment ?? DateTime.MinValue
+            })
+            .Where(x => x.TotalAmount > 0)
+            .OrderByDescending(x => x.TotalAmount)
+            .ThenByDescending(x => x.TransactionCount)
+            .ThenByDescending(x => x.LatestDate)
+            .Take(topInvestorCount)
             .ToListAsync();
 
-        var memberIds = topInvestorData.Select(x => x.MemberId).ToList();
-        var members = await _context.Members
-            .Where(m => memberIds.Contains(m.Id))
-            .ToDictionaryAsync(m => m.Id);
-
-        var topInvestorDtos = topInvestorData
-            .Select(x => new TopInvestorDto
+        var topInvestorDtos = memberInvestmentTotals
+            .Select((x, index) => new TopInvestorDto
             {
-                MemberName = members.TryGetValue(x.MemberId, out var m) ? m.Name : "Unknown",
-                TotalContributions = x.Total,
-                SharePercentage = totalPool > 0 ? x.Total / totalPool * 100 : 0
+                MemberName = x.Member.Name,
+                AvatarUrl = x.Member.ProfileImageUrl,
+                TotalAmount = x.TotalAmount,
+                SharePercentage = totalPool > 0 ? x.TotalAmount / totalPool * 100 : 0,
+                TransactionCount = x.TransactionCount,
+                LatestDate = x.LatestDate,
+                Rank = index + 1
             })
             .ToList();
 
+        // === Monthly Trend ===
         var monthlyTrend = new MonthlyTrendDto();
         for (int i = 5; i >= 0; i--)
         {
