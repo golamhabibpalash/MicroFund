@@ -20,7 +20,7 @@ public class ProfileService : IProfileService
         if (user == null) return null;
 
         var member = await _context.Members
-            .FirstOrDefaultAsync(m => m.Email == user.Email);
+            .FirstOrDefaultAsync(m => m.UserId == userId);
 
         if (member == null)
         {
@@ -115,7 +115,7 @@ public class ProfileService : IProfileService
         if (user == null) return null;
 
         var member = await _context.Members
-            .FirstOrDefaultAsync(m => m.Email == user.Email);
+            .FirstOrDefaultAsync(m => m.UserId == userId);
 
         if (member != null)
         {
@@ -172,7 +172,7 @@ public class ProfileService : IProfileService
         if (user == null) return false;
 
         var member = await _context.Members
-            .FirstOrDefaultAsync(m => m.Email == user.Email);
+            .FirstOrDefaultAsync(m => m.UserId == userId);
 
         if (member != null)
         {

@@ -50,6 +50,7 @@ public class UserDto
     public string Role { get; set; } = string.Empty;
     public bool IsActive { get; set; }
     public bool IsApproved { get; set; }
+    public string? ProfileImageUrl { get; set; }
 }
 
 public class ChangePasswordDto

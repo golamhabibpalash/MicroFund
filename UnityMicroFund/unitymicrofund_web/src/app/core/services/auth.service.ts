@@ -11,6 +11,7 @@ export interface AuthUser {
   role: string;
   isActive: boolean;
   isApproved: boolean;
+  profileImageUrl?: string;
 }
 
 export interface GoogleAuthResponse {

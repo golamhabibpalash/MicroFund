@@ -919,6 +919,9 @@ public class AuthService : IAuthService
         user.RefreshTokenExpiry = refreshExpiry;
         await _context.SaveChangesAsync();
 
+        var member = await _context.Members.FirstOrDefaultAsync(m => m.UserId == user.Id);
+        var profileImageUrl = member?.ProfileImageUrl;
+
         var expiryMinutes = int.Parse(_configuration["Jwt:ExpiryMinutes"] ?? "60");
 
         return new AuthResponseDto
@@ -933,7 +936,8 @@ public class AuthService : IAuthService
                 Email = user.Email,
                 Role = user.Role.ToString(),
                 IsActive = user.IsActive,
-                IsApproved = user.IsApproved
+                IsApproved = user.IsApproved,
+                ProfileImageUrl = profileImageUrl
             }
         };
     }

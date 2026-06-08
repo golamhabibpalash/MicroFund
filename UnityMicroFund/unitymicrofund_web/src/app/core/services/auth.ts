@@ -16,6 +16,7 @@ interface AuthResponseDto {
     Role: string;
     IsActive?: boolean;
     IsApproved?: boolean;
+    ProfileImageUrl?: string;
   };
   Message?: string;
   RequiresApproval?: boolean;
@@ -32,6 +33,7 @@ export interface AuthResponse {
     role: string;
     isActive?: boolean;
     isApproved?: boolean;
+    profileImageUrl?: string;
   };
   message?: string;
   requiresApproval?: boolean;
@@ -89,6 +91,9 @@ export class Auth {
           }
           if (expiresAt) {
             this.tokenService.setTokenExpiry(new Date(expiresAt));
+          }
+          if (response.user?.profileImageUrl) {
+            this.tokenService.setUserImageUrl(response.user.profileImageUrl);
           }
           this.isAuthenticatedSubject.next(true);
 
@@ -200,6 +205,9 @@ export class Auth {
       }
       if (expiresAt) {
         this.tokenService.setTokenExpiry(new Date(expiresAt));
+      }
+      if (response.user?.profileImageUrl) {
+        this.tokenService.setUserImageUrl(response.user.profileImageUrl);
       }
       this.isAuthenticatedSubject.next(true);
 

@@ -223,6 +223,7 @@ export class ProfileComponent implements OnInit {
           if (this.profile) {
             this.profile.profileImageUrl = response.imageUrl;
           }
+          this.tokenService.setUserImageUrl(response.imageUrl);
           this.successMessage = 'Profile image updated successfully';
           this.isLoading = false;
           this.cdr.detectChanges();
@@ -247,6 +248,7 @@ export class ProfileComponent implements OnInit {
           if (this.profile) {
             this.profile.profileImageUrl = imageUrl;
           }
+          this.tokenService.setUserImageUrl(imageUrl);
           this.successMessage = 'Profile image updated';
           // Reload profile to ensure we have the latest
           this.loadProfile();

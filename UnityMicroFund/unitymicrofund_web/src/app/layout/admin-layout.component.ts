@@ -138,8 +138,9 @@ const NAV_POLICY: NavPolicy = {
 
         <!-- Collapsed user badge -->
         <div class="collapsed-user-badge" *ngIf="sidebarCollapsed" [title]="userName || ''">
-          <span class="material-icons">person</span>
-          <span class="user-initial">{{ userName ? userName.charAt(0).toUpperCase() : '?' }}</span>
+          <img *ngIf="userImageUrl" [src]="userImageUrl" alt="Profile" class="collapsed-avatar-img" />
+          <span *ngIf="!userImageUrl" class="material-icons">person</span>
+          <span *ngIf="!userImageUrl" class="user-initial">{{ userName ? userName.charAt(0).toUpperCase() : '?' }}</span>
         </div>
 
         <!-- Navigation -->
@@ -176,7 +177,10 @@ const NAV_POLICY: NavPolicy = {
           </div>
           <div class="top-bar-right">
             <div class="user-info">
-              <div class="user-avatar">{{ userName ? userName.charAt(0).toUpperCase() : '?' }}</div>
+              <div class="user-avatar">
+                <img *ngIf="userImageUrl" [src]="userImageUrl" alt="Profile" class="avatar-img" />
+                <span *ngIf="!userImageUrl" class="avatar-initials">{{ userName ? userName.charAt(0).toUpperCase() : '?' }}</span>
+              </div>
               <div class="user-details">
                 <span class="user-name">{{ userName }}</span>
                 <span class="user-role-label">{{ userRole }}</span>
@@ -255,6 +259,7 @@ const NAV_POLICY: NavPolicy = {
     .collapsed-user-badge { display: flex; align-items: center; justify-content: center; position: relative; padding: 12px 0; flex-shrink: 0; }
     .collapsed-user-badge .material-icons { font-size: 24px; color: var(--sidebar-text); }
     .collapsed-user-badge .user-initial { position: absolute; bottom: 6px; right: 16px; width: 18px; height: 18px; background: var(--color-accent); color: white; border-radius: 50%; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid var(--sidebar-bg); }
+    .collapsed-avatar-img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
     /* ── Sidebar footer ─────────────────────────────────── */
     .sidebar-footer { flex-shrink: 0; padding: 12px 16px; border-top: 1px solid var(--sidebar-divider); }
     .sidebar.collapsed .sidebar-footer { padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
@@ -349,6 +354,16 @@ const NAV_POLICY: NavPolicy = {
       color: white;
       font-size: var(--text-sm);
       font-weight: 600;
+      overflow: hidden;
+    }
+    .user-avatar .avatar-img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+    }
+    .user-avatar .avatar-initials {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; height: 100%;
     }
     .user-details {
       display: flex;
@@ -444,6 +459,7 @@ export class AdminLayoutComponent implements OnInit {
 
   userRole: string | null = null;
   userName: string | null = null;
+  userImageUrl: string | null = null;
   companyName = 'Unity MicroFund';
   logoUrl = 'assets/organization/logo.png';
   sidebarOpen = false;
@@ -483,6 +499,7 @@ export class AdminLayoutComponent implements OnInit {
   private refreshUser() {
     this.userRole = this.userService.getRole();
     this.userName = this.tokenService.getUserName();
+    this.userImageUrl = this.tokenService.getUserImageUrl();
   }
 
   getRoleIcon(): string {

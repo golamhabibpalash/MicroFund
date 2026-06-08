@@ -8,6 +8,7 @@ export class Token {
   private readonly refreshTokenKey = 'refresh_token';
   private readonly tokenExpiryKey = 'token_expiry';
   private readonly userApprovedKey = 'user_approved';
+  private readonly userImageUrlKey = 'user_image_url';
 
   saveToken(token: string): void {
     try {
@@ -30,6 +31,7 @@ removeToken(): void {
     localStorage.removeItem(this.refreshTokenKey);
     localStorage.removeItem(this.tokenExpiryKey);
     localStorage.removeItem(this.userApprovedKey);
+    localStorage.removeItem(this.userImageUrlKey);
   }
 
   clearAll(): void {
@@ -82,6 +84,21 @@ removeToken(): void {
   getTokenExpiryTime(): number | null {
     const expiryTime = localStorage.getItem(this.tokenExpiryKey);
     return expiryTime ? parseInt(expiryTime, 10) : null;
+  }
+
+  setUserImageUrl(url: string): void {
+    try {
+      localStorage.setItem(this.userImageUrlKey, url);
+    } catch (e) {
+    }
+  }
+
+  getUserImageUrl(): string | null {
+    try {
+      return localStorage.getItem(this.userImageUrlKey);
+    } catch (e) {
+      return null;
+    }
   }
 
   decodeToken(): any {
