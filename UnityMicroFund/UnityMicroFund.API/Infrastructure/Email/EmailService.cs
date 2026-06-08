@@ -2,31 +2,35 @@ using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
 using Microsoft.Extensions.Configuration;
+using UnityMicroFund.API.Areas.Logging.Services;
 
 namespace UnityMicroFund.API.Infrastructure.Email;
 
 public interface IEmailService
 {
-    Task SendEmailAsync(string toEmail, string subject, string body);
-    Task SendTransactionApprovedEmailAsync(string userEmail, string userName, string refNo, decimal amount, string accountName, string status);
-    Task SendUserApprovedEmailAsync(string userEmail, string userName);
-    Task SendPasswordResetCodeEmailAsync(string userEmail, string userName, string code, int expiryMinutes);
-    Task SendNewRegistrationEmailAsync(string adminEmail, string adminName, string memberName, string memberEmail);
-    Task SendTransactionCreatedEmailAsync(string adminEmail, string adminName, string memberName, decimal amount, string transactionType, string accountName, string remarks, string transactionId, DateTime createdAt);
+    /// <summary>Sends an email. Returns <c>true</c> when the message was handed off to the SMTP server, <c>false</c> when email is not configured or sending failed.</summary>
+    Task<bool> SendEmailAsync(string toEmail, string subject, string body);
+    Task<bool> SendTransactionApprovedEmailAsync(string userEmail, string userName, string refNo, decimal amount, string accountName, string status);
+    Task<bool> SendUserApprovedEmailAsync(string userEmail, string userName);
+    Task<bool> SendPasswordResetCodeEmailAsync(string userEmail, string userName, string code, int expiryMinutes);
+    Task<bool> SendNewRegistrationEmailAsync(string adminEmail, string adminName, string memberName, string memberEmail);
+    Task<bool> SendTransactionCreatedEmailAsync(string adminEmail, string adminName, string memberName, decimal amount, string transactionType, string accountName, string remarks, string transactionId, DateTime createdAt);
 }
 
 public class EmailService : IEmailService
 {
     private readonly IConfiguration _configuration;
     private readonly ILogger<EmailService> _logger;
+    private readonly ILogManager _logManager;
 
-    public EmailService(IConfiguration configuration, ILogger<EmailService> logger)
+    public EmailService(IConfiguration configuration, ILogger<EmailService> logger, ILogManager logManager)
     {
         _configuration = configuration;
         _logger = logger;
+        _logManager = logManager;
     }
 
-    public async Task SendEmailAsync(string toEmail, string subject, string body)
+    public async Task<bool> SendEmailAsync(string toEmail, string subject, string body)
     {
         try
         {
@@ -34,7 +38,11 @@ public class EmailService : IEmailService
             if (!emailSettings.Exists() || string.IsNullOrEmpty(emailSettings["Host"]))
             {
                 _logger.LogWarning("Email not configured. Skipping email send to {Email}", toEmail);
-                return;
+                await _logManager.LogErrorAsync(
+                    "EmailNotConfigured",
+                    $"Email send to {toEmail} was skipped because the Email:Host SMTP setting is missing on this server.",
+                    module: "Email");
+                return false;
             }
 
             var message = new MimeMessage();
@@ -70,17 +78,24 @@ public class EmailService : IEmailService
             await client.DisconnectAsync(true);
 
             _logger.LogInformation("Email sent successfully to {Email}", toEmail);
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send email to {Email}. Host={Host} Port={Port}",
                 toEmail, _configuration["Email:Host"], _configuration["Email:Port"]);
+            await _logManager.LogErrorAsync(
+                "EmailSendFailed",
+                $"Failed to send email to {toEmail} (subject: {subject}). Host={_configuration["Email:Host"]} Port={_configuration["Email:Port"]}",
+                ex,
+                module: "Email");
+            return false;
         }
     }
 
-    public async Task SendTransactionApprovedEmailAsync(string userEmail, string userName, string refNo, decimal amount, string accountName, string status)
+    public async Task<bool> SendTransactionApprovedEmailAsync(string userEmail, string userName, string refNo, decimal amount, string accountName, string status)
     {
-        var subject = status == "Approved" 
+        var subject = status == "Approved"
             ? "Transaction Approved - UnityMicroFund" 
             : "Transaction Rejected - UnityMicroFund";
 
@@ -133,10 +148,10 @@ public class EmailService : IEmailService
 </body>
 </html>";
 
-        await SendEmailAsync(userEmail, subject, body);
+        return await SendEmailAsync(userEmail, subject, body);
     }
 
-    public async Task SendUserApprovedEmailAsync(string userEmail, string userName)
+    public async Task<bool> SendUserApprovedEmailAsync(string userEmail, string userName)
     {
         var subject = "Account Approved — Welcome to UnityMicroFund!";
 
@@ -172,10 +187,10 @@ public class EmailService : IEmailService
 </body>
 </html>";
 
-        await SendEmailAsync(userEmail, subject, body);
+        return await SendEmailAsync(userEmail, subject, body);
     }
 
-    public async Task SendPasswordResetCodeEmailAsync(string userEmail, string userName, string code, int expiryMinutes)
+    public async Task<bool> SendPasswordResetCodeEmailAsync(string userEmail, string userName, string code, int expiryMinutes)
     {
         var subject = "Password Reset Code - UnityMicroFund";
 
@@ -206,10 +221,10 @@ public class EmailService : IEmailService
 </body>
 </html>";
 
-        await SendEmailAsync(userEmail, subject, body);
+        return await SendEmailAsync(userEmail, subject, body);
     }
 
-    public async Task SendNewRegistrationEmailAsync(string adminEmail, string adminName, string memberName, string memberEmail)
+    public async Task<bool> SendNewRegistrationEmailAsync(string adminEmail, string adminName, string memberName, string memberEmail)
     {
         var subject = "New Member Registration - UnityMicroFund";
 
@@ -256,10 +271,10 @@ public class EmailService : IEmailService
 </body>
 </html>";
 
-        await SendEmailAsync(adminEmail, subject, body);
+        return await SendEmailAsync(adminEmail, subject, body);
     }
 
-    public async Task SendTransactionCreatedEmailAsync(string adminEmail, string adminName, string memberName, decimal amount, string transactionType, string accountName, string remarks, string transactionId, DateTime createdAt)
+    public async Task<bool> SendTransactionCreatedEmailAsync(string adminEmail, string adminName, string memberName, decimal amount, string transactionType, string accountName, string remarks, string transactionId, DateTime createdAt)
     {
         var subject = $"New {transactionType} Transaction - UnityMicroFund";
 
@@ -326,6 +341,6 @@ public class EmailService : IEmailService
 </body>
 </html>";
 
-        await SendEmailAsync(adminEmail, subject, body);
+        return await SendEmailAsync(adminEmail, subject, body);
     }
 }
