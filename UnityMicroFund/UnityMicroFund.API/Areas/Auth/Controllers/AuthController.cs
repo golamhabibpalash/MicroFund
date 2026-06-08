@@ -90,12 +90,18 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
     {
         var via = dto.Method?.Trim().ToLowerInvariant() == "phone" ? "phone" : "email";
-        var found = await _authService.RequestPasswordResetAsync(dto);
-        if (!found)
+        var result = await _authService.RequestPasswordResetAsync(dto);
+        return result switch
         {
-            return NotFound(new { message = $"No account found with this {via}." });
-        }
-        return Ok(new { message = $"A reset code has been sent to your {via}." });
+            PasswordResetRequestResult.NotFound =>
+                NotFound(new { message = $"No account found with this {via}." }),
+            PasswordResetRequestResult.SendFailed =>
+                StatusCode(StatusCodes.Status502BadGateway, new
+                {
+                    message = $"We found your account but couldn't send the reset code to your {via} right now. Please try again later or contact support."
+                }),
+            _ => Ok(new { message = $"A reset code has been sent to your {via}." })
+        };
     }
 
     [HttpPost("verify-reset-code")]

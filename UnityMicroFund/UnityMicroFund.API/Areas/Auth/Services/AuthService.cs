@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using UnityMicroFund.API.Areas.Auth.DTOs;
 using UnityMicroFund.API.Infrastructure.Configuration;
 using UnityMicroFund.API.Areas.Auth.Models;
+using UnityMicroFund.API.Areas.Logging.Services;
 using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Infrastructure.Email;
@@ -26,11 +27,13 @@ public class AuthService : IAuthService
     private readonly IEmailService _emailService;
     private readonly ISmsService _smsService;
     private readonly AdminSettings _adminSettings;
+    private readonly ILogManager _logManager;
+    private readonly ILogger<AuthService> _logger;
 
     private const int ResetCodeExpiryMinutes = 5;
     private const int MaxResetAttempts = 5;
 
-    public AuthService(Data.AppDbContext context, IJwtService jwtService, IConfiguration configuration, INotificationService notificationService, HttpClient httpClient, IEmailService emailService, ISmsService smsService, IOptions<AdminSettings> adminSettings)
+    public AuthService(Data.AppDbContext context, IJwtService jwtService, IConfiguration configuration, INotificationService notificationService, HttpClient httpClient, IEmailService emailService, ISmsService smsService, IOptions<AdminSettings> adminSettings, ILogManager logManager, ILogger<AuthService> logger)
     {
         _context = context;
         _jwtService = jwtService;
@@ -40,6 +43,8 @@ public class AuthService : IAuthService
         _emailService = emailService;
         _smsService = smsService;
         _adminSettings = adminSettings.Value;
+        _logManager = logManager;
+        _logger = logger;
     }
 
     public async Task<AuthResponseDto?> RegisterAsync(RegisterDto dto)
@@ -277,7 +282,11 @@ public class AuthService : IAuthService
         var clientId = _configuration["Google:ClientId"];
         if (string.IsNullOrWhiteSpace(clientId))
         {
-            Console.WriteLine("Google login failed: Google:ClientId is not configured in appsettings.");
+            _logger.LogError("Google login failed: Google:ClientId is not configured in appsettings on this server.");
+            await _logManager.LogErrorAsync(
+                "GoogleLoginNotConfigured",
+                "Google login failed because Google:ClientId is not configured on this server.",
+                module: "Auth");
             return null;
         }
 
@@ -292,7 +301,12 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Google token validation failed: {ex.Message}");
+            _logger.LogError(ex, "Google token validation failed.");
+            await _logManager.LogErrorAsync(
+                "GoogleTokenValidationFailed",
+                "Google ID token validation failed. The token may be expired, or the server's Google:ClientId may not match the client ID that issued the token.",
+                ex,
+                module: "Auth");
             return null;
         }
 
@@ -619,17 +633,17 @@ public class AuthService : IAuthService
         return true;
     }
 
-    public async Task<bool> RequestPasswordResetAsync(ForgotPasswordDto dto)
+    public async Task<PasswordResetRequestResult> RequestPasswordResetAsync(ForgotPasswordDto dto)
     {
         if (!TryParseMethod(dto.Method, out var method))
         {
-            return false;
+            return PasswordResetRequestResult.NotFound;
         }
 
         var (user, destination) = await ResolveUserAsync(method, dto.Identifier);
         if (user == null || string.IsNullOrEmpty(destination))
         {
-            return false;
+            return PasswordResetRequestResult.NotFound;
         }
 
         // Invalidate any outstanding codes for this user + method.
@@ -639,7 +653,7 @@ public class AuthService : IAuthService
         _context.PasswordResetCodes.RemoveRange(existing);
 
         var code = GenerateResetCode();
-        _context.PasswordResetCodes.Add(new PasswordResetCode
+        var resetCode = new PasswordResetCode
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
@@ -647,21 +661,42 @@ public class AuthService : IAuthService
             CodeHash = HashPassword(code),
             ExpiresAt = DateTime.UtcNow.AddMinutes(ResetCodeExpiryMinutes),
             CreatedAt = DateTime.UtcNow
-        });
+        };
+        _context.PasswordResetCodes.Add(resetCode);
         await _context.SaveChangesAsync();
 
-        // Dispatch in the background so the HTTP response is not blocked by SMTP/SMS latency.
+        // Await the dispatch so we can report a real success/failure to the caller instead of
+        // silently claiming "code sent" when the SMTP/SMS provider is misconfigured on the server.
+        bool sent;
         if (method == PasswordResetMethod.Email)
         {
-            _ = _emailService.SendPasswordResetCodeEmailAsync(destination, user.Name, code, ResetCodeExpiryMinutes);
+            sent = await _emailService.SendPasswordResetCodeEmailAsync(destination, user.Name, code, ResetCodeExpiryMinutes);
         }
         else
         {
             var message = $"Your UnityMicroFund password reset code is: {code}. It expires in {ResetCodeExpiryMinutes} minutes.";
-            _ = _smsService.SendSmsAsync(destination, message);
+            sent = await _smsService.SendSmsAsync(destination, message);
         }
 
-        return true;
+        if (!sent)
+        {
+            // Roll the code back so a later "resend" isn't blocked by an unusable outstanding code.
+            _context.PasswordResetCodes.Remove(resetCode);
+            await _context.SaveChangesAsync();
+
+            _logger.LogError("Password reset code could not be delivered to user {UserId} via {Method}.", user.Id, method);
+            await _logManager.LogErrorAsync(
+                "PasswordResetSendFailed",
+                $"A password reset code was generated for user {user.Id} but could not be delivered via {method}. Check the SMTP/SMS configuration on this server.",
+                module: "Auth");
+            return PasswordResetRequestResult.SendFailed;
+        }
+
+        await _logManager.LogInfoAsync(
+            "PasswordResetRequested",
+            $"Password reset code sent to user {user.Id} via {method}.",
+            module: "Auth");
+        return PasswordResetRequestResult.Success;
     }
 
     public async Task<bool> VerifyResetCodeAsync(VerifyResetCodeDto dto)
