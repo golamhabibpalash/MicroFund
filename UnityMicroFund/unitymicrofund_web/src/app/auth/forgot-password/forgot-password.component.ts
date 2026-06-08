@@ -2,8 +2,12 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { timeout } from 'rxjs';
 import { Auth, ResetMethod } from '../../core/services/auth';
 import { BrandingService } from '../../core/services/branding.service';
+
+/** Max time to wait for an auth request before showing the user an error instead of an endless spinner. */
+const REQUEST_TIMEOUT_MS = 20000;
 
 @Component({
   selector: 'app-forgot-password',
@@ -111,42 +115,42 @@ export class ForgotPasswordComponent implements OnInit {
   requestResetCode() {
     this.isLoading = true;
     this.error = '';
-    this.authService.forgotPassword(this.method, this.destination).subscribe({
-      next: () => {
-        this.isLoading = false;
-        this.currentStep = 2;
-        this.success = 'A 6-digit code has been sent to your email.';
-      },
-      error: (err) => {
-        this.isLoading = false;
-        const msg =
-          err.status === 404
-            ? 'No account found with this email address.'
-            : err.error?.message || 'Failed to send reset code. Please try again.';
-        this.error = msg;
-      },
-    });
+    this.authService.forgotPassword(this.method, this.destination)
+      .pipe(timeout(REQUEST_TIMEOUT_MS))
+      .subscribe({
+        next: () => {
+          this.isLoading = false;
+          this.currentStep = 2;
+          this.success = 'A 6-digit code has been sent to your email.';
+        },
+        error: (err) => {
+          this.isLoading = false;
+          this.error = this.describeError(err, 'Failed to send reset code. Please try again.');
+        },
+      });
   }
 
   verifyCode() {
     this.isLoading = true;
     this.error = '';
     const code = this.form.get('code')?.value;
-    this.authService.verifyResetCode(this.method, this.destination, code).subscribe({
-      next: (response) => {
-        this.isLoading = false;
-        if (response.valid) {
-          this.currentStep = 3;
-          this.success = 'Code verified. Please enter your new password.';
-        } else {
-          this.error = 'Invalid or expired verification code.';
-        }
-      },
-      error: (err) => {
-        this.isLoading = false;
-        this.error = err.error?.message || 'Failed to verify code. Please try again.';
-      },
-    });
+    this.authService.verifyResetCode(this.method, this.destination, code)
+      .pipe(timeout(REQUEST_TIMEOUT_MS))
+      .subscribe({
+        next: (response) => {
+          this.isLoading = false;
+          if (response.valid) {
+            this.currentStep = 3;
+            this.success = 'Code verified. Please enter your new password.';
+          } else {
+            this.error = 'Invalid or expired verification code.';
+          }
+        },
+        error: (err) => {
+          this.isLoading = false;
+          this.error = this.describeError(err, 'Failed to verify code. Please try again.');
+        },
+      });
   }
 
   resetPassword() {
@@ -161,16 +165,32 @@ export class ForgotPasswordComponent implements OnInit {
     this.isLoading = true;
     this.error = '';
     const code = this.form.get('code')?.value;
-    this.authService.resetPassword(this.method, this.destination, code, newPassword).subscribe({
-      next: () => {
-        this.isLoading = false;
-        this.success = 'Password reset successful! Redirecting to login...';
-        setTimeout(() => this.router.navigate(['/auth/login']), 2000);
-      },
-      error: (err) => {
-        this.isLoading = false;
-        this.error = err.error?.message || 'Failed to reset password. Please try again.';
-      },
-    });
+    this.authService.resetPassword(this.method, this.destination, code, newPassword)
+      .pipe(timeout(REQUEST_TIMEOUT_MS))
+      .subscribe({
+        next: () => {
+          this.isLoading = false;
+          this.success = 'Password reset successful! Redirecting to login...';
+          setTimeout(() => this.router.navigate(['/auth/login']), 2000);
+        },
+        error: (err) => {
+          this.isLoading = false;
+          this.error = this.describeError(err, 'Failed to reset password. Please try again.');
+        },
+      });
+  }
+
+  /** Maps an HTTP/timeout error to a user-friendly message so the UI never gets stuck on a spinner. */
+  private describeError(err: any, fallback: string): string {
+    if (err?.name === 'TimeoutError') {
+      return 'The request timed out. Please check your connection and try again.';
+    }
+    if (err?.status === 404) {
+      return 'No account found with this email address.';
+    }
+    if (err?.status === 0) {
+      return 'Could not reach the server. Please try again later.';
+    }
+    return err?.error?.message || fallback;
   }
 }
