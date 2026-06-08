@@ -31,6 +31,29 @@ SECRETS_FILE="/root/.unitymicrofund"
 # shellcheck source=/dev/null
 source "$SECRETS_FILE"
 
+# Normalize optional values so `set -u` cannot crash mid-deploy if a key is
+# absent from the secrets file.
+EMAIL_HOST="${EMAIL_HOST:-}";       EMAIL_PORT="${EMAIL_PORT:-}"
+EMAIL_USERNAME="${EMAIL_USERNAME:-}"; EMAIL_PASSWORD="${EMAIL_PASSWORD:-}"
+EMAIL_FROM="${EMAIL_FROM:-}"
+GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-}"
+GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-}"
+
+# Validate critical config BEFORE any destructive step (no maintenance mode,
+# no rm, no rebuild). If the secrets file is incomplete, abort cleanly so the
+# CURRENT live site keeps running instead of shipping a broken build — this is
+# what prevents "Google sign-in is not configured" from recurring after a deploy.
+__missing=""
+for __v in DOMAIN DB_NAME DB_USER DB_PASS JWT_SECRET GOOGLE_CLIENT_ID; do
+    [[ -z "${!__v:-}" ]] && __missing="${__missing} ${__v}"
+done
+if [[ -n "${__missing}" ]]; then
+    echo "ERROR: missing/empty required config in ${SECRETS_FILE}:${__missing}"
+    echo "Aborting BEFORE any change — the current live site is left untouched."
+    echo "Fix the value(s), then re-run: sudo bash ${BASH_SOURCE[0]}"
+    exit 1
+fi
+
 APP_DIR="/var/www/unitymicrofund"
 REPO_DIR="${APP_DIR}/repo"
 API_DIR="${APP_DIR}/api"
