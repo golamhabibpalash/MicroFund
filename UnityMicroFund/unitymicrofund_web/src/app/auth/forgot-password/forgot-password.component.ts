@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { timeout } from 'rxjs';
@@ -34,6 +34,7 @@ export class ForgotPasswordComponent implements OnInit {
     private authService: Auth,
     private router: Router,
     private brandingService: BrandingService,
+    private cdr: ChangeDetectorRef,
   ) {
     this.form = this.fb.group({
       email: ['', this.emailValidators],
@@ -122,10 +123,12 @@ export class ForgotPasswordComponent implements OnInit {
           this.isLoading = false;
           this.currentStep = 2;
           this.success = 'A 6-digit code has been sent to your email.';
+          this.cdr.detectChanges();
         },
         error: (err) => {
           this.isLoading = false;
           this.error = this.describeError(err, 'Failed to send reset code. Please try again.');
+          this.cdr.detectChanges();
         },
       });
   }
@@ -145,10 +148,12 @@ export class ForgotPasswordComponent implements OnInit {
           } else {
             this.error = 'Invalid or expired verification code.';
           }
+          this.cdr.detectChanges();
         },
         error: (err) => {
           this.isLoading = false;
           this.error = this.describeError(err, 'Failed to verify code. Please try again.');
+          this.cdr.detectChanges();
         },
       });
   }
@@ -171,11 +176,15 @@ export class ForgotPasswordComponent implements OnInit {
         next: () => {
           this.isLoading = false;
           this.success = 'Password reset successful! Redirecting to login...';
-          setTimeout(() => this.router.navigate(['/auth/login']), 2000);
+          setTimeout(() => {
+            this.router.navigate(['/auth/login']);
+            this.cdr.detectChanges();
+          }, 2000);
         },
         error: (err) => {
           this.isLoading = false;
           this.error = this.describeError(err, 'Failed to reset password. Please try again.');
+          this.cdr.detectChanges();
         },
       });
   }
