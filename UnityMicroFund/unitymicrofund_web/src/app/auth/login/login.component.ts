@@ -86,6 +86,12 @@ export class LoginComponent implements OnInit {
   }
 
   initializeGoogleSignIn(): void {
+    // Initializing the GSI client with an empty client_id is what produces Google's
+    // "Missing required parameter: client_id" 400 error, so bail out early instead.
+    if (!this.googleClientId) {
+      console.error('Google Sign-In is not configured: googleClientId is empty. Check assets/config/app-config.json on the server.');
+      return;
+    }
     if (typeof google !== 'undefined' && google.accounts) {
       google.accounts.id.initialize({
         client_id: this.googleClientId,
@@ -95,6 +101,12 @@ export class LoginComponent implements OnInit {
   }
 
   signInWithGoogle(): void {
+    if (!this.googleClientId) {
+      this.error = 'Google sign-in is not configured. Please contact the administrator.';
+      this.cdr.detectChanges();
+      return;
+    }
+
     if (typeof google === 'undefined' || !google.accounts) {
       this.loadGoogleScript();
       return;
