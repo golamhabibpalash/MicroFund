@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using UnityMicroFund.API.Areas.Auth.DTOs;
@@ -29,11 +30,12 @@ public class AuthService : IAuthService
     private readonly AdminSettings _adminSettings;
     private readonly ILogManager _logManager;
     private readonly ILogger<AuthService> _logger;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     private const int ResetCodeExpiryMinutes = 5;
     private const int MaxResetAttempts = 5;
 
-    public AuthService(Data.AppDbContext context, IJwtService jwtService, IConfiguration configuration, INotificationService notificationService, HttpClient httpClient, IEmailService emailService, ISmsService smsService, IOptions<AdminSettings> adminSettings, ILogManager logManager, ILogger<AuthService> logger)
+    public AuthService(Data.AppDbContext context, IJwtService jwtService, IConfiguration configuration, INotificationService notificationService, HttpClient httpClient, IEmailService emailService, ISmsService smsService, IOptions<AdminSettings> adminSettings, ILogManager logManager, ILogger<AuthService> logger, IServiceScopeFactory scopeFactory)
     {
         _context = context;
         _jwtService = jwtService;
@@ -45,6 +47,7 @@ public class AuthService : IAuthService
         _adminSettings = adminSettings.Value;
         _logManager = logManager;
         _logger = logger;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task<AuthResponseDto?> RegisterAsync(RegisterDto dto)
@@ -646,6 +649,18 @@ public class AuthService : IAuthService
             return PasswordResetRequestResult.NotFound;
         }
 
+        // Fast-fail when the delivery channel isn't configured on this server, so the user gets
+        // an immediate error instead of a false "code sent" — without making a (slow) network call.
+        if (method == PasswordResetMethod.Email && string.IsNullOrEmpty(_configuration["Email:Host"]))
+        {
+            _logger.LogError("Password reset requested but Email:Host is not configured on this server.");
+            await _logManager.LogErrorAsync(
+                "PasswordResetSendFailed",
+                $"A password reset code was requested for user {user.Id} but email is not configured (Email:Host missing) on this server.",
+                module: "Auth");
+            return PasswordResetRequestResult.SendFailed;
+        }
+
         // Invalidate any outstanding codes for this user + method.
         var existing = await _context.PasswordResetCodes
             .Where(c => c.UserId == user.Id && c.Method == method && c.ConsumedAt == null)
@@ -665,38 +680,64 @@ public class AuthService : IAuthService
         _context.PasswordResetCodes.Add(resetCode);
         await _context.SaveChangesAsync();
 
-        // Await the dispatch so we can report a real success/failure to the caller instead of
-        // silently claiming "code sent" when the SMTP/SMS provider is misconfigured on the server.
-        bool sent;
-        if (method == PasswordResetMethod.Email)
-        {
-            sent = await _emailService.SendPasswordResetCodeEmailAsync(destination, user.Name, code, ResetCodeExpiryMinutes);
-        }
-        else
-        {
-            var message = $"Your UnityMicroFund password reset code is: {code}. It expires in {ResetCodeExpiryMinutes} minutes.";
-            sent = await _smsService.SendSmsAsync(destination, message);
-        }
+        // Dispatch the code in the BACKGROUND so a slow SMTP/SMS provider can't block the HTTP
+        // response — Gmail SMTP can take well over the client's request timeout on some hosts,
+        // which previously left the UI stuck on "Processing…" even though the email was delivered.
+        // The code is already persisted; delivery success/failure is logged from the background scope.
+        DispatchResetCodeInBackground(method, destination, user.Name, code, user.Id);
 
-        if (!sent)
-        {
-            // Roll the code back so a later "resend" isn't blocked by an unusable outstanding code.
-            _context.PasswordResetCodes.Remove(resetCode);
-            await _context.SaveChangesAsync();
-
-            _logger.LogError("Password reset code could not be delivered to user {UserId} via {Method}.", user.Id, method);
-            await _logManager.LogErrorAsync(
-                "PasswordResetSendFailed",
-                $"A password reset code was generated for user {user.Id} but could not be delivered via {method}. Check the SMTP/SMS configuration on this server.",
-                module: "Auth");
-            return PasswordResetRequestResult.SendFailed;
-        }
-
-        await _logManager.LogInfoAsync(
-            "PasswordResetRequested",
-            $"Password reset code sent to user {user.Id} via {method}.",
-            module: "Auth");
         return PasswordResetRequestResult.Success;
+    }
+
+    /// <summary>
+    /// Sends the password-reset code on a detached task using a fresh DI scope (the request scope —
+    /// and its DbContext — is disposed once the HTTP response returns, so it can't be reused here).
+    /// </summary>
+    private void DispatchResetCodeInBackground(PasswordResetMethod method, string destination, string userName, string code, Guid userId)
+    {
+        _ = Task.Run(async () =>
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var sp = scope.ServiceProvider;
+            var logManager = sp.GetRequiredService<ILogManager>();
+            var logger = sp.GetRequiredService<ILogger<AuthService>>();
+            try
+            {
+                bool sent = method == PasswordResetMethod.Email
+                    ? await sp.GetRequiredService<IEmailService>()
+                        .SendPasswordResetCodeEmailAsync(destination, userName, code, ResetCodeExpiryMinutes)
+                    : await sp.GetRequiredService<ISmsService>()
+                        .SendSmsAsync(destination, $"Your UnityMicroFund password reset code is: {code}. It expires in {ResetCodeExpiryMinutes} minutes.");
+
+                if (sent)
+                {
+                    await logManager.LogInfoAsync(
+                        "PasswordResetRequested",
+                        $"Password reset code sent to user {userId} via {method}.",
+                        module: "Auth");
+                }
+                else
+                {
+                    await logManager.LogErrorAsync(
+                        "PasswordResetSendFailed",
+                        $"A password reset code was generated for user {userId} but could not be delivered via {method}. Check the SMTP/SMS configuration on this server.",
+                        module: "Auth");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Background password reset dispatch failed for user {UserId} via {Method}.", userId, method);
+                try
+                {
+                    await logManager.LogErrorAsync(
+                        "PasswordResetSendFailed",
+                        $"Background delivery of a password reset code to user {userId} via {method} threw an exception: {ex.Message}",
+                        ex,
+                        module: "Auth");
+                }
+                catch { /* never let logging failures crash the background task */ }
+            }
+        });
     }
 
     public async Task<bool> VerifyResetCodeAsync(VerifyResetCodeDto dto)
