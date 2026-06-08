@@ -129,6 +129,22 @@ public class ProfileController : ControllerBase
             System.IO.File.Copy(filePath, Path.Combine(devFolder, fileName), overwrite: true);
         }
 
+        // Production fallback: copy to Angular dist output so nginx can serve it
+        try
+        {
+            var distFolder = Path.Combine(_environment.ContentRootPath, "..", "unitymicrofund_web", "dist", "unitymicrofund_web", "browser", "assets", "member");
+            var distParent = Path.GetDirectoryName(distFolder);
+            if (distParent != null && Directory.Exists(distParent))
+            {
+                Directory.CreateDirectory(distFolder);
+                System.IO.File.Copy(filePath, Path.Combine(distFolder, fileName), overwrite: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to copy image to dist folder: {ex.Message}");
+        }
+
         var imageUrl = $"/assets/member/{fileName}";
         await _profileService.UpdateProfileImageAsync(id, imageUrl);
 
