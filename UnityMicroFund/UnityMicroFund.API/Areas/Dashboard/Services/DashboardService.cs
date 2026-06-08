@@ -143,23 +143,30 @@ public class DashboardService : IDashboardService
         // === Top Investors ===
         const int topInvestorCount = 10;
 
+        // Member funding is recorded as approved Fund transactions linked via MemberTransactionMaps
+        // (the payment/approval flow), not as Contribution rows — mirror ProfileService here.
         var memberInvestmentTotals = await _context.Members
             .Where(m => m.IsActive)
             .Select(m => new
             {
                 Member = m,
-                TotalContributions = m.Contributions
-                    .Where(c => c.Status == ContributionStatus.Paid)
-                    .Sum(c => (decimal?)c.Amount) ?? 0,
-                ContributionCount = m.Contributions
-                    .Where(c => c.Status == ContributionStatus.Paid)
-                    .Count(),
+                TotalContributions = m.MemberTransactionMaps
+                    .Where(mtm => mtm.Transaction != null
+                                  && mtm.Transaction.Status == TransactionStatus.Fund
+                                  && mtm.Transaction.ApprovalStatus == TransactionApprovalStatus.Approved)
+                    .Sum(mtm => (decimal?)mtm.Transaction!.Amount) ?? 0,
+                ContributionCount = m.MemberTransactionMaps
+                    .Count(mtm => mtm.Transaction != null
+                                  && mtm.Transaction.Status == TransactionStatus.Fund
+                                  && mtm.Transaction.ApprovalStatus == TransactionApprovalStatus.Approved),
                 TotalInvestments = m.MemberInvestments
                     .Sum(mi => (decimal?)mi.ShareValue) ?? 0,
                 InvestmentCount = m.MemberInvestments.Count(),
-                LatestContribution = m.Contributions
-                    .Where(c => c.Status == ContributionStatus.Paid)
-                    .Max(c => (DateTime?)c.PaidDate),
+                LatestContribution = m.MemberTransactionMaps
+                    .Where(mtm => mtm.Transaction != null
+                                  && mtm.Transaction.Status == TransactionStatus.Fund
+                                  && mtm.Transaction.ApprovalStatus == TransactionApprovalStatus.Approved)
+                    .Max(mtm => (DateTime?)(mtm.Transaction!.TransactionDate ?? mtm.Transaction.CreatedAt)),
                 LatestInvestment = m.MemberInvestments
                     .Max(mi => (DateTime?)mi.CreatedAt)
             })
