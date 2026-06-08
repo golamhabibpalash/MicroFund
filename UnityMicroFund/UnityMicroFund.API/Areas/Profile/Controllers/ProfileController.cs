@@ -13,11 +13,13 @@ public class ProfileController : ControllerBase
 {
     private readonly IProfileService _profileService;
     private readonly IWebHostEnvironment _environment;
+    private readonly IConfiguration _configuration;
 
-    public ProfileController(IProfileService profileService, IWebHostEnvironment environment)
+    public ProfileController(IProfileService profileService, IWebHostEnvironment environment, IConfiguration configuration)
     {
         _profileService = profileService;
         _environment = environment;
+        _configuration = configuration;
     }
 
     [HttpGet]
@@ -105,23 +107,25 @@ public class ProfileController : ControllerBase
             return Unauthorized();
         }
 
-        var uploadsFolder = Path.Combine(_environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "member");
+        var configPath = _configuration["Uploads:MemberImagesPath"];
+        var uploadsFolder = !string.IsNullOrEmpty(configPath)
+            ? configPath
+            : Path.Combine(_environment.ContentRootPath, "..", "uploads", "member");
         Directory.CreateDirectory(uploadsFolder);
 
         var fileName = $"{userId}_{DateTime.UtcNow:yyyyMMddHHmmss}{extension}";
         var filePath = Path.Combine(uploadsFolder, fileName);
 
-        using (var stream = new FileStream(filePath, FileMode.Create))
+        await using (var stream = new FileStream(filePath, FileMode.Create))
         {
             await file.CopyToAsync(stream);
         }
 
-        // Also copy to dist/browser folder so it is served in production builds
-        var distFolder = Path.Combine(_environment.ContentRootPath, "..", "unitymicrofund_web", "dist", "unitymicrofund_web", "browser", "assets", "member");
-        if (Directory.Exists(Path.GetDirectoryName(distFolder)!))
+        // Dev fallback: copy to src/assets/member so ng serve works without proxy
+        var devFolder = Path.Combine(_environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "member");
+        if (Directory.Exists(devFolder))
         {
-            Directory.CreateDirectory(distFolder);
-            System.IO.File.Copy(filePath, Path.Combine(distFolder, fileName), overwrite: true);
+            System.IO.File.Copy(filePath, Path.Combine(devFolder, fileName), overwrite: true);
         }
 
         var imageUrl = $"/assets/member/{fileName}";

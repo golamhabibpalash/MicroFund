@@ -257,7 +257,7 @@ if (Directory.Exists(uploadsPath))
 }
 
 var memberImagesPath = builder.Configuration["Uploads:MemberImagesPath"]
-    ?? Path.Combine(builder.Environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "member");
+    ?? Path.Combine(builder.Environment.ContentRootPath, "..", "uploads", "member");
 Directory.CreateDirectory(memberImagesPath);
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -267,7 +267,7 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 var organizationPath = builder.Configuration["Uploads:OrganizationPath"]
-    ?? Path.Combine(builder.Environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "organization");
+    ?? Path.Combine(builder.Environment.ContentRootPath, "..", "uploads", "organization");
 Directory.CreateDirectory(organizationPath);
 app.UseStaticFiles(new StaticFileOptions
 {
