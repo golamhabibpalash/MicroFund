@@ -163,6 +163,16 @@ public class AppDbContext : DbContext
             entity.Property(e => e.MonthlyAmount).HasPrecision(18, 2);
             entity.Property(e => e.Gender).HasConversion<string>();
 
+            // Legacy rows stored the profile image as a static path (/assets/member/...),
+            // which nginx serves from the Angular dist (where uploads don't exist) and 404s in
+            // production. Normalize on read so every consumer (profile, header, member list,
+            // dashboard, chat) gets the API endpoint that streams from the writable uploads folder.
+            // Idempotent: URLs that already use /api/profile/image/ are left unchanged.
+            entity.Property(e => e.ProfileImageUrl)
+                  .HasConversion(
+                      v => v,
+                      v => v.Replace("/assets/member/", "/api/profile/image/"));
+
             entity.HasOne(m => m.User)
                   .WithOne(u => u.Member)
                   .HasForeignKey<Member>(m => m.UserId)
