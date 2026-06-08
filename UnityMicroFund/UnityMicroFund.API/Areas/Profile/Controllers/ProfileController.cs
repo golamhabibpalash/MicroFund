@@ -122,9 +122,10 @@ public class ProfileController : ControllerBase
         }
 
         // Dev fallback: copy to src/assets/member so ng serve works without proxy
-        var devFolder = Path.Combine(_environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "member");
-        if (Directory.Exists(devFolder))
+        if (_environment.IsDevelopment())
         {
+            var devFolder = Path.Combine(_environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "member");
+            Directory.CreateDirectory(devFolder);
             System.IO.File.Copy(filePath, Path.Combine(devFolder, fileName), overwrite: true);
         }
 
