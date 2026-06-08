@@ -32,12 +32,18 @@ interface RecentActivity {
   memberName: string;
   amount: number;
   date: string;
+  avatarUrl?: string;
+  userId?: string;
 }
 
 interface TopInvestor {
   memberName: string;
-  totalContributions: number;
+  avatarUrl?: string;
+  totalAmount: number;
   sharePercentage: number;
+  transactionCount: number;
+  latestDate: string;
+  rank: number;
 }
 
 interface MonthlyTrend {
@@ -206,13 +212,13 @@ interface MonthlyTrend {
               </div>
               <div class="activity-list">
                 <div class="activity-item" *ngFor="let activity of stats.recentActivities; let i = index" [style.animation-delay]="i * 50 + 'ms'">
-                  <div class="activity-icon" [ngClass]="activity.type.toLowerCase()">
-                    <span class="material-icons">{{ activity.type === 'Contribution' ? 'savings' : 'trending_up' }}</span>
+                  <div class="activity-icon" [ngClass]="getActivityTypeClass(activity.type)">
+                    <span class="material-icons">{{ getActivityIcon(activity.type) }}</span>
                   </div>
                   <div class="activity-content">
                     <div class="activity-main">
                       <span class="activity-title">{{ activity.memberName }}</span>
-                      <span class="activity-amount">{{ activity.amount | bdtCurrency }}</span>
+                      <span class="activity-amount" *ngIf="activity.amount > 0">{{ activity.amount | bdtCurrency }}</span>
                     </div>
                     <div class="activity-detail">
                       <span class="activity-desc">{{ activity.description }}</span>
@@ -236,22 +242,21 @@ interface MonthlyTrend {
               <div class="investors-list">
                 <div class="investor-item" *ngFor="let investor of stats.topInvestors; let i = index" [style.animation-delay]="i * 50 + 'ms'">
                   <div class="investor-rank" [class.gold]="i === 0" [class.silver]="i === 1" [class.bronze]="i === 2">
-                    #{{ i + 1 }}
+                    #{{ investor.rank }}
                   </div>
-                  <div class="investor-avatar">
+                  <div class="investor-avatar" *ngIf="!investor.avatarUrl">
                     {{ getInitials(investor.memberName) }}
                   </div>
+                  <img *ngIf="investor.avatarUrl" class="investor-avatar-img" [src]="investor.avatarUrl" [alt]="investor.memberName" />
                   <div class="investor-info">
                     <span class="investor-name">{{ investor.memberName }}</span>
-                    <div class="investor-progress">
-                      <div class="progress-bar">
-                        <div class="progress-fill" [style.width.%]="investor.sharePercentage"></div>
-                      </div>
-                      <span class="investor-share">{{ investor.sharePercentage | number:'1.1-1' }}%</span>
+                    <div class="investor-meta">
+                      <span class="investor-transactions">{{ investor.transactionCount }} transactions</span>
+                      <span class="investor-latest-date">{{ getTimeAgo(investor.latestDate) }}</span>
                     </div>
                   </div>
                   <div class="investor-amount">
-                    {{ investor.totalContributions | bdtCurrency }}
+                    {{ investor.totalAmount | bdtCurrency }}
                   </div>
                 </div>
                 <div class="empty-investors" *ngIf="stats.topInvestors.length === 0">
@@ -387,8 +392,11 @@ interface MonthlyTrend {
     .activity-item:hover { background: var(--color-background-alt); }
     .activity-icon { width: 36px; height: 36px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .activity-icon .material-icons { font-size: 18px; }
+    .activity-icon.new-registration { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
     .activity-icon.contribution { background: var(--brand-gradient); color: white; }
     .activity-icon.investment { background: var(--color-success); color: white; }
+    .activity-icon.transaction-approved { background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; }
+    .activity-icon.transaction-rejected { background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; }
     .activity-content { flex: 1; min-width: 0; }
     .activity-main { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
     .activity-title { font-weight: 600; color: var(--text-primary); font-size: var(--text-sm); }
@@ -407,10 +415,12 @@ interface MonthlyTrend {
     .investor-rank.silver { background: linear-gradient(135deg, #c0c0c0, #a8a8a8); color: #4a4a4a; }
     .investor-rank.bronze { background: linear-gradient(135deg, #cd7f32, #b5651d); color: #3d2500; }
     .investor-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--brand-gradient); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: var(--text-xs); flex-shrink: 0; }
+    .investor-avatar-img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--color-border-light); }
     .investor-info { flex: 1; min-width: 0; }
     .investor-name { font-weight: 600; color: var(--text-primary); font-size: var(--text-sm); display: block; margin-bottom: 4px; }
-    .investor-progress { display: flex; align-items: center; gap: var(--space-2); }
-    .investor-share { font-size: var(--text-xs); color: var(--color-accent); font-weight: 600; min-width: 40px; text-align: right; }
+    .investor-meta { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+    .investor-transactions { font-size: var(--text-xs); color: var(--color-accent); font-weight: 500; }
+    .investor-latest-date { font-size: var(--text-xs); color: var(--text-light); }
     .investor-amount { font-weight: 600; color: var(--text-primary); font-size: var(--text-sm); white-space: nowrap; }
 
     /* Quick Actions */
@@ -623,5 +633,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
     return date.toLocaleDateString();
+  }
+
+  getActivityTypeClass(type: string): string {
+    return type.toLowerCase().replace(/\s+/g, '-');
+  }
+
+  getActivityIcon(type: string): string {
+    switch (type.toLowerCase()) {
+      case 'new registration': return 'person_add';
+      case 'contribution': return 'savings';
+      case 'investment': return 'trending_up';
+      case 'transaction approved': return 'check_circle';
+      case 'transaction rejected': return 'cancel';
+      default: return 'circle';
+    }
   }
 }
