@@ -60,6 +60,7 @@ artifacts/
 appsettings.json
 appsettings.*.json
 !appsettings.Development.json
+!appsettings.template.json
 
 # IDE
 *.sln.iml
@@ -122,6 +123,13 @@ connect.lock/
 *.pem
 *.cert
 *.credentials
+
+# Server runtime-secrets file (lives at /root/.unitymicrofund on the server,
+# the single source of truth for live config). Never commit a real copy;
+# server-secrets.example is the tracked placeholder.
+.unitymicrofund
+server-secrets
+!server-secrets.example
 
 # ----------------------
 # Claude AI

@@ -65,6 +65,10 @@ SERVICE_NAME="unitymicrofund-api"
 SERVICE_USER="unitymicrofund"
 NGINX_CONF="/etc/nginx/sites-available/${DOMAIN}"
 CREDS_FILE="/root/.unitymicrofund-credentials"
+# Single source of truth for runtime secrets, shared with update.sh (the CI
+# deploy script). Once this file exists it is NEVER overwritten — so neither a
+# code push nor a re-run of this script can clobber live Google/Email config.
+SECRETS_FILE="/root/.unitymicrofund"
 
 # =============================================================================
 # HELPERS
@@ -98,6 +102,16 @@ section "Preflight Checks"
 [[ -z "$GIT_REPO"           ]] && error "GIT_REPO is not set"
 [[ -z "$DOMAIN"             ]] && error "DOMAIN is not set"
 [[ -z "$LETSENCRYPT_EMAIL"  ]] && error "LETSENCRYPT_EMAIL is not set"
+
+# If a secrets file already exists from a previous deploy, it is the source of
+# truth: load it and let any value it defines override the (possibly blank)
+# CONFIGURATION section above. This guarantees re-running deploy.sh can never
+# wipe live Google/Email/DB/JWT config.
+if [[ -f "$SECRETS_FILE" ]]; then
+    warn "Existing secrets file found at ${SECRETS_FILE} — using its values (CONFIGURATION overrides ignored)"
+    # shellcheck source=/dev/null
+    source "$SECRETS_FILE"
+fi
 
 # Auto-generate secrets if not provided
 [[ -z "$DB_PASS"    ]] && DB_PASS="$(openssl rand -base64 24)"
@@ -654,11 +668,48 @@ GIT_BRANCH=${GIT_BRANCH}
 DB_NAME=${DB_NAME}
 DB_USER=${DB_USER}
 DB_PASS=${DB_PASS}
-DB_ROOT_PASS=${DB_ROOT_PASS}
+DB_ROOT_PASS=${DB_ROOT_CURRENT_PASS:-}
 
 JWT_SECRET=${JWT_SECRET}
 CREDS
 chmod 600 "${CREDS_FILE}"
+
+# -----------------------------------------------------------------------------
+# Write the shared runtime-secrets file consumed by update.sh on every CI
+# deploy. This is the SINGLE SOURCE OF TRUTH for all live config. It is written
+# only if it does not already exist, so an existing (working) file is never
+# clobbered — code pushes and re-runs of this script keep Google/Email intact.
+# -----------------------------------------------------------------------------
+if [[ -f "${SECRETS_FILE}" ]]; then
+    log "Secrets file already present (${SECRETS_FILE}) — left untouched"
+else
+    cat > "${SECRETS_FILE}" <<SECRETS
+# Unity MicroFund — Runtime Secrets (sourced by deploy.sh and update.sh)
+# Generated : $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+# This file is the source of truth for ALL live config. It is NOT in git.
+# Edit a value here, then run update.sh (or push to main) to apply it.
+# After editing: bash ${REPO_DIR}/update.sh
+
+DOMAIN="${DOMAIN}"
+
+DB_NAME="${DB_NAME}"
+DB_USER="${DB_USER}"
+DB_PASS="${DB_PASS}"
+
+JWT_SECRET="${JWT_SECRET}"
+
+GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID}"
+GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET}"
+
+EMAIL_HOST="${EMAIL_HOST}"
+EMAIL_PORT="${EMAIL_PORT}"
+EMAIL_USERNAME="${EMAIL_USERNAME}"
+EMAIL_PASSWORD="${EMAIL_PASSWORD}"
+EMAIL_FROM="${EMAIL_FROM}"
+SECRETS
+    chmod 600 "${SECRETS_FILE}"
+    log "Secrets file written → ${SECRETS_FILE} (chmod 600)"
+fi
 
 # =============================================================================
 # SUMMARY
