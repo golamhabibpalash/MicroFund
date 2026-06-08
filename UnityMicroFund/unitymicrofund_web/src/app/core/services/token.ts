@@ -95,7 +95,10 @@ removeToken(): void {
 
   getUserImageUrl(): string | null {
     try {
-      return localStorage.getItem(this.userImageUrlKey);
+      const url = localStorage.getItem(this.userImageUrlKey);
+      // Legacy logins cached the static path (/assets/member/...), which nginx 404s.
+      // Rewrite to the API endpoint so the header avatar works without a re-login.
+      return url ? url.replace('/assets/member/', '/api/profile/image/') : url;
     } catch (e) {
       return null;
     }
