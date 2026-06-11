@@ -70,5 +70,8 @@ public class Transaction
 
     public DateTime? TransactionDate { get; set; }
 
+    [MaxLength(500)]
+    public string? RejectionReason { get; set; }
+
     public virtual ICollection<MemberTransactionMap> MemberTransactionMaps { get; set; } = new List<MemberTransactionMap>();
 }

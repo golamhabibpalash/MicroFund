@@ -47,6 +47,16 @@ public class UpdateTransactionDto
     public string? Remarks { get; set; }
 
     public Guid? AccountId { get; set; }
+
+    public string? TransactionDate { get; set; }
+
+    public string? ReceiptType { get; set; }
+
+    [MaxLength(200)]
+    public string? TransferFrom { get; set; }
+
+    [MaxLength(50)]
+    public string? ReferenceNumber { get; set; }
 }
 
 public class ApproveTransactionDto
@@ -84,6 +94,7 @@ public class TransactionResponseDto
     public string? ReceiptUrl { get; set; }
     public string? ReceiptType { get; set; }
     public DateTime? TransactionDate { get; set; }
+    public string? RejectionReason { get; set; }
 }
 
 public class TransactionFilterDto

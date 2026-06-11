@@ -7,7 +7,7 @@ public interface ITransactionService
     Task<IEnumerable<TransactionResponseDto>> GetTransactionsAsync(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false);
     Task<TransactionResponseDto?> GetTransactionByIdAsync(Guid id);
     Task<TransactionResponseDto> CreateTransactionAsync(CreateTransactionDto dto, Guid userId);
-    Task<TransactionResponseDto?> UpdateTransactionAsync(Guid id, UpdateTransactionDto dto);
+    Task<TransactionResponseDto?> UpdateTransactionAsync(Guid id, UpdateTransactionDto dto, Guid userId, bool isAdmin = false);
     Task<TransactionResponseDto?> ApproveTransactionAsync(Guid id, ApproveTransactionDto dto, Guid approvedByUserId);
     Task<bool> DeleteTransactionAsync(Guid id);
     Task<string> GenerateTransactionIdAsync();

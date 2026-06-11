@@ -378,9 +378,9 @@ public class TransactionService : ITransactionService
         return (await GetTransactionByIdAsync(transaction.Id))!;
     }
 
-    public async Task<TransactionResponseDto?> UpdateTransactionAsync(Guid id, UpdateTransactionDto dto)
+    public async Task<TransactionResponseDto?> UpdateTransactionAsync(Guid id, UpdateTransactionDto dto, Guid userId, bool isAdmin = false)
     {
-        var transaction = await _context.Transactions.FindAsync(id);
+        var transaction = await _context.Transactions.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id);
         if (transaction == null) return null;
 
         if (transaction.ApprovalStatus != TransactionApprovalStatus.Pending)
@@ -388,26 +388,57 @@ public class TransactionService : ITransactionService
             throw new InvalidOperationException("Cannot update a transaction that has already been processed");
         }
 
-        if (!string.IsNullOrWhiteSpace(dto.TransferTo)) transaction.TransferTo = dto.TransferTo;
-        if (dto.Amount.HasValue) transaction.Amount = dto.Amount.Value;
+        var isOwner = transaction.CreatedById == userId;
+        if (!isOwner && !isAdmin)
+        {
+            throw new UnauthorizedException("You can only edit your own pending transactions");
+        }
+
+        var oldValues = new
+        {
+            transaction.TransferTo,
+            transaction.Amount,
+            transaction.Status,
+            transaction.Remarks,
+            transaction.AccountId,
+            transaction.ReceiptType,
+            transaction.TransferFrom,
+            transaction.TransactionDate,
+            transaction.TransactionId
+        };
+
+        var tx = await _context.Transactions.FindAsync(id);
+
+        if (!string.IsNullOrWhiteSpace(dto.TransferTo)) tx!.TransferTo = dto.TransferTo;
+        if (dto.Amount.HasValue) tx!.Amount = dto.Amount.Value;
         if (!string.IsNullOrWhiteSpace(dto.Status) && Enum.TryParse<TransactionStatus>(dto.Status, true, out var status))
         {
-            transaction.Status = status;
+            tx!.Status = status;
         }
-        if (dto.Remarks != null) transaction.Remarks = dto.Remarks;
-        if (dto.AccountId.HasValue) transaction.AccountId = dto.AccountId.Value;
+        if (dto.Remarks != null) tx!.Remarks = dto.Remarks;
+        if (dto.AccountId.HasValue) tx!.AccountId = dto.AccountId.Value;
+        if (!string.IsNullOrWhiteSpace(dto.ReceiptType)) tx!.ReceiptType = dto.ReceiptType;
+        if (!string.IsNullOrWhiteSpace(dto.TransferFrom)) tx!.TransferFrom = dto.TransferFrom;
+        if (!string.IsNullOrWhiteSpace(dto.TransactionDate) && DateTime.TryParse(dto.TransactionDate, out var parsedDate))
+        {
+            tx!.TransactionDate = parsedDate;
+        }
+        if (!string.IsNullOrWhiteSpace(dto.ReferenceNumber))
+        {
+            tx!.TransactionId = dto.ReferenceNumber;
+        }
 
-        transaction.UpdatedAt = DateTime.UtcNow;
+        tx!.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
 
-        await _auditService.LogAsync("Transaction", "UPDATE", null, new
+        await _auditService.LogAsync("Transaction", "UPDATE", oldValues, new
         {
-            transaction.Id,
-            transaction.TransactionId,
-            transaction.Amount,
-            transaction.Status,
-            transaction.TransferTo
+            tx.Id,
+            tx.TransactionId,
+            tx.Amount,
+            tx.Status,
+            tx.TransferTo
         });
 
         return await GetTransactionByIdAsync(id);
@@ -443,6 +474,8 @@ public class TransactionService : ITransactionService
             throw new InvalidOperationException("You cannot approve your own transaction. Please ask another admin to approve.");
         }
 
+        var oldApprovalStatus = transaction.ApprovalStatus;
+
         transaction.ApprovalStatus = dto.IsApproved ? TransactionApprovalStatus.Approved : TransactionApprovalStatus.Rejected;
         transaction.ApprovedBy = approvedByUserId;
         transaction.ApprovedAt = DateTime.UtcNow;
@@ -451,6 +484,11 @@ public class TransactionService : ITransactionService
             transaction.Remarks = string.IsNullOrWhiteSpace(transaction.Remarks)
                 ? dto.Remarks
                 : $"{transaction.Remarks}\n{dto.Remarks}";
+        }
+
+        if (!dto.IsApproved && !string.IsNullOrWhiteSpace(dto.Remarks))
+        {
+            transaction.RejectionReason = dto.Remarks;
         }
 
         if (dto.IsApproved && transaction.Account != null)
@@ -470,11 +508,14 @@ public class TransactionService : ITransactionService
 
         await _context.SaveChangesAsync();
 
-        await _auditService.LogAsync("Transaction", dto.IsApproved ? "APPROVE" : "REJECT", null, new
+        await _auditService.LogAsync("Transaction", dto.IsApproved ? "APPROVE" : "REJECT", new
+        {
+            ApprovalStatus = oldApprovalStatus.ToString()
+        }, new
         {
             transaction.Id,
             transaction.TransactionId,
-            transaction.ApprovalStatus,
+            NewApprovalStatus = transaction.ApprovalStatus.ToString(),
             ApprovedBy = approvedByUserId
         });
 
@@ -589,7 +630,8 @@ public class TransactionService : ITransactionService
             UpdatedAt = t.UpdatedAt,
             ReceiptUrl = t.ReceiptUrl,
             ReceiptType = t.ReceiptType,
-            TransactionDate = t.TransactionDate
+            TransactionDate = t.TransactionDate,
+            RejectionReason = t.RejectionReason
         };
     }
 }

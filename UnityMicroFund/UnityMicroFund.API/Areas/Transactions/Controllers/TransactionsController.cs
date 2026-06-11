@@ -74,7 +74,12 @@ public class TransactionsController : ControllerBase
     {
         try
         {
-            var transaction = await _transactionService.UpdateTransactionAsync(id, dto);
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Guid.Empty.ToString());
+            var userRole = User.FindFirstValue(ClaimTypes.Role) ?? User.FindFirstValue("role") ?? string.Empty;
+            var isAdminOrManager = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) ||
+                                  userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+
+            var transaction = await _transactionService.UpdateTransactionAsync(id, dto, userId, isAdminOrManager);
             if (transaction == null)
             {
                 return NotFound(new { message = "Transaction not found" });
@@ -84,6 +89,10 @@ public class TransactionsController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
+        }
+        catch (UnauthorizedException ex)
+        {
+            return StatusCode(403, new { message = ex.Message });
         }
     }
 

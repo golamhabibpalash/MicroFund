@@ -55,6 +55,7 @@ export interface Transaction {
   receiptUrl?: string;
   receiptType?: string;
   transactionDate?: string;
+  rejectionReason?: string;
 }
 
 export interface CreateTransactionRequest {
@@ -74,6 +75,18 @@ export interface ReceiptType {
   id: string;
   name: string;
   icon: string;
+}
+
+export interface UpdateTransactionRequest {
+  transferTo?: string;
+  amount?: number;
+  status?: 'Fund' | 'Refund';
+  remarks?: string;
+  accountId?: string;
+  receiptType?: string;
+  transferFrom?: string;
+  transactionDate?: string;
+  referenceNumber?: string;
 }
 
 export interface TransactionSummary {
@@ -123,6 +136,10 @@ export class TransactionService {
       isApproved,
       remarks,
     });
+  }
+
+  updateTransaction(id: string, data: UpdateTransactionRequest): Observable<Transaction> {
+    return this.http.put<Transaction>(`${this.apiUrl}/${id}`, data);
   }
 
   deleteTransaction(id: string): Observable<void> {

@@ -190,17 +190,22 @@ interface Member {
                 </td>
                 <td class="cell-date">{{ tx.createdAt | date:'MMM d, yyyy' }}</td>
                 <td class="cell-actions">
-                  <button *ngIf="tx.approvalStatus === 'Pending'" 
-                          class="btn-icon btn-icon-approve" 
-                          (click)="openApproveModal(tx)"
-                          title="Approve / Reject">
-                    <span class="material-icons">gavel</span>
-                  </button>
-                  <button *ngIf="tx.approvalStatus !== 'Pending'"
-                          class="btn-icon btn-icon-view"
+                  <button class="btn-icon btn-icon-view"
                           (click)="viewTransaction(tx)"
                           title="View Details">
                     <span class="material-icons">visibility</span>
+                  </button>
+                  <button *ngIf="tx.approvalStatus === 'Pending' && (isAdmin || tx.createdById === currentUserId)"
+                          class="btn-icon btn-icon-edit"
+                          (click)="openEditModal(tx)"
+                          title="Edit Transaction">
+                    <span class="material-icons">edit</span>
+                  </button>
+                  <button *ngIf="tx.approvalStatus === 'Pending' && isAdmin"
+                          class="btn-icon btn-icon-approve"
+                          (click)="openApproveModal(tx)"
+                          title="Approve / Reject">
+                    <span class="material-icons">gavel</span>
                   </button>
                 </td>
               </tr>
@@ -256,7 +261,7 @@ interface Member {
     <div class="modal-overlay" *ngIf="showModal" (click)="closeModal()">
       <div class="modal-content modal-large" (click)="$event.stopPropagation()">
         <div class="modal-header">
-          <h3>Create New Transaction</h3>
+          <h3>{{ isEditing ? 'Edit Transaction' : 'Create New Transaction' }}</h3>
           <button class="close-btn" (click)="closeModal()">
             <span class="material-icons">close</span>
           </button>
@@ -315,16 +320,17 @@ interface Member {
           </div>
 
           <!-- Form Section -->
-          <form (ngSubmit)="createTransaction()" class="transaction-form">
+          <form (ngSubmit)="isEditing ? updateTransaction() : createTransaction()" class="transaction-form">
             <div class="form-row">
               <div class="form-group">
-                <label for="transactionId">Transaction ID</label>
+                <label for="transactionId">Reference Number</label>
                 <input type="text" id="transactionId" [(ngModel)]="transactionId" name="transactionId" 
-                       [placeholder]="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' || selectedReceiptType === 'PBL' ? 'From receipt' : 'Auto-generated'" />
-                <small class="hint" *ngIf="selectedReceiptType === 'DBBL'">DBBL Transaction ID from receipt</small>
-                <small class="hint" *ngIf="selectedReceiptType === 'UCB'">UCB Transaction ID from receipt</small>
-                <small class="hint" *ngIf="selectedReceiptType === 'EBL'">EBL Transaction ID from receipt</small>
-                <small class="hint" *ngIf="selectedReceiptType === 'PBL'">PBL Transaction ID from receipt</small>
+                       [placeholder]="isEditing ? 'Edit reference number' : (selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' || selectedReceiptType === 'PBL' ? 'From receipt' : 'Auto-generated')" />
+                <small class="hint" *ngIf="isEditing">Update the transaction reference number</small>
+                <small class="hint" *ngIf="!isEditing && selectedReceiptType === 'DBBL'">DBBL Transaction ID from receipt</small>
+                <small class="hint" *ngIf="!isEditing && selectedReceiptType === 'UCB'">UCB Transaction ID from receipt</small>
+                <small class="hint" *ngIf="!isEditing && selectedReceiptType === 'EBL'">EBL Transaction ID from receipt</small>
+                <small class="hint" *ngIf="!isEditing && selectedReceiptType === 'PBL'">PBL Transaction ID from receipt</small>
               </div>
               <div class="form-group">
                 <label for="transactionDate">Transaction Date</label>
@@ -397,7 +403,7 @@ interface Member {
             <div class="form-actions">
               <button type="button" class="btn-secondary" (click)="closeModal()">Cancel</button>
               <button type="submit" class="btn-primary" [disabled]="isSubmitting">
-                {{ isSubmitting ? 'Creating...' : 'Create Transaction' }}
+                {{ isSubmitting ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update Transaction' : 'Create Transaction') }}
               </button>
             </div>
           </form>
@@ -534,6 +540,10 @@ interface Member {
               <span class="label">Created At:</span>
               <span class="value">{{ selectedTransaction.createdAt | date:'medium' }}</span>
             </div>
+            <div class="detail-row" *ngIf="selectedTransaction.updatedAt !== selectedTransaction.createdAt">
+              <span class="label">Last Updated:</span>
+              <span class="value">{{ selectedTransaction.updatedAt | date:'medium' }}</span>
+            </div>
             <div class="detail-row" *ngIf="selectedTransaction.approvedByName">
               <span class="label">Approved By:</span>
               <span class="value">{{ selectedTransaction.approvedByName }}</span>
@@ -545,6 +555,10 @@ interface Member {
             <div class="detail-row" *ngIf="selectedTransaction.remarks">
               <span class="label">Remarks:</span>
               <span class="value">{{ selectedTransaction.remarks }}</span>
+            </div>
+            <div class="detail-row" *ngIf="selectedTransaction.rejectionReason">
+              <span class="label">Rejection Reason:</span>
+              <span class="value rejection-reason">{{ selectedTransaction.rejectionReason }}</span>
             </div>
           </div>
         </div>
@@ -1067,6 +1081,14 @@ interface Member {
       white-space: nowrap;
     }
 
+    .rejection-reason {
+      color: var(--color-error) !important;
+      background: var(--color-error-bg);
+      padding: 0.5rem 0.75rem;
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+    }
+
     /* Icon buttons */
     .btn-icon {
       display: inline-flex;
@@ -1089,6 +1111,12 @@ interface Member {
     .btn-icon-approve:hover {
       background: var(--color-accent-subtle);
     }
+    .btn-icon-edit {
+      color: var(--color-warning);
+    }
+    .btn-icon-edit:hover {
+      background: var(--color-warning-bg);
+    }
     .btn-icon-view {
       color: var(--text-muted);
     }
@@ -1102,6 +1130,147 @@ interface Member {
       font-size: 14px !important;
       vertical-align: middle;
       margin-left: 2px;
+    }
+
+    /* View / Approve Modal */
+    .modal-body {
+      padding: var(--space-6);
+    }
+
+    .detail-row {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      padding: var(--space-2) 0;
+      border-bottom: 1px solid var(--color-divider);
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .label {
+        min-width: 140px;
+        font-size: var(--text-sm);
+        font-weight: 500;
+        color: var(--text-muted);
+        flex-shrink: 0;
+      }
+
+      .value {
+        font-size: var(--text-sm);
+        color: var(--text-primary);
+        word-break: break-word;
+
+        &.amount {
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+      }
+    }
+
+    .tx-type {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: var(--text-xs);
+      font-weight: 600;
+
+      &.fund {
+        background: var(--color-success-bg);
+        color: var(--color-success);
+      }
+
+      &.refund {
+        background: var(--color-error-bg);
+        color: var(--color-error);
+      }
+    }
+
+    .modal-body .form-group {
+      margin-top: var(--space-4);
+
+      label {
+        display: block;
+        font-size: var(--text-sm);
+        font-weight: 500;
+        color: var(--text-secondary);
+        margin-bottom: var(--space-1-5);
+      }
+
+      textarea {
+        width: 100%;
+        padding: 0.625rem 0.75rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        font-size: var(--text-sm);
+        color: var(--text-primary);
+        background: var(--color-surface);
+        resize: vertical;
+        font-family: inherit;
+        outline: none;
+        box-sizing: border-box;
+        transition: border-color var(--transition-fast);
+
+        &:focus {
+          border-color: var(--color-accent);
+          box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.12);
+        }
+      }
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-6);
+      border-top: 1px solid var(--color-divider);
+    }
+
+    .btn-reject {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0.5rem 1.25rem;
+      background: var(--color-surface);
+      color: var(--color-error);
+      border: 1px solid var(--color-error);
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+
+      .material-icons {
+        font-size: 18px;
+      }
+
+      &:hover {
+        background: var(--color-error-bg);
+      }
+    }
+
+    .btn-approve-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0.5rem 1.25rem;
+      background: var(--color-accent);
+      color: white;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: var(--text-sm);
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity var(--transition-fast);
+
+      .material-icons {
+        font-size: 18px;
+      }
+
+      &:hover {
+        opacity: 0.9;
+      }
     }
 
     /* Create Transaction Modal */
@@ -1469,6 +1638,9 @@ export class PaymentsComponent implements OnInit {
   receiptFile: File | null = null;
   transactionDate = '';
   transactionId = '';
+
+  isEditing = false;
+  editTransactionId = '';
   
   newTransaction: CreateTransactionRequest = {
     transferTo: '',
@@ -1500,6 +1672,7 @@ export class PaymentsComponent implements OnInit {
 
   private searchSubject = new Subject<void>();
   isAdmin = false;
+  currentUserId = '';
   loggedInMemberId = '';
   loggedInMemberName = '';
   memberLoadFailed = false;
@@ -1540,6 +1713,7 @@ export class PaymentsComponent implements OnInit {
 
   private initializeUser() {
     this.isAdmin = this.userService.isAdmin();
+    this.currentUserId = this.userService.getUserId() || '';
     
     if (!this.isAdmin) {
       this.loadCurrentUserMember();
@@ -1839,6 +2013,8 @@ export class PaymentsComponent implements OnInit {
 
   closeModal() {
     this.showModal = false;
+    this.isEditing = false;
+    this.editTransactionId = '';
     this.resetForm();
     this.resetOcrState();
   }
@@ -2006,13 +2182,23 @@ export class PaymentsComponent implements OnInit {
       next: () => {
         this.isUploading = false;
         this.isSubmitting = false;
-        this.handleTransactionSuccess();
+        if (this.isEditing) {
+          this.handleUpdateSuccess();
+        } else {
+          this.handleTransactionSuccess();
+        }
       },
       error: () => {
         this.isUploading = false;
         this.isSubmitting = false;
-        this.toastService.warning('Transaction created but failed to upload receipt.');
-        this.handleTransactionSuccess();
+        this.toastService.warning(this.isEditing
+          ? 'Transaction updated but failed to upload receipt.'
+          : 'Transaction created but failed to upload receipt.');
+        if (this.isEditing) {
+          this.handleUpdateSuccess();
+        } else {
+          this.handleTransactionSuccess();
+        }
       }
     });
   }
@@ -2023,6 +2209,54 @@ export class PaymentsComponent implements OnInit {
     this.resetForm();
     this.resetOcrState();
     this.cdr.detectChanges();
+    this.loadTransactions();
+  }
+
+  updateTransaction() {
+    const t = this.newTransaction;
+
+    if (!t.transferTo) { this.toastService.warning('Please enter Transfer To'); return; }
+    if (!t.amount || t.amount <= 0) { this.toastService.warning('Please enter a valid Amount greater than 0'); return; }
+
+    const receiptType = this.selectedReceiptType;
+    const requiresAccount = receiptType === 'DBBL' || receiptType === 'UCB' || receiptType === 'EBL' || receiptType === 'PBL';
+    if (requiresAccount && !t.accountId) { this.toastService.warning('Please select an Account'); return; }
+
+    const updateData = {
+      transferTo: t.transferTo,
+      amount: t.amount,
+      status: t.status,
+      remarks: t.remarks || undefined,
+      accountId: t.accountId || undefined,
+      receiptType: t.receiptType || undefined,
+      transferFrom: t.transferFrom || undefined,
+      transactionDate: this.transactionDate || undefined,
+      referenceNumber: this.transactionId || undefined
+    };
+
+    this.isSubmitting = true;
+    this.transactionService.updateTransaction(this.editTransactionId, updateData).subscribe({
+      next: (transaction) => {
+        if (this.receiptFile) {
+          this.uploadReceipt(transaction.id, this.receiptFile);
+        } else {
+          this.isSubmitting = false;
+          this.handleUpdateSuccess();
+        }
+      },
+      error: (err: any) => {
+        this.isSubmitting = false;
+        const errorMessage = err.error?.message || 'Failed to update transaction. Please try again.';
+        this.toastService.error(errorMessage);
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  private handleUpdateSuccess() {
+    this.isSubmitting = false;
+    this.toastService.success('Transaction updated successfully!');
+    this.closeModal();
     this.loadTransactions();
   }
 
@@ -2046,6 +2280,25 @@ export class PaymentsComponent implements OnInit {
   closeViewModal() {
     this.showViewModal = false;
     this.selectedTransaction = null;
+  }
+
+  openEditModal(transaction: Transaction) {
+    this.isEditing = true;
+    this.editTransactionId = transaction.id;
+    this.newTransaction = {
+      transferTo: transaction.transferTo,
+      amount: transaction.amount,
+      status: transaction.status,
+      remarks: transaction.remarks || '',
+      accountId: transaction.accountId || '',
+      receiptType: transaction.receiptType || '',
+      transferFrom: transaction.transferFrom || '',
+      memberId: transaction.memberId || ''
+    };
+    this.transactionId = transaction.transactionId;
+    this.transactionDate = transaction.transactionDate || '';
+    this.selectedReceiptType = transaction.receiptType || '';
+    this.showModal = true;
   }
 
   approveTransaction() {
