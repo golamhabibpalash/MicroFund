@@ -22,6 +22,7 @@ using UnityMicroFund.API.Infrastructure.Sms;
 using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Infrastructure.Configuration;
 using UnityMicroFund.API.Infrastructure.ExceptionHandling;
+using UnityMicroFund.API.Infrastructure.Helpers;
 using UnityMicroFund.API.Infrastructure.Logging;
 using UnityMicroFund.API.Infrastructure.Middleware;
 using UnityMicroFund.API.Areas.Logging.CQRS;
@@ -120,6 +121,8 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+        options.JsonSerializerOptions.Converters.Add(new UtcDateTimeConverter());
+        options.JsonSerializerOptions.Converters.Add(new NullableUtcDateTimeConverter());
     });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -185,7 +188,13 @@ builder.Services.AddScoped<ICommandHandler<CreateLogEntryCommand, Guid>, CreateL
 builder.Services.AddScoped<IQueryHandler<GetLogsQuery, PagedResult<LogEntryDto>>, GetLogsHandler>();
 builder.Services.AddScoped<ILogManager, LogManager>();
 
-builder.Services.AddSignalR();
+// SignalR uses its own JSON protocol and does not inherit the MVC JsonOptions above.
+builder.Services.AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.Converters.Add(new UtcDateTimeConverter());
+        options.PayloadSerializerOptions.Converters.Add(new NullableUtcDateTimeConverter());
+    });
 
 var app = builder.Build();
 
