@@ -9,6 +9,7 @@ import { Subscription } from 'rxjs';
 import { NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
+import { TimeAgoPipe } from '../shared/pipes/time-ago.pipe';
 
 interface DashboardStats {
   totalPoolAmount: number;
@@ -222,7 +223,7 @@ interface MonthlyTrend {
                     </div>
                     <div class="activity-detail">
                       <span class="activity-desc">{{ activity.description }}</span>
-                      <span class="activity-time">{{ getTimeAgo(activity.date) }}</span>
+                      <span class="activity-time">{{ activity.date | timeAgo }}</span>
                     </div>
                   </div>
                 </div>
@@ -252,7 +253,7 @@ interface MonthlyTrend {
                     <span class="investor-name">{{ investor.memberName }}</span>
                     <div class="investor-meta">
                       <span class="investor-transactions">{{ investor.transactionCount }} transactions</span>
-                      <span class="investor-latest-date">{{ getTimeAgo(investor.latestDate) }}</span>
+                      <span class="investor-latest-date">{{ investor.latestDate | timeAgo }}</span>
                     </div>
                   </div>
                   <div class="investor-amount">
@@ -457,7 +458,7 @@ interface MonthlyTrend {
     }
   `],
   standalone: true,
-  imports: [CommonModule, RouterModule, BaseChartDirective, BdtCurrencyPipe],
+  imports: [CommonModule, RouterModule, BaseChartDirective, BdtCurrencyPipe, TimeAgoPipe],
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   userName: string = '';
@@ -618,21 +619,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   getInitials(name: string): string {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-  }
-
-  getTimeAgo(dateStr: string): string {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
   }
 
   getActivityTypeClass(type: string): string {

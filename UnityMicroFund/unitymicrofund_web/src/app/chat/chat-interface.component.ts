@@ -7,6 +7,7 @@ import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import { ChatService, ChatRoom, ChatMessage, Member } from '../core/services/chat.service';
 import { Token } from '../core/services/token';
+import { TimeAgoPipe } from '../shared/pipes/time-ago.pipe';
 
 interface IncomingNotification {
   senderName: string;
@@ -17,7 +18,7 @@ interface IncomingNotification {
 @Component({
   selector: 'app-chat-interface',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TimeAgoPipe],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <div class="chat-wrapper">
@@ -130,7 +131,7 @@ interface IncomingNotification {
                 <div class="room-info">
                   <div class="room-name-row">
                     <span class="room-name">{{ room.name }}</span>
-                    <span class="room-time" *ngIf="room.lastMessage">{{ formatTime(room.lastMessage.createdAt) }}</span>
+                    <span class="room-time" *ngIf="room.lastMessage">{{ room.lastMessage.createdAt | timeAgo:true }}</span>
                   </div>
                   <span class="room-preview" *ngIf="room.lastMessage">{{ room.lastMessage.content }}</span>
                   <span class="room-type-label" *ngIf="!room.lastMessage">
@@ -183,7 +184,7 @@ interface IncomingNotification {
                   <div class="message-bubble">
                     <span class="msg-sender" *ngIf="msg.senderId !== currentMemberId">{{ msg.senderName }}</span>
                     <p class="msg-content">{{ msg.content }}</p>
-                    <span class="msg-time">{{ formatTime(msg.createdAt) }}</span>
+                    <span class="msg-time">{{ msg.createdAt | timeAgo:true }}</span>
                   </div>
                 </div>
               </div>
@@ -1162,20 +1163,6 @@ export class ChatInterfaceComponent implements OnInit, OnDestroy, AfterViewCheck
 
   getInitials(name: string): string {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-  }
-
-  formatTime(dateString: string): string {
-    const date = new Date(dateString);
-    const diffMs = Date.now() - date.getTime();
-    const mins = Math.floor(diffMs / 60000);
-    const hours = Math.floor(diffMs / 3600000);
-    const days = Math.floor(diffMs / 86400000);
-
-    if (mins < 1) return 'now';
-    if (mins < 60) return `${mins}m`;
-    if (hours < 24) return `${hours}h`;
-    if (days < 7) return `${days}d`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
   private scrollToBottom(): void {
