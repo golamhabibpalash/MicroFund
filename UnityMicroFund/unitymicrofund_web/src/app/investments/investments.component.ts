@@ -1,36 +1,20 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
+import { Subject, takeUntil } from 'rxjs';
 import { StatCardComponent } from '../shared/components/stat-card/stat-card.component';
 import { PageHeaderComponent } from '../shared/components/page-header/page-header.component';
-
-interface Investment {
-  id: string;
-  name: string;
-  description?: string;
-  type: string;
-  principalAmount: number;
-  currentValue: number;
-  returnAmount: number;
-  returnPercentage: number;
-  dateInvested: string;
-  createdAt: string;
-  members: MemberInvestment[];
-}
-
-interface MemberInvestment {
-  memberId: string;
-  memberName: string;
-  sharePercentage: number;
-  shareValue: number;
-}
+import { Investment, InvestmentService } from '../core/services/investment.service';
+import { ToastService } from '../core/services/toast.service';
+import { InvestmentFormComponent } from './investment-form.component';
+import { InvestmentManageComponent } from './investment-manage.component';
+import { UserService } from '../core/services/user';
 
 @Component({
   selector: 'app-investments',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, StatCardComponent, PageHeaderComponent, DatePipe],
+  imports: [CommonModule, FormsModule, RouterModule, StatCardComponent, PageHeaderComponent, DatePipe, InvestmentFormComponent, InvestmentManageComponent],
   template: `
     <div class="investments-wrapper">
       <app-page-header 
@@ -104,12 +88,24 @@ interface MemberInvestment {
           <div class="filter-group">
             <select [(ngModel)]="filterType" (change)="applyFilters()">
               <option value="">All Types</option>
-              <option value="Stock">Stock</option>
-              <option value="Bond">Bond</option>
+              <option value="Stocks">Stocks</option>
               <option value="RealEstate">Real Estate</option>
-              <option value="MutualFund">Mutual Fund</option>
-              <option value="FixedDeposit">Fixed Deposit</option>
+              <option value="Business">Business</option>
+              <option value="Savings">Savings</option>
               <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <select [(ngModel)]="filterStatus" (change)="applyFilters()">
+              <option value="">All Statuses</option>
+              <option value="Draft">Draft</option>
+              <option value="OpenForSubscription">Open for Subscription</option>
+              <option value="FullySubscribed">Fully Subscribed</option>
+              <option value="Active">Active</option>
+              <option value="Completed">Completed</option>
+              <option value="ProfitDistributed">Profit Distributed</option>
+              <option value="Closed">Closed</option>
+              <option value="Cancelled">Cancelled</option>
             </select>
           </div>
         </div>
@@ -140,8 +136,15 @@ interface MemberInvestment {
             </span>
           </div>
           <h3 class="investment-name">{{ investment.name }}</h3>
+          <div class="investment-meta">
+            <span class="status-pill" [ngClass]="statusClass(investment.status)">{{ investment.status }}</span>
+            <span class="meta-chip" *ngIf="investment.category">{{ investment.category }}</span>
+            <span class="meta-chip" *ngIf="investment.maturityDate">
+              Matures {{ investment.maturityDate | date:'mediumDate' }}
+            </span>
+          </div>
           <p class="investment-desc" *ngIf="investment.description">{{ investment.description }}</p>
-          
+
           <div class="investment-value">
             <div class="value-row">
               <span class="label">Principal</span>
@@ -188,6 +191,12 @@ interface MemberInvestment {
               <button class="btn-icon" (click)="editInvestment(investment)" title="Edit">
                 <span class="material-icons">edit</span>
               </button>
+              <button class="btn-icon" (click)="manageInvestment(investment)" title="Shares & lifecycle">
+                <span class="material-icons">tune</span>
+              </button>
+              <button class="btn-icon danger" (click)="confirmDelete(investment)" title="Delete">
+                <span class="material-icons">delete</span>
+              </button>
             </div>
           </div>
         </div>
@@ -211,6 +220,7 @@ interface MemberInvestment {
               <tr>
                 <th>Investment</th>
                 <th>Type</th>
+                <th>Status</th>
                 <th>Principal</th>
                 <th>Current Value</th>
                 <th>Returns</th>
@@ -228,6 +238,9 @@ interface MemberInvestment {
                 </td>
                 <td>
                   <span class="type-badge" [ngClass]="inv.type.toLowerCase()">{{ inv.type }}</span>
+                </td>
+                <td>
+                  <span class="status-pill" [ngClass]="statusClass(inv.status)">{{ inv.status }}</span>
                 </td>
                 <td class="currency">{{ formatCurrency(inv.principalAmount) }}</td>
                 <td class="currency">{{ formatCurrency(inv.currentValue) }}</td>
@@ -247,6 +260,12 @@ interface MemberInvestment {
                   </button>
                   <button class="btn-icon" (click)="editInvestment(inv)">
                     <span class="material-icons">edit</span>
+                  </button>
+                  <button class="btn-icon" (click)="manageInvestment(inv)" title="Shares & lifecycle">
+                    <span class="material-icons">tune</span>
+                  </button>
+                  <button class="btn-icon danger" (click)="confirmDelete(inv)">
+                    <span class="material-icons">delete</span>
                   </button>
                 </td>
               </tr>
@@ -332,6 +351,75 @@ interface MemberInvestment {
                 {{ selectedInvestment.returnPercentage >= 0 ? '+' : '' }}{{ selectedInvestment.returnPercentage.toFixed(2) }}%
               </span>
             </div>
+            <div class="detail-card">
+              <span class="detail-label">Status</span>
+              <span class="detail-value status-pill" [ngClass]="statusClass(selectedInvestment.status)">
+                {{ selectedInvestment.status }}
+              </span>
+            </div>
+            <div class="detail-card" *ngIf="selectedInvestment.category">
+              <span class="detail-label">Category</span>
+              <span class="detail-value">{{ selectedInvestment.category }}</span>
+            </div>
+            <div class="detail-card" *ngIf="selectedInvestment.maturityDate">
+              <span class="detail-label">Maturity Date</span>
+              <span class="detail-value">{{ selectedInvestment.maturityDate | date:'longDate' }}</span>
+            </div>
+            <div class="detail-card" *ngIf="selectedInvestment.durationMonths">
+              <span class="detail-label">Duration</span>
+              <span class="detail-value">{{ selectedInvestment.durationMonths }} months</span>
+            </div>
+            <div class="detail-card" *ngIf="selectedInvestment.totalShares">
+              <span class="detail-label">Shares</span>
+              <span class="detail-value">
+                {{ selectedInvestment.totalShares }} &times; {{ formatCurrency(selectedInvestment.sharePrice || 0) }}
+              </span>
+            </div>
+            <div class="detail-card" *ngIf="selectedInvestment.certificateNumber">
+              <span class="detail-label">Certificate No.</span>
+              <span class="detail-value">{{ selectedInvestment.certificateNumber }}</span>
+            </div>
+            <div class="detail-card" *ngIf="selectedInvestment.referenceNumber">
+              <span class="detail-label">Reference No.</span>
+              <span class="detail-value">{{ selectedInvestment.referenceNumber }}</span>
+            </div>
+          </div>
+
+          <div class="members-section" *ngIf="selectedInvestment.partners?.length">
+            <h4>Partners ({{ selectedInvestment.partners.length }})</h4>
+            <div class="members-list">
+              <div class="member-item partner-item" *ngFor="let p of selectedInvestment.partners">
+                <div class="member-avatar">{{ getInitials(p.partnerName) }}</div>
+                <div class="member-info">
+                  <span class="member-name">{{ p.partnerName }}</span>
+                  <span class="member-share">
+                    {{ p.phone1 }}<span *ngIf="p.email"> &middot; {{ p.email }}</span>
+                  </span>
+                  <span class="member-share" *ngIf="p.nomineeName">
+                    Nominee: {{ p.nomineeName }}<span *ngIf="p.nomineeRelationship"> ({{ p.nomineeRelationship }})</span>
+                  </span>
+                </div>
+                <span class="meta-chip" *ngIf="p.memberId">Member</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="members-section" *ngIf="selectedInvestment.documents?.length">
+            <h4>Documents ({{ selectedInvestment.documents.length }})</h4>
+            <div class="members-list">
+              <a
+                class="member-item document-item"
+                *ngFor="let d of selectedInvestment.documents"
+                [href]="d.fileUrl"
+                target="_blank"
+                rel="noopener">
+                <span class="material-icons">description</span>
+                <div class="member-info">
+                  <span class="member-name">{{ d.fileName }}</span>
+                  <span class="member-share">{{ (d.fileSizeBytes / 1024) | number:'1.0-0' }} KB</span>
+                </div>
+              </a>
+            </div>
           </div>
           <div class="description-section" *ngIf="selectedInvestment.description">
             <h4>Description</h4>
@@ -353,8 +441,79 @@ interface MemberInvestment {
         </div>
       </div>
     </div>
+
+    <!-- Create / Edit Form -->
+    <app-investment-form
+      *ngIf="showForm"
+      [investment]="editingInvestment"
+      (saved)="onFormSaved()"
+      (cancelled)="onFormCancelled()">
+    </app-investment-form>
+
+    <!-- Shares & Lifecycle -->
+    <app-investment-manage
+      *ngIf="managing"
+      [investment]="managing"
+      [isAdmin]="isAdmin"
+      (changed)="loadInvestments()"
+      (closed)="managing = null">
+    </app-investment-manage>
+
+    <!-- Delete Confirmation -->
+    <div class="modal-overlay" *ngIf="showDeleteModal" (click)="cancelDelete()">
+      <div class="modal-content delete-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Delete Investment</h3>
+          <button class="close-btn" (click)="cancelDelete()">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>Delete <strong>{{ deletingInvestment?.name }}</strong>?</p>
+          <p class="warning-text">
+            This also removes its partner records and supporting documents. This cannot be undone.
+          </p>
+        </div>
+        <div class="form-actions">
+          <button class="btn-secondary" (click)="cancelDelete()">Cancel</button>
+          <button class="btn-danger" (click)="deleteInvestment()" [disabled]="isDeleting">
+            {{ isDeleting ? 'Deleting...' : 'Delete' }}
+          </button>
+        </div>
+      </div>
+    </div>
   `,
   styles: [`
+    /* Delete confirmation modal */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: white; border-radius: 12px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+    .modal-content.delete-modal { max-width: 400px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #eee; }
+    .modal-header h3 { font-size: 18px; font-weight: 600; margin: 0; }
+    .close-btn { background: none; border: none; cursor: pointer; padding: 4px; color: #666; }
+    .modal-body { padding: 24px; }
+    .modal-body p { margin: 0 0 12px 0; color: #333; }
+    .warning-text { color: #e74c3c; font-size: 13px; }
+    .form-actions { display: flex; gap: 12px; justify-content: flex-end; padding: 0 24px 24px; }
+    .btn-secondary { padding: 12px 24px; background: #f5f6fa; color: #666; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; }
+    .btn-secondary:hover { background: #eee; }
+    .btn-danger { padding: 12px 24px; background: #e74c3c; color: white; border: none; border-radius: 8px; cursor: pointer; }
+    .btn-danger:hover:not(:disabled) { background: #c0392b; }
+    .btn-danger:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-icon.danger { color: #e74c3c; }
+
+    /* Status pill */
+    .investment-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .meta-chip { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 500; background: #f1f3f9; color: #555; }
+    .status-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+    .status-active { background: #e8f5e9; color: #2e7d32; }
+    .status-matured { background: #e3f2fd; color: #1565c0; }
+    .status-closed { background: #eceff1; color: #546e7a; }
+    .status-suspended { background: #fff3e0; color: #ef6c00; }
+    .partner-item .member-info { gap: 2px; }
+    .document-item { text-decoration: none; color: inherit; }
+    .document-item:hover .member-name { color: #667eea; }
+
     .investments-wrapper { max-width: 1600px; margin: 0 auto; padding: 24px; box-sizing: border-box; }
     
     /* Stats */
@@ -530,15 +689,28 @@ interface MemberInvestment {
     }
   `]
 })
-export class InvestmentsComponent implements OnInit {
+export class InvestmentsComponent implements OnInit, OnDestroy {
   investments: Investment[] = [];
   filteredInvestments: Investment[] = [];
   viewMode: 'grid' | 'table' | 'chart' = 'grid';
   filterType = '';
+  filterStatus = '';
   searchTerm = '';
   isLoading = false;
   showViewModal = false;
   selectedInvestment: Investment | null = null;
+
+  showForm = false;
+  editingInvestment: Investment | null = null;
+
+  managing: Investment | null = null;
+  isAdmin = false;
+
+  showDeleteModal = false;
+  deletingInvestment: Investment | null = null;
+  isDeleting = false;
+
+  private destroy$ = new Subject<void>();
 
   Math = Math;
 
@@ -584,39 +756,55 @@ export class InvestmentsComponent implements OnInit {
   }
 
   constructor(
-    private http: HttpClient,
+    private investmentService: InvestmentService,
+    private toast: ToastService,
+    private userService: UserService,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
+    const role = this.userService.getRole();
+    this.isAdmin = role === 'Admin' || role === 'Manager';
     this.loadInvestments();
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   loadInvestments() {
     this.isLoading = true;
-    this.http.get<Investment[]>('/api/investments').subscribe({
-      next: (data) => {
-        this.investments = data || [];
-        this.applyFilters();
-        this.isLoading = false;
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.investments = [];
-        this.filteredInvestments = [];
-        this.isLoading = false;
-        this.cdr.detectChanges();
-      }
-    });
+    this.investmentService
+      .getInvestments()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data) => {
+          this.investments = data || [];
+          this.applyFilters();
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.investments = [];
+          this.filteredInvestments = [];
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        }
+      });
   }
 
   applyFilters() {
     let data = [...this.investments];
-    
+
     if (this.filterType) {
       data = data.filter(inv => inv.type === this.filterType);
     }
-    
+
+    if (this.filterStatus) {
+      data = data.filter(inv => inv.status === this.filterStatus);
+    }
+
     if (this.searchTerm) {
       const term = this.searchTerm.toLowerCase();
       data = data.filter(inv => 
@@ -634,12 +822,12 @@ export class InvestmentsComponent implements OnInit {
   }
 
   getTypeIcon(type: string): string {
+    // Keys must match the InvestmentType enum exactly.
     const icons: { [key: string]: string } = {
-      'Stock': 'show_chart',
-      'Bond': 'account_balance',
+      'Stocks': 'show_chart',
       'RealEstate': 'home',
-      'MutualFund': 'pie_chart',
-      'FixedDeposit': 'savings',
+      'Business': 'storefront',
+      'Savings': 'savings',
       'Other': 'category'
     };
     return icons[type] || 'category';
@@ -649,9 +837,23 @@ export class InvestmentsComponent implements OnInit {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   }
 
+  manageInvestment(investment: Investment) {
+    // Re-fetch so the panel opens with current share counts and settlement state.
+    this.investmentService
+      .getInvestment(investment.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: full => {
+          this.managing = full;
+          this.cdr.detectChanges();
+        },
+        error: () => this.toast.error('Could not load the investment.'),
+      });
+  }
+
   openCreateModal() {
-    // TODO: Implement create modal
-    alert('Create investment modal - to be implemented');
+    this.editingInvestment = null;
+    this.showForm = true;
   }
 
   viewInvestment(investment: Investment) {
@@ -665,7 +867,66 @@ export class InvestmentsComponent implements OnInit {
   }
 
   editInvestment(investment: Investment) {
-    // TODO: Implement edit modal
-    alert('Edit investment modal - to be implemented');
+    // Re-fetch so the form gets partners and documents, which the list view
+    // does not need to render and may not have kept current.
+    this.investmentService
+      .getInvestment(investment.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: full => {
+          this.editingInvestment = full;
+          this.showForm = true;
+          this.cdr.detectChanges();
+        },
+        error: () => this.toast.error('Could not load the investment.'),
+      });
+  }
+
+  onFormSaved() {
+    this.showForm = false;
+    this.editingInvestment = null;
+    this.loadInvestments();
+  }
+
+  onFormCancelled() {
+    this.showForm = false;
+    this.editingInvestment = null;
+  }
+
+  confirmDelete(investment: Investment) {
+    this.deletingInvestment = investment;
+    this.showDeleteModal = true;
+  }
+
+  cancelDelete() {
+    this.showDeleteModal = false;
+    this.deletingInvestment = null;
+  }
+
+  deleteInvestment() {
+    if (!this.deletingInvestment) return;
+
+    this.isDeleting = true;
+    this.investmentService
+      .deleteInvestment(this.deletingInvestment.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.isDeleting = false;
+          this.showDeleteModal = false;
+          this.deletingInvestment = null;
+          this.toast.success('Investment deleted.');
+          this.loadInvestments();
+        },
+        error: err => {
+          this.isDeleting = false;
+          this.toast.error(err?.error?.message || 'Could not delete the investment.');
+          this.cdr.detectChanges();
+        },
+      });
+  }
+
+  statusClass(status: string): string {
+    return `status-${status.toLowerCase()}`;
   }
 }

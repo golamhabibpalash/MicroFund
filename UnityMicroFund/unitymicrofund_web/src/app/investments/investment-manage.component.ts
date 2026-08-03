@@ -1,0 +1,493 @@
+import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Subject, takeUntil } from 'rxjs';
+import {
+  INVESTMENT_STATUS_LABELS,
+  Investment,
+  InvestmentService,
+  InvestmentStatusName,
+  ProfitSettlement,
+  ShareSubscription,
+} from '../core/services/investment.service';
+import { ToastService } from '../core/services/toast.service';
+import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
+
+/**
+ * Subscription + lifecycle panel for one project: buy shares, drive the status
+ * machine, record completion, distribute profit and disburse.
+ */
+@Component({
+  selector: 'app-investment-manage',
+  standalone: true,
+  imports: [CommonModule, FormsModule, BdtCurrencyPipe],
+  template: `
+    <div class="modal-overlay" (click)="close()">
+      <div class="modal-content wide" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <div>
+            <h3>{{ investment.name }}</h3>
+            <span class="status-pill" [ngClass]="'status-' + investment.status.toLowerCase()">
+              {{ statusLabel(investment.status) }}
+            </span>
+          </div>
+          <button class="close-btn" type="button" (click)="close()">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Share availability (spec section 8) -->
+          <section class="block">
+            <h4>Share Availability</h4>
+            <div class="share-stats">
+              <div><span class="k">Total</span><span class="v">{{ investment.totalShares || 0 }}</span></div>
+              <div><span class="k">Sold</span><span class="v sold">{{ investment.soldShares }}</span></div>
+              <div><span class="k">Available</span><span class="v avail">{{ investment.remainingShares }}</span></div>
+              <div><span class="k">Share Price</span><span class="v">{{ investment.sharePrice || 0 | bdtCurrency }}</span></div>
+            </div>
+            <div class="progress">
+              <div class="bar" [style.width.%]="investment.subscriptionPercentage"></div>
+            </div>
+            <span class="progress-label">{{ investment.subscriptionPercentage | number: '1.1-1' }}% subscribed</span>
+          </section>
+
+          <!-- Buy shares -->
+          <section class="block" *ngIf="investment.status === 'OpenForSubscription'">
+            <h4>Buy Shares</h4>
+            <div class="buy-row">
+              <div class="field">
+                <label>Number of shares</label>
+                <input type="number" min="1" [max]="investment.remainingShares" [(ngModel)]="sharesToBuy" name="shares" />
+              </div>
+              <div class="field" *ngIf="isAdmin">
+                <label>On behalf of</label>
+                <select [(ngModel)]="onBehalfOfMemberId" name="member">
+                  <option [ngValue]="null">Myself</option>
+                  <option *ngFor="let b of balances" [ngValue]="b.memberId">
+                    {{ b.memberName }} ({{ b.balance | bdtCurrency }})
+                  </option>
+                </select>
+              </div>
+              <div class="cost">
+                <span class="k">Cost</span>
+                <span class="v">{{ (sharesToBuy || 0) * (investment.sharePrice || 0) | bdtCurrency }}</span>
+              </div>
+              <button class="btn-primary" (click)="buy()" [disabled]="isWorking || !sharesToBuy || sharesToBuy < 1">
+                <span class="material-icons">shopping_cart</span> Buy
+              </button>
+            </div>
+          </section>
+
+          <!-- Investors -->
+          <section class="block" *ngIf="subscriptions.length > 0">
+            <h4>Investors ({{ subscriptions.length }})</h4>
+            <table class="data-table">
+              <thead><tr><th>Investor</th><th>Shares</th><th>Ownership</th><th class="right">Paid</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr *ngFor="let s of subscriptions">
+                  <td><strong>{{ s.memberName }}</strong></td>
+                  <td>{{ s.sharesPurchased }}</td>
+                  <td>{{ s.ownershipPercentage | number: '1.2-2' }}%</td>
+                  <td class="right num">{{ s.amountPaid | bdtCurrency }}</td>
+                  <td><span class="pill">{{ s.status }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <!-- Admin lifecycle -->
+          <section class="block" *ngIf="isAdmin">
+            <h4>Lifecycle</h4>
+
+            <div class="actions" *ngIf="availableTransitions().length > 0">
+              <button
+                *ngFor="let t of availableTransitions()"
+                class="btn-secondary"
+                [disabled]="isWorking"
+                (click)="changeStatus(t)">
+                {{ statusLabel(t) }}
+              </button>
+            </div>
+            <p class="hint" *ngIf="investment.status === 'OpenForSubscription' && investment.remainingShares > 0">
+              All {{ investment.totalShares }} shares must be sold before the project can start
+              ({{ investment.remainingShares }} remaining).
+            </p>
+            <p class="hint" *ngIf="availableTransitions().length === 0 && investment.status !== 'Active' && investment.status !== 'Completed'">
+              No further status changes are available from {{ statusLabel(investment.status) }}.
+            </p>
+
+            <!-- Completion -->
+            <div class="sub-block" *ngIf="investment.status === 'Active'">
+              <h5>Record Completion</h5>
+              <div class="buy-row">
+                <div class="field">
+                  <label>Actual gross profit *</label>
+                  <input type="number" step="0.01" min="0" [(ngModel)]="actualGrossProfit" name="agp" />
+                </div>
+                <div class="field">
+                  <label>Completion date</label>
+                  <input type="date" [(ngModel)]="completionDate" name="cd" />
+                </div>
+                <button class="btn-primary" (click)="complete()" [disabled]="isWorking || actualGrossProfit === null">
+                  <span class="material-icons">task_alt</span> Complete
+                </button>
+              </div>
+              <div class="field">
+                <label>Closing notes</label>
+                <textarea rows="2" [(ngModel)]="closingNotes" name="notes"></textarea>
+              </div>
+            </div>
+
+            <!-- Distribution preview + action -->
+            <div class="sub-block" *ngIf="investment.status === 'Completed'">
+              <h5>Distribute Profit</h5>
+              <div class="calc">
+                <div><span class="k">Gross profit</span><span class="v">{{ investment.actualGrossProfit || 0 | bdtCurrency }}</span></div>
+                <div><span class="k">Operational fee ({{ investment.operationalExpensePercentage }}%)</span>
+                     <span class="v minus">− {{ estimatedFee() | bdtCurrency }}</span></div>
+                <div class="total"><span class="k">Net to investors</span><span class="v">{{ estimatedNet() | bdtCurrency }}</span></div>
+              </div>
+              <button class="btn-primary" (click)="distribute()" [disabled]="isWorking">
+                <span class="material-icons">paid</span> Distribute to {{ subscriptions.length }} investor(s)
+              </button>
+              <p class="hint">Principal and profit are credited to each investor's wallet. This cannot be undone.</p>
+            </div>
+          </section>
+
+          <!-- Settlement -->
+          <section class="block" *ngIf="settlement && settlement.distributions.length > 0">
+            <h4>Settlement</h4>
+            <div class="calc">
+              <div><span class="k">Gross profit</span><span class="v">{{ settlement.actualGrossProfit | bdtCurrency }}</span></div>
+              <div><span class="k">Operational fee ({{ settlement.operationalExpensePercentage }}%)</span>
+                   <span class="v minus">− {{ settlement.operationalExpenseAmount | bdtCurrency }}</span></div>
+              <div class="total"><span class="k">Net profit</span><span class="v">{{ settlement.netProfit | bdtCurrency }}</span></div>
+              <div *ngIf="settlement.undistributedRemainder > 0" class="remainder">
+                <span class="k">Rounding remainder retained</span>
+                <span class="v">{{ settlement.undistributedRemainder | bdtCurrency }}</span>
+              </div>
+            </div>
+
+            <table class="data-table">
+              <thead>
+                <tr><th>Investor</th><th>Shares</th><th class="right">Principal</th><th class="right">Profit</th><th class="right">Total Payable</th><th>Paid</th></tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let d of settlement.distributions">
+                  <td><strong>{{ d.memberName }}</strong></td>
+                  <td>{{ d.sharesOwned }} ({{ d.ownershipPercentage | number: '1.2-2' }}%)</td>
+                  <td class="right num">{{ d.principalAmount | bdtCurrency }}</td>
+                  <td class="right num profit">{{ d.profitAmount | bdtCurrency }}</td>
+                  <td class="right num"><strong>{{ d.totalPayable | bdtCurrency }}</strong></td>
+                  <td>
+                    <span class="pill paid" *ngIf="d.disbursedAt">Disbursed</span>
+                    <button class="btn-link" *ngIf="!d.disbursedAt && isAdmin" [disabled]="isWorking" (click)="disburse(d.memberId)">
+                      Disburse
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <button class="btn-primary" *ngIf="isAdmin && hasPending()" [disabled]="isWorking" (click)="disburse()">
+              <span class="material-icons">account_balance</span> Disburse all pending
+            </button>
+          </section>
+        </div>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .modal-content { background: white; border-radius: 12px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+    .modal-content.wide { max-width: 900px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 20px 24px; border-bottom: 1px solid #eee; position: sticky; top: 0; background: white; z-index: 1; }
+    .modal-header h3 { font-size: 18px; font-weight: 600; margin: 0 0 8px 0; }
+    .close-btn { background: none; border: none; cursor: pointer; padding: 4px; color: #666; }
+    .modal-body { padding: 24px; }
+    .block { margin-bottom: 26px; padding-bottom: 22px; border-bottom: 1px solid #eee; }
+    .block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .block h4 { font-size: 14px; font-weight: 600; color: #667eea; margin: 0 0 14px 0; text-transform: uppercase; }
+    .sub-block { margin-top: 18px; padding: 16px; background: #fbfbfd; border: 1px solid #eee; border-radius: 10px; }
+    .sub-block h5 { font-size: 13px; font-weight: 600; margin: 0 0 12px 0; color: #333; }
+
+    .share-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+    .share-stats > div, .cost { display: flex; flex-direction: column; gap: 3px; }
+    .k { font-size: 12px; color: #888; }
+    .v { font-size: 17px; font-weight: 600; color: #1a1a2e; }
+    .v.sold { color: #5e35b1; } .v.avail { color: #2e7d32; } .v.minus { color: #c62828; }
+    .progress { height: 8px; background: #eee; border-radius: 999px; overflow: hidden; }
+    .bar { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); transition: width .3s; }
+    .progress-label { font-size: 12px; color: #666; margin-top: 6px; display: inline-block; }
+
+    .buy-row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 12px; }
+    .field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 150px; }
+    .field label { font-size: 13px; font-weight: 500; color: #333; }
+    .field input, .field select, .field textarea { padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; width: 100%; }
+    .field input:focus, .field select:focus { outline: none; border-color: #667eea; }
+
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .hint { font-size: 12px; color: #888; margin: 10px 0 0 0; }
+
+    .calc { background: #fbfbfd; border: 1px solid #eee; border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+    .calc > div { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
+    .calc .total { border-top: 1px solid #ddd; margin-top: 6px; padding-top: 10px; font-weight: 600; }
+    .calc .remainder { border-top: 1px dashed #ddd; margin-top: 6px; padding-top: 8px; font-size: 12px; color: #888; }
+
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
+    .data-table th { text-align: left; padding: 9px 8px; border-bottom: 2px solid #eee; color: #666; font-weight: 500; font-size: 12px; }
+    .data-table td { padding: 10px 8px; border-bottom: 1px solid #f2f2f2; }
+    .data-table .right { text-align: right; }
+    .num { font-variant-numeric: tabular-nums; }
+    .profit { color: #2e7d32; }
+
+    .pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #eceff1; color: #546e7a; }
+    .pill.paid { background: #e8f5e9; color: #2e7d32; }
+    .status-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+    .status-draft { background: #eceff1; color: #546e7a; }
+    .status-openforsubscription { background: #e8f5e9; color: #2e7d32; }
+    .status-fullysubscribed { background: #e3f2fd; color: #1565c0; }
+    .status-active { background: #ede7f6; color: #5e35b1; }
+    .status-completed { background: #fff8e1; color: #f9a825; }
+    .status-profitdistributed { background: #e0f2f1; color: #00695c; }
+    .status-closed { background: #eceff1; color: #546e7a; }
+    .status-cancelled { background: #ffebee; color: #c62828; }
+
+    .btn-primary { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+    .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-secondary { padding: 9px 16px; background: #f5f6fa; color: #444; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 13px; }
+    .btn-secondary:hover:not(:disabled) { background: #eee; }
+    .btn-secondary:disabled { opacity: .6; cursor: not-allowed; }
+    .btn-link { background: none; border: none; color: #667eea; cursor: pointer; font-size: 13px; font-weight: 500; padding: 0; }
+    .material-icons { font-size: 18px; }
+
+    @media (max-width: 768px) { .share-stats { grid-template-columns: repeat(2, 1fr); } .buy-row { flex-direction: column; align-items: stretch; } }
+  `]
+})
+export class InvestmentManageComponent implements OnInit, OnDestroy {
+  @Input({ required: true }) investment!: Investment;
+  @Input() isAdmin = false;
+
+  @Output() changed = new EventEmitter<void>();
+  @Output() closed = new EventEmitter<void>();
+
+  subscriptions: ShareSubscription[] = [];
+  settlement: ProfitSettlement | null = null;
+  balances: { memberId: string; memberName: string; balance: number }[] = [];
+
+  sharesToBuy: number | null = null;
+  onBehalfOfMemberId: string | null = null;
+  actualGrossProfit: number | null = null;
+  completionDate = '';
+  closingNotes = '';
+  isWorking = false;
+
+  private destroy$ = new Subject<void>();
+
+  constructor(private service: InvestmentService, private toast: ToastService) {}
+
+  ngOnInit(): void {
+    this.loadSubscriptions();
+    if (this.investment.status === 'ProfitDistributed' || this.investment.status === 'Closed') {
+      this.loadSettlement();
+    }
+    if (this.isAdmin) {
+      this.service.getAllBalances().pipe(takeUntil(this.destroy$)).subscribe({
+        next: b => (this.balances = b),
+        error: () => (this.balances = []),
+      });
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  statusLabel(status: InvestmentStatusName): string {
+    return INVESTMENT_STATUS_LABELS[status] ?? status;
+  }
+
+  /**
+   * Mirrors the server's transition table. The server is still the authority -
+   * this only avoids offering buttons that would be rejected.
+   */
+  availableTransitions(): InvestmentStatusName[] {
+    switch (this.investment.status) {
+      case 'Draft':
+        return ['OpenForSubscription', 'Cancelled'];
+      case 'OpenForSubscription':
+        return ['Draft', 'Cancelled'];
+      case 'FullySubscribed':
+        return ['Active', 'Cancelled'];
+      case 'ProfitDistributed':
+        return ['Closed'];
+      default:
+        return [];
+    }
+  }
+
+  estimatedFee(): number {
+    const gross = this.investment.actualGrossProfit ?? 0;
+    return Math.round(gross * this.investment.operationalExpensePercentage) / 100;
+  }
+
+  estimatedNet(): number {
+    return (this.investment.actualGrossProfit ?? 0) - this.estimatedFee();
+  }
+
+  hasPending(): boolean {
+    return !!this.settlement?.distributions.some(d => !d.disbursedAt);
+  }
+
+  buy(): void {
+    if (!this.sharesToBuy || this.sharesToBuy < 1) return;
+
+    this.isWorking = true;
+    this.service
+      .subscribe(this.investment.id, this.sharesToBuy, this.onBehalfOfMemberId ?? undefined)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.success(`${this.sharesToBuy} share(s) purchased.`);
+          this.sharesToBuy = null;
+          this.isWorking = false;
+          this.refresh();
+        },
+        error: err => {
+          this.isWorking = false;
+          this.toast.error(err?.error?.message || 'Could not complete the purchase.');
+        },
+      });
+  }
+
+  changeStatus(status: InvestmentStatusName): void {
+    const reason =
+      status === 'Cancelled'
+        ? 'Cancelled by administrator'
+        : undefined;
+
+    this.isWorking = true;
+    this.service
+      .changeStatus(this.investment.id, status, reason)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: updated => {
+          this.investment = updated;
+          this.isWorking = false;
+          this.toast.success(`Status changed to ${this.statusLabel(status)}.`);
+          this.refresh();
+        },
+        error: err => {
+          this.isWorking = false;
+          this.toast.error(err?.error?.message || 'Could not change the status.');
+        },
+      });
+  }
+
+  complete(): void {
+    if (this.actualGrossProfit === null) return;
+
+    this.isWorking = true;
+    this.service
+      .complete(this.investment.id, {
+        actualGrossProfit: this.actualGrossProfit,
+        completionDate: this.completionDate ? `${this.completionDate}T00:00:00Z` : null,
+        closingNotes: this.closingNotes || null,
+      })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: updated => {
+          this.investment = updated;
+          this.isWorking = false;
+          this.toast.success('Completion recorded.');
+          this.refresh();
+        },
+        error: err => {
+          this.isWorking = false;
+          this.toast.error(err?.error?.message || 'Could not record completion.');
+        },
+      });
+  }
+
+  distribute(): void {
+    this.isWorking = true;
+    this.service
+      .distributeProfit(this.investment.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: s => {
+          this.settlement = s;
+          this.investment = { ...this.investment, status: s.status };
+          this.isWorking = false;
+          this.toast.success('Profit distributed to investor wallets.');
+          this.refresh();
+        },
+        error: err => {
+          this.isWorking = false;
+          this.toast.error(err?.error?.message || 'Could not distribute profit.');
+        },
+      });
+  }
+
+  disburse(memberId?: string): void {
+    this.isWorking = true;
+    this.service
+      .disburse(this.investment.id, memberId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: s => {
+          this.settlement = s;
+          this.isWorking = false;
+          this.toast.success('Disbursement recorded.');
+          this.changed.emit();
+        },
+        error: err => {
+          this.isWorking = false;
+          this.toast.error(err?.error?.message || 'Could not disburse.');
+        },
+      });
+  }
+
+  close(): void {
+    this.closed.emit();
+  }
+
+  private refresh(): void {
+    this.service
+      .getInvestment(this.investment.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: i => {
+          this.investment = i;
+          this.loadSubscriptions();
+          if (i.status === 'ProfitDistributed' || i.status === 'Closed') {
+            this.loadSettlement();
+          }
+          this.changed.emit();
+        },
+        error: () => {},
+      });
+  }
+
+  private loadSubscriptions(): void {
+    this.service
+      .getSubscriptions(this.investment.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: s => (this.subscriptions = s),
+        error: () => (this.subscriptions = []),
+      });
+  }
+
+  private loadSettlement(): void {
+    this.service
+      .getSettlement(this.investment.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: s => (this.settlement = s),
+        error: () => (this.settlement = null),
+      });
+  }
+}

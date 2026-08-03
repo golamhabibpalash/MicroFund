@@ -168,6 +168,10 @@ builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IMemberService, MemberService>();
 builder.Services.AddScoped<IContributionService, ContributionService>();
 builder.Services.AddScoped<IInvestmentService, InvestmentService>();
+builder.Services.AddScoped<IInvestmentSettings, InvestmentSettings>();
+builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
+builder.Services.AddScoped<IInvestmentLifecycleService, InvestmentLifecycleService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IRolesService, RolesService>();
@@ -282,6 +286,16 @@ app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(organizationPath),
     RequestPath = "/assets/organization",
+    ContentTypeProvider = contentTypeProvider
+});
+
+var investmentDocumentsPath = builder.Configuration["Uploads:InvestmentDocumentsPath"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "..", "uploads", "investment");
+Directory.CreateDirectory(investmentDocumentsPath);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(investmentDocumentsPath),
+    RequestPath = "/assets/investment",
     ContentTypeProvider = contentTypeProvider
 });
 

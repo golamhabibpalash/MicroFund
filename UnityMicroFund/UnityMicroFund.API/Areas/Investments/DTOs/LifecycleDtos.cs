@@ -1,0 +1,65 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace UnityMicroFund.API.Areas.Investments.DTOs;
+
+public class ChangeInvestmentStatusDto
+{
+    [Required(ErrorMessage = "Target status is required.")]
+    public string Status { get; set; } = string.Empty;
+
+    [MaxLength(500)]
+    public string? Reason { get; set; }
+}
+
+public class CompleteInvestmentDto
+{
+    [Required(ErrorMessage = "Actual gross profit is required.")]
+    [Range(0, double.MaxValue, ErrorMessage = "Actual gross profit cannot be negative.")]
+    public decimal ActualGrossProfit { get; set; }
+
+    public DateTime? CompletionDate { get; set; }
+
+    [MaxLength(1000)]
+    public string? ClosingNotes { get; set; }
+}
+
+/// <summary>What each investor is owed, frozen at distribution time.</summary>
+public class ProfitDistributionDto
+{
+    public Guid Id { get; set; }
+    public Guid MemberId { get; set; }
+    public string MemberName { get; set; } = string.Empty;
+    public int SharesOwned { get; set; }
+    public decimal OwnershipPercentage { get; set; }
+    public decimal PrincipalAmount { get; set; }
+    public decimal ProfitAmount { get; set; }
+    public decimal TotalPayable { get; set; }
+    public DateTime DistributedAt { get; set; }
+    public DateTime? DisbursedAt { get; set; }
+}
+
+/// <summary>Whole-project settlement summary (spec sections 11-13).</summary>
+public class ProfitSettlementDto
+{
+    public Guid InvestmentId { get; set; }
+    public string InvestmentName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public decimal ActualGrossProfit { get; set; }
+    public decimal OperationalExpensePercentage { get; set; }
+    public decimal OperationalExpenseAmount { get; set; }
+    public decimal NetProfit { get; set; }
+
+    /// <summary>Rounding remainder retained by the organisation.</summary>
+    public decimal UndistributedRemainder { get; set; }
+
+    public decimal TotalPrincipalReturned { get; set; }
+    public decimal TotalProfitDistributed { get; set; }
+    public decimal TotalPayable { get; set; }
+    public List<ProfitDistributionDto> Distributions { get; set; } = new();
+}
+
+public class DisburseDto
+{
+    /// <summary>Null disburses to every investor who has not yet been paid.</summary>
+    public Guid? MemberId { get; set; }
+}

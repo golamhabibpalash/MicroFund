@@ -19,7 +19,9 @@ public class AppDbContext : DbContext
     private static readonly HashSet<string> AuditedEntities = new()
     {
         nameof(Member), nameof(Investment), nameof(Contribution), nameof(MemberInvestment),
-        nameof(Account), nameof(Transaction), nameof(GroupSetting), nameof(ParamBusConfig)
+        nameof(Account), nameof(Transaction), nameof(GroupSetting), nameof(ParamBusConfig),
+        nameof(InvestmentPartner), nameof(InvestmentDocument),
+        nameof(WalletEntry), nameof(ShareSubscription), nameof(ProfitDistribution)
     };
 
     // httpContextAccessor is optional so design-time tooling (dotnet ef) can still construct the context.
@@ -33,6 +35,11 @@ public class AppDbContext : DbContext
     public DbSet<Investment> Investments { get; set; }
     public DbSet<Contribution> Contributions { get; set; }
     public DbSet<MemberInvestment> MemberInvestments { get; set; }
+    public DbSet<InvestmentPartner> InvestmentPartners { get; set; }
+    public DbSet<InvestmentDocument> InvestmentDocuments { get; set; }
+    public DbSet<WalletEntry> WalletEntries { get; set; }
+    public DbSet<ShareSubscription> ShareSubscriptions { get; set; }
+    public DbSet<ProfitDistribution> ProfitDistributions { get; set; }
     public DbSet<MemberTransactionMap> MemberTransactionMaps { get; set; }
     public DbSet<GroupSetting> GroupSettings { get; set; }
     public DbSet<User> Users { get; set; }
@@ -184,7 +191,46 @@ public class AppDbContext : DbContext
         {
             entity.Property(e => e.PrincipalAmount).HasPrecision(18, 2);
             entity.Property(e => e.CurrentValue).HasPrecision(18, 2);
+            entity.Property(e => e.SharePrice).HasPrecision(18, 2);
+            entity.Property(e => e.TargetGrossProfit).HasPrecision(18, 2);
+            entity.Property(e => e.ActualGrossProfit).HasPrecision(18, 2);
+            entity.Property(e => e.OperationalExpensePercentage).HasPrecision(5, 2);
+            entity.Property(e => e.OperationalExpenseAmount).HasPrecision(18, 2);
+            entity.Property(e => e.NetProfit).HasPrecision(18, 2);
+            entity.Property(e => e.UndistributedRemainder).HasPrecision(18, 2);
             entity.Property(e => e.Type).HasConversion<string>();
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+
+            // MariaDB allows multiple NULLs in a unique index, so these enforce
+            // "no duplicates" only for investments that actually carry a number.
+            entity.HasIndex(e => e.CertificateNumber).IsUnique();
+            entity.HasIndex(e => e.ReferenceNumber).IsUnique();
+        });
+
+        modelBuilder.Entity<InvestmentPartner>(entity =>
+        {
+            entity.HasOne(e => e.Investment)
+                  .WithMany(i => i.Partners)
+                  .HasForeignKey(e => e.InvestmentId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // Unlinking a member must not delete the historical partner record.
+            entity.HasOne(e => e.Member)
+                  .WithMany()
+                  .HasForeignKey(e => e.MemberId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(e => e.InvestmentId);
+        });
+
+        modelBuilder.Entity<InvestmentDocument>(entity =>
+        {
+            entity.HasOne(e => e.Investment)
+                  .WithMany(i => i.Documents)
+                  .HasForeignKey(e => e.InvestmentId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.InvestmentId);
         });
 
         modelBuilder.Entity<Contribution>(entity =>
@@ -196,9 +242,75 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<MemberInvestment>(entity =>
         {
-            entity.Property(e => e.SharePercentage).HasPrecision(5, 2);
+            entity.Property(e => e.SharePercentage).HasPrecision(9, 6);
             entity.Property(e => e.ShareValue).HasPrecision(18, 2);
+            entity.Property(e => e.AmountInvested).HasPrecision(18, 2);
             entity.HasIndex(e => new { e.MemberId, e.InvestmentId }).IsUnique();
+        });
+
+        modelBuilder.Entity<WalletEntry>(entity =>
+        {
+            entity.Property(e => e.Amount).HasPrecision(18, 2);
+            entity.Property(e => e.EntryType).HasConversion<string>().HasMaxLength(20);
+
+            // A funding transaction may only ever be credited once. This is what makes
+            // the backfill safe to re-run and blocks double-crediting a deposit.
+            entity.HasIndex(e => e.TransactionId).IsUnique();
+            entity.HasIndex(e => new { e.MemberId, e.CreatedAt });
+
+            entity.HasOne(e => e.Member)
+                  .WithMany()
+                  .HasForeignKey(e => e.MemberId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Transaction)
+                  .WithMany()
+                  .HasForeignKey(e => e.TransactionId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Investment)
+                  .WithMany()
+                  .HasForeignKey(e => e.InvestmentId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ShareSubscription>(entity =>
+        {
+            entity.Property(e => e.SharePriceAtPurchase).HasPrecision(18, 2);
+            entity.Property(e => e.AmountPaid).HasPrecision(18, 2);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+            entity.HasIndex(e => new { e.InvestmentId, e.MemberId });
+
+            entity.HasOne(e => e.Investment)
+                  .WithMany(i => i.Subscriptions)
+                  .HasForeignKey(e => e.InvestmentId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Member)
+                  .WithMany()
+                  .HasForeignKey(e => e.MemberId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ProfitDistribution>(entity =>
+        {
+            entity.Property(e => e.PrincipalAmount).HasPrecision(18, 2);
+            entity.Property(e => e.ProfitAmount).HasPrecision(18, 2);
+            entity.Property(e => e.TotalPayable).HasPrecision(18, 2);
+            entity.Property(e => e.OwnershipPercentage).HasPrecision(9, 6);
+
+            // One settlement line per investor per project.
+            entity.HasIndex(e => new { e.InvestmentId, e.MemberId }).IsUnique();
+
+            entity.HasOne(e => e.Investment)
+                  .WithMany(i => i.ProfitDistributions)
+                  .HasForeignKey(e => e.InvestmentId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Member)
+                  .WithMany()
+                  .HasForeignKey(e => e.MemberId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<MemberTransactionMap>(entity =>

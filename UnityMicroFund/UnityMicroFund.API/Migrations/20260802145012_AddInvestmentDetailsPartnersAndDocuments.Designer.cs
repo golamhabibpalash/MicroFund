@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using UnityMicroFund.API.Data;
 
@@ -11,9 +12,11 @@ using UnityMicroFund.API.Data;
 namespace UnityMicroFund.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260802145012_AddInvestmentDetailsPartnersAndDocuments")]
+    partial class AddInvestmentDetailsPartnersAndDocuments
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -596,10 +599,6 @@ namespace UnityMicroFund.API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<decimal?>("ActualGrossProfit")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<string>("Category")
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
@@ -607,13 +606,6 @@ namespace UnityMicroFund.API.Migrations
                     b.Property<string>("CertificateNumber")
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
-
-                    b.Property<string>("ClosingNotes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<DateTime?>("CompletionDate")
-                        .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
@@ -651,18 +643,6 @@ namespace UnityMicroFund.API.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
-                    b.Property<decimal?>("NetProfit")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("OperationalExpenseAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("OperationalExpensePercentage")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
-
                     b.Property<decimal>("PrincipalAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -680,20 +660,12 @@ namespace UnityMicroFund.API.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
-                    b.Property<decimal?>("TargetGrossProfit")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<int?>("TotalShares")
                         .HasColumnType("int");
 
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("longtext");
-
-                    b.Property<decimal?>("UndistributedRemainder")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
@@ -972,10 +944,6 @@ namespace UnityMicroFund.API.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("char(36)");
 
-                    b.Property<decimal>("AmountInvested")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -986,18 +954,12 @@ namespace UnityMicroFund.API.Migrations
                         .HasColumnType("char(36)");
 
                     b.Property<decimal>("SharePercentage")
-                        .HasPrecision(9, 6)
-                        .HasColumnType("decimal(9,6)");
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<decimal>("ShareValue")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("SharesOwned")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -1171,57 +1133,6 @@ namespace UnityMicroFund.API.Migrations
                         });
                 });
 
-            modelBuilder.Entity("UnityMicroFund.API.Models.ProfitDistribution", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime?>("DisbursedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("DisbursedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<DateTime>("DistributedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<Guid>("InvestmentId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("MemberId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<decimal>("OwnershipPercentage")
-                        .HasPrecision(9, 6)
-                        .HasColumnType("decimal(9,6)");
-
-                    b.Property<decimal>("PrincipalAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("ProfitAmount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("SharesOwned")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("TotalPayable")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MemberId");
-
-                    b.HasIndex("InvestmentId", "MemberId")
-                        .IsUnique();
-
-                    b.ToTable("investment_profit_distributions");
-                });
-
             modelBuilder.Entity("UnityMicroFund.API.Models.RegistrationRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1297,50 +1208,6 @@ namespace UnityMicroFund.API.Migrations
                         .IsUnique();
 
                     b.ToTable("role_claims");
-                });
-
-            modelBuilder.Entity("UnityMicroFund.API.Models.ShareSubscription", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<decimal>("AmountPaid")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<Guid>("InvestmentId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("MemberId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("PurchasedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<decimal>("SharePriceAtPurchase")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("SharesPurchased")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MemberId");
-
-                    b.HasIndex("InvestmentId", "MemberId");
-
-                    b.ToTable("investment_share_subscriptions");
                 });
 
             modelBuilder.Entity("UnityMicroFund.API.Models.Transaction", b =>
@@ -1464,56 +1331,6 @@ namespace UnityMicroFund.API.Migrations
                         .IsUnique();
 
                     b.ToTable("user_claims");
-                });
-
-            modelBuilder.Entity("UnityMicroFund.API.Models.WalletEntry", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(300)
-                        .HasColumnType("varchar(300)");
-
-                    b.Property<string>("EntryType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
-                    b.Property<Guid?>("InvestmentId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid>("MemberId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid?>("ShareSubscriptionId")
-                        .HasColumnType("char(36)");
-
-                    b.Property<Guid?>("TransactionId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("InvestmentId");
-
-                    b.HasIndex("TransactionId")
-                        .IsUnique();
-
-                    b.HasIndex("MemberId", "CreatedAt");
-
-                    b.ToTable("investment_wallet_entries");
                 });
 
             modelBuilder.Entity("UnityMicroFund.API.Areas.Auth.Models.PasswordResetCode", b =>
@@ -1653,44 +1470,6 @@ namespace UnityMicroFund.API.Migrations
                     b.Navigation("Transaction");
                 });
 
-            modelBuilder.Entity("UnityMicroFund.API.Models.ProfitDistribution", b =>
-                {
-                    b.HasOne("UnityMicroFund.API.Models.Investment", "Investment")
-                        .WithMany("ProfitDistributions")
-                        .HasForeignKey("InvestmentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("UnityMicroFund.API.Models.Member", "Member")
-                        .WithMany()
-                        .HasForeignKey("MemberId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Investment");
-
-                    b.Navigation("Member");
-                });
-
-            modelBuilder.Entity("UnityMicroFund.API.Models.ShareSubscription", b =>
-                {
-                    b.HasOne("UnityMicroFund.API.Models.Investment", "Investment")
-                        .WithMany("Subscriptions")
-                        .HasForeignKey("InvestmentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("UnityMicroFund.API.Models.Member", "Member")
-                        .WithMany()
-                        .HasForeignKey("MemberId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Investment");
-
-                    b.Navigation("Member");
-                });
-
             modelBuilder.Entity("UnityMicroFund.API.Models.Transaction", b =>
                 {
                     b.HasOne("UnityMicroFund.API.Models.Account", "Account")
@@ -1733,31 +1512,6 @@ namespace UnityMicroFund.API.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("UnityMicroFund.API.Models.WalletEntry", b =>
-                {
-                    b.HasOne("UnityMicroFund.API.Models.Investment", "Investment")
-                        .WithMany()
-                        .HasForeignKey("InvestmentId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("UnityMicroFund.API.Models.Member", "Member")
-                        .WithMany()
-                        .HasForeignKey("MemberId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("UnityMicroFund.API.Models.Transaction", "Transaction")
-                        .WithMany()
-                        .HasForeignKey("TransactionId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Investment");
-
-                    b.Navigation("Member");
-
-                    b.Navigation("Transaction");
-                });
-
             modelBuilder.Entity("UnityMicroFund.API.Areas.Auth.Models.User", b =>
                 {
                     b.Navigation("Member");
@@ -1782,10 +1536,6 @@ namespace UnityMicroFund.API.Migrations
                     b.Navigation("MemberInvestments");
 
                     b.Navigation("Partners");
-
-                    b.Navigation("ProfitDistributions");
-
-                    b.Navigation("Subscriptions");
                 });
 
             modelBuilder.Entity("UnityMicroFund.API.Models.Member", b =>

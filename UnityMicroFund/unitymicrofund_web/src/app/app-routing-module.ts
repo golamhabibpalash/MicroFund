@@ -6,6 +6,7 @@ import { AdminLayoutComponent } from './layout/admin-layout.component';
 import { DashboardComponent } from './dashboard/dashboard.component';
 import { InvestorsComponent } from './investors/investors.component';
 import { ProfileComponent } from './profile/profile.component';
+import { WalletComponent } from './wallet/wallet.component';
 import { PaymentsComponent } from './payments/payments.component';
 import { AccountsComponent } from './accounts/accounts.component';
 import { ReportsComponent } from './reports/reports.component';
@@ -61,6 +62,12 @@ const routes: Routes = [
     component: AdminLayoutComponent,
     canActivate: [AuthGuard, CompleteProfileGuard],
     children: [{ path: '', component: ReportsComponent }],
+  },
+  {
+    path: 'wallet',
+    component: AdminLayoutComponent,
+    canActivate: [AuthGuard, CompleteProfileGuard],
+    children: [{ path: '', component: WalletComponent }],
   },
   {
     path: 'profile',
