@@ -47,6 +47,7 @@ public class OcrService : IOcrService
                 }
                 else if (receiptType == "PBL")
                 {
+                    _logger.LogInformation("PBL OCR raw text:\n{Text}", text);
                     ParsePblReceipt(text, result);
                 }
                 else
@@ -279,16 +280,47 @@ public class OcrService : IOcrService
         }
         if (string.IsNullOrEmpty(transactionId))
         {
-            transactionId = "Not Found";
+            var txMatch = System.Text.RegularExpressions.Regex.Match(
+                text,
+                @"(?i)(?:Transaction\s*ID|Txn\s*ID|TID)\s*[:\-]?\s*([A-Za-z0-9\-]+)");
+            if (txMatch.Success)
+            {
+                transactionId = txMatch.Groups[1].Value;
+            }
+            else
+            {
+                transactionId = "Not Found";
+            }
         }
 
-        var dt = DateTime.ParseExact(System.Text.RegularExpressions.Regex.Match(text, @"\d{2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2}:\d{2} (AM|PM)").Value, "dd-MMM-yyyy hh:mm:ss tt", null);
-        extractedDate = dt.ToString("yy-MM-dd");
+        var dateMatch = System.Text.RegularExpressions.Regex.Match(text, @"\d{2}-[A-Za-z]{3}-\d{4}(\s+\d{2}:\d{2}:\d{2}\s+(AM|PM))?");
+        if (dateMatch.Success)
+        {
+            var dateText = dateMatch.Value.Trim();
+            var formats = new[] { "dd-MMM-yyyy", "dd-MMM-yyyy hh:mm:ss tt" };
+            if (DateTime.TryParseExact(dateText, formats, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dt))
+            {
+                extractedDate = dt.ToString("yy-MM-dd");
+            }
+        }
 
         if (string.IsNullOrEmpty(TransferFrom))
         {
-            var tFrom = System.Text.RegularExpressions.Regex.Matches(text, @"\b\d{15}\b")[0].Value;
-            TransferFrom = !string.IsNullOrEmpty(tFrom) ? $"{tFrom}" : null;
+            var senderMatch = System.Text.RegularExpressions.Regex.Match(text, @"(?i)Sender[^\r\n]*");
+            if (senderMatch.Success)
+            {
+                var line = System.Text.RegularExpressions.Regex.Replace(senderMatch.Value, @"\s", "");
+                var mask = System.Text.RegularExpressions.Regex.Match(line, @"[0-9\*＊]{4,}");
+                if (mask.Success)
+                {
+                    TransferFrom = mask.Value.Replace('＊', '*');
+                }
+            }
+            else
+            {
+                var tFrom = System.Text.RegularExpressions.Regex.Match(text, @"\b\d{15}\b").Value;
+                TransferFrom = !string.IsNullOrEmpty(tFrom) ? $"{tFrom}" : null;
+            }
         }
 
         if (string.IsNullOrEmpty(TransferTo))

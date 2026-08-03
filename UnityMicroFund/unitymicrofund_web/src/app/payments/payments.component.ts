@@ -6,7 +6,6 @@ import { Router, NavigationEnd } from '@angular/router';
 import { Subject, debounceTime } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { saveAs } from 'file-saver';
-import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { TransactionService, Account, Transaction, CreateTransactionRequest, ReceiptType, OcrScanResult, TransactionFilter } from '../core/services/transaction';
@@ -2358,8 +2357,15 @@ export class PaymentsComponent implements OnInit {
       transferFrom: '',
       memberId: !this.isAdmin ? (this.loggedInMemberId || '') : ''
     };
-    this.transactionDate = '';
+    this.transactionDate = this.todayIsoDate();
     this.transactionId = '';
+  }
+
+  private todayIsoDate(): string {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${now.getFullYear()}-${month}-${day}`;
   }
 
   toggleExportMenu() {
