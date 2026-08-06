@@ -8,11 +8,12 @@ import { UserService } from '../core/services/user';
 import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
+import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
 
 @Component({
   selector: 'app-accounts',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, BdtCurrencyPipe],
+  imports: [CommonModule, FormsModule, RouterModule, BdtCurrencyPipe, DraggableModalDirective],
   template: `
     <div class="accounts-wrapper">
       <header class="top-header">

@@ -23,6 +23,7 @@ import {
   InvestmentTypeName,
 } from '../core/services/investment.service';
 import { ToastService } from '../core/services/toast.service';
+import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
 
 /** Minimal shape needed to pre-fill a partner from an existing member. */
 interface MemberOption {
@@ -51,7 +52,7 @@ function maturityAfterStartValidator(group: AbstractControl): ValidationErrors |
 @Component({
   selector: 'app-investment-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, DraggableModalDirective],
   template: `
     <div class="modal-overlay" (click)="onCancel()">
       <div class="modal-content wide" (click)="$event.stopPropagation()">

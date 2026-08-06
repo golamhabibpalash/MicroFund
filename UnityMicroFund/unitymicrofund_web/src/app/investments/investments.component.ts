@@ -10,11 +10,12 @@ import { ToastService } from '../core/services/toast.service';
 import { InvestmentFormComponent } from './investment-form.component';
 import { InvestmentManageComponent } from './investment-manage.component';
 import { UserService } from '../core/services/user';
+import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
 
 @Component({
   selector: 'app-investments',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, StatCardComponent, PageHeaderComponent, DatePipe, InvestmentFormComponent, InvestmentManageComponent],
+  imports: [CommonModule, FormsModule, RouterModule, StatCardComponent, PageHeaderComponent, DatePipe, InvestmentFormComponent, InvestmentManageComponent, DraggableModalDirective],
   template: `
     <div class="investments-wrapper">
       <app-page-header 

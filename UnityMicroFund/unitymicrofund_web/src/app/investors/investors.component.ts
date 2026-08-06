@@ -7,6 +7,7 @@ import { Token } from '../core/services/token';
 import { UserService } from '../core/services/user';
 import { ChangeDetectorRef } from '@angular/core';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
+import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
 
 interface Member {
   id: string;
@@ -45,7 +46,7 @@ interface Member {
 @Component({
   selector: 'app-investors',
   standalone: true,
-  imports: [CommonModule, RouterModule, HttpClientModule, FormsModule, BdtCurrencyPipe, DecimalPipe, DatePipe],
+  imports: [CommonModule, RouterModule, HttpClientModule, FormsModule, BdtCurrencyPipe, DecimalPipe, DatePipe, DraggableModalDirective],
   template: `
     <div class="investors-wrapper">
       <!-- Profile Modal -->

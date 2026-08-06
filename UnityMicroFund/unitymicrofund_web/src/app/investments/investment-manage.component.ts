@@ -12,6 +12,7 @@ import {
 } from '../core/services/investment.service';
 import { ToastService } from '../core/services/toast.service';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
+import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
 
 /**
  * Subscription + lifecycle panel for one project: buy shares, drive the status
@@ -20,7 +21,7 @@ import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 @Component({
   selector: 'app-investment-manage',
   standalone: true,
-  imports: [CommonModule, FormsModule, BdtCurrencyPipe],
+  imports: [CommonModule, FormsModule, BdtCurrencyPipe, DraggableModalDirective],
   template: `
     <div class="modal-overlay" (click)="close()">
       <div class="modal-content wide" (click)="$event.stopPropagation()">

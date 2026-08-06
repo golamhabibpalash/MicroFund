@@ -6,6 +6,7 @@ import { UserManagementService } from '../core/services/user-management.service'
 import { RoleManagementService } from '../core/services/role-management.service';
 import { User, UserDetail, CreateUser, AssignRole, UserClaim } from '../core/models/user.model';
 import { Role, RoleClaim, PERMISSION_CATEGORIES, PERMISSION_DESCRIPTIONS, ALL_PERMISSIONS, ROLE_DESCRIPTIONS } from '../core/models/role.model';
+import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
 
 type TabType = 'users' | 'roles' | 'permissions';
 
@@ -664,7 +665,7 @@ type TabType = 'users' | 'roles' | 'permissions';
     }
   `],
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, DraggableModalDirective],
 })
 export class UserManagementComponent implements OnInit {
   activeTab: TabType = 'users';
