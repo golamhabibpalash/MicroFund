@@ -13,6 +13,7 @@ import { ToastService } from '../core/services/toast.service';
 import { UserService } from '../core/services/user';
 import { ParamBusConfigService, ParamBusConfig } from '../core/services/param-bus-config.service';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
+import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
 
 interface Member {
   id: string;
@@ -25,7 +26,7 @@ interface Member {
 @Component({
   selector: 'app-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule, BdtCurrencyPipe],
+  imports: [CommonModule, FormsModule, BdtCurrencyPipe, DraggableModalDirective],
   template: `
     <div class="payments-wrapper">
       <!-- Header -->
@@ -53,7 +54,7 @@ interface Member {
               </button>
             </div>
           </div>
-          <button class="btn-primary" (click)="openTransactionModal()">
+          <button class="btn btn-primary" (click)="openTransactionModal()">
             <span class="material-icons">add</span>
             New Transaction
           </button>
@@ -401,7 +402,7 @@ interface Member {
             </div>
             <div class="form-actions">
               <button type="button" class="btn-secondary" (click)="closeModal()">Cancel</button>
-              <button type="submit" class="btn-primary" [disabled]="isSubmitting">
+              <button type="submit" class="btn btn-primary" [disabled]="isSubmitting">
                 {{ isSubmitting ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update Transaction' : 'Create Transaction') }}
               </button>
             </div>
