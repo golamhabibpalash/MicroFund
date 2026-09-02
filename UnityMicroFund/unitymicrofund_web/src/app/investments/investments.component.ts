@@ -328,128 +328,161 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
 
     <!-- View Investment Modal -->
     <div class="modal-overlay" *ngIf="showViewModal" (click)="closeViewModal()">
-      <div class="modal-content modal-large" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <h3>{{ selectedInvestment?.name }}</h3>
-          <button class="close-btn" (click)="closeViewModal()">
-            <span class="material-icons">close</span>
-          </button>
-        </div>
-        <div class="modal-body" *ngIf="selectedInvestment">
-          <div class="detail-grid">
-            <div class="detail-card">
-              <span class="detail-label">Investment Type</span>
-              <span class="detail-value type-badge" [ngClass]="selectedInvestment.type.toLowerCase()">{{ selectedInvestment.type }}</span>
+      <div class="modal-content vmodal" (click)="$event.stopPropagation()">
+        <div class="vmodal-hero" *ngIf="selectedInvestment">
+          <div class="vmodal-hero-top">
+            <span class="vmodal-type" [ngClass]="selectedInvestment.type.toLowerCase()">
+              <span class="material-icons">{{ getTypeIcon(selectedInvestment.type) }}</span>
+              {{ selectedInvestment.type }}
+            </span>
+            <span class="vmodal-status" [ngClass]="statusClass(selectedInvestment.status)">
+              {{ selectedInvestment.status }}
+            </span>
+            <button class="vmodal-close" (click)="closeViewModal()" title="Close">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+          <h2 class="vmodal-title">{{ selectedInvestment.name }}</h2>
+          <p class="vmodal-subtitle" *ngIf="selectedInvestment.category || selectedInvestment.durationMonths">
+            {{ selectedInvestment.category }}<span *ngIf="selectedInvestment.category && selectedInvestment.durationMonths">&nbsp;&middot;&nbsp;</span>
+            <ng-container *ngIf="selectedInvestment.durationMonths">{{ selectedInvestment.durationMonths }} months</ng-container>
+          </p>
+
+          <div class="vmodal-kpis">
+            <div class="kpi">
+              <span class="kpi-label">Principal</span>
+              <span class="kpi-value">{{ formatCurrency(selectedInvestment.principalAmount) }}</span>
             </div>
-            <div class="detail-card">
-              <span class="detail-label">Date Invested</span>
-              <span class="detail-value">{{ selectedInvestment.dateInvested | date:'longDate' }}</span>
+            <div class="kpi">
+              <span class="kpi-label">Current Value</span>
+              <span class="kpi-value">{{ formatCurrency(selectedInvestment.currentValue) }}</span>
             </div>
-            <div class="detail-card">
-              <span class="detail-label">Principal Amount</span>
-              <span class="detail-value currency">{{ formatCurrency(selectedInvestment.principalAmount) }}</span>
-            </div>
-            <div class="detail-card">
-              <span class="detail-label">Current Value</span>
-              <span class="detail-value currency highlight">{{ formatCurrency(selectedInvestment.currentValue) }}</span>
-            </div>
-            <div class="detail-card">
-              <span class="detail-label">Total Returns</span>
-              <span class="detail-value currency" [class.positive]="selectedInvestment.returnAmount >= 0" [class.negative]="selectedInvestment.returnAmount < 0">
+            <div class="kpi">
+              <span class="kpi-label">Total Returns</span>
+              <span class="kpi-value" [class.pos]="selectedInvestment.returnAmount >= 0" [class.neg]="selectedInvestment.returnAmount < 0">
                 {{ selectedInvestment.returnAmount >= 0 ? '+' : '' }}{{ formatCurrency(selectedInvestment.returnAmount) }}
+                <em class="kpi-sub">{{ selectedInvestment.returnPercentage >= 0 ? '+' : '' }}{{ selectedInvestment.returnPercentage.toFixed(2) }}%</em>
               </span>
             </div>
-            <div class="detail-card">
-              <span class="detail-label">Return Percentage</span>
-              <span class="detail-value return-badge" [class.positive]="selectedInvestment.returnPercentage >= 0" [class.negative]="selectedInvestment.returnPercentage < 0">
-                {{ selectedInvestment.returnPercentage >= 0 ? '+' : '' }}{{ selectedInvestment.returnPercentage.toFixed(2) }}%
+            <div class="kpi" *ngIf="selectedInvestment.totalShares">
+              <span class="kpi-label">Subscription</span>
+              <span class="kpi-value">
+                {{ selectedInvestment.subscriptionPercentage.toFixed(0) }}%
+                <span class="kpi-progress"><i [style.width.%]="selectedInvestment.subscriptionPercentage"></i></span>
               </span>
-            </div>
-            <div class="detail-card">
-              <span class="detail-label">Status</span>
-              <span class="detail-value status-pill" [ngClass]="statusClass(selectedInvestment.status)">
-                {{ selectedInvestment.status }}
-              </span>
-            </div>
-            <div class="detail-card" *ngIf="selectedInvestment.category">
-              <span class="detail-label">Category</span>
-              <span class="detail-value">{{ selectedInvestment.category }}</span>
-            </div>
-            <div class="detail-card" *ngIf="selectedInvestment.maturityDate">
-              <span class="detail-label">Maturity Date</span>
-              <span class="detail-value">{{ selectedInvestment.maturityDate | date:'longDate' }}</span>
-            </div>
-            <div class="detail-card" *ngIf="selectedInvestment.durationMonths">
-              <span class="detail-label">Duration</span>
-              <span class="detail-value">{{ selectedInvestment.durationMonths }} months</span>
-            </div>
-            <div class="detail-card" *ngIf="selectedInvestment.totalShares">
-              <span class="detail-label">Shares</span>
-              <span class="detail-value">
-                {{ selectedInvestment.totalShares }} &times; {{ formatCurrency(selectedInvestment.sharePrice || 0) }}
-              </span>
-            </div>
-            <div class="detail-card" *ngIf="selectedInvestment.certificateNumber">
-              <span class="detail-label">Certificate No.</span>
-              <span class="detail-value">{{ selectedInvestment.certificateNumber }}</span>
-            </div>
-            <div class="detail-card" *ngIf="selectedInvestment.referenceNumber">
-              <span class="detail-label">Reference No.</span>
-              <span class="detail-value">{{ selectedInvestment.referenceNumber }}</span>
             </div>
           </div>
+        </div>
 
-          <div class="members-section" *ngIf="selectedInvestment.partners?.length">
-            <h4>Partners ({{ selectedInvestment.partners.length }})</h4>
-            <div class="members-list">
-              <div class="member-item partner-item" *ngFor="let p of selectedInvestment.partners">
-                <div class="member-avatar">{{ getInitials(p.partnerName) }}</div>
-                <div class="member-info">
-                  <span class="member-name">{{ p.partnerName }}</span>
-                  <span class="member-share">
-                    {{ p.phone1 }}<span *ngIf="p.email"> &middot; {{ p.email }}</span>
-                  </span>
-                  <span class="member-share" *ngIf="p.nomineeName">
-                    Nominee: {{ p.nomineeName }}<span *ngIf="p.nomineeRelationship"> ({{ p.nomineeRelationship }})</span>
-                  </span>
+        <div class="vmodal-body" *ngIf="selectedInvestment">
+          <div class="vmodal-section">
+            <h4 class="vmodal-section-title"><span class="material-icons">info</span> Investment Details</h4>
+            <dl class="vmodal-defs">
+              <div class="def" *ngIf="selectedInvestment.dateInvested">
+                <dt>Start Date</dt>
+                <dd>{{ selectedInvestment.dateInvested | date:'mediumDate' }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.maturityDate">
+                <dt>Maturity Date</dt>
+                <dd>{{ selectedInvestment.maturityDate | date:'mediumDate' }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.totalShares">
+                <dt>Total Shares</dt>
+                <dd>{{ selectedInvestment.totalShares | number }} <span class="def-muted">@ {{ formatCurrency(selectedInvestment.sharePrice || 0) }}/share</span></dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.soldShares > 0">
+                <dt>Shares Sold</dt>
+                <dd>{{ selectedInvestment.soldShares | number }} <span class="def-muted">/ {{ selectedInvestment.totalShares | number }}</span></dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.minimumSharesPerMember">
+                <dt>Min Shares / Member</dt>
+                <dd>{{ selectedInvestment.minimumSharesPerMember | number }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.maximumSharesPerMember">
+                <dt>Max Shares / Member</dt>
+                <dd>{{ selectedInvestment.maximumSharesPerMember | number }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.targetGrossProfit">
+                <dt>Target Gross Profit</dt>
+                <dd>{{ formatCurrency(selectedInvestment.targetGrossProfit) }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.grossReceivedAmount">
+                <dt>Gross Received</dt>
+                <dd>{{ formatCurrency(selectedInvestment.grossReceivedAmount) }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.interimProfitTotal">
+                <dt>Interim Profits</dt>
+                <dd class="pos">{{ formatCurrency(selectedInvestment.interimProfitTotal) }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.operationalExpensePercentage > 0">
+                <dt>Maintenance</dt>
+                <dd>{{ selectedInvestment.operationalExpensePercentage }}%</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.certificateNumber">
+                <dt>Certificate No.</dt>
+                <dd>{{ selectedInvestment.certificateNumber }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.referenceNumber">
+                <dt>Reference No.</dt>
+                <dd>{{ selectedInvestment.referenceNumber }}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="vmodal-section" *ngIf="selectedInvestment.description">
+            <h4 class="vmodal-section-title"><span class="material-icons">notes</span> Description</h4>
+            <p class="vmodal-desc">{{ selectedInvestment.description }}</p>
+          </div>
+
+          <div class="vmodal-section" *ngIf="selectedInvestment.partners?.length">
+            <div class="vmodal-section-head">
+              <h4 class="vmodal-section-title"><span class="material-icons">handshake</span> Partners</h4>
+              <span class="vmodal-count">{{ selectedInvestment.partners.length }}</span>
+            </div>
+            <div class="vmodal-rows">
+              <div class="vrow partner" *ngFor="let p of selectedInvestment.partners">
+                <div class="vrow-avatar">{{ getInitials(p.partnerName) }}</div>
+                <div class="vrow-main">
+                  <span class="vrow-name">{{ p.partnerName }}</span>
+                  <span class="vrow-meta">{{ p.phone1 }}<ng-container *ngIf="p.email"> &middot; {{ p.email }}</ng-container></span>
+                  <span class="vrow-meta" *ngIf="p.nomineeName">Nominee: {{ p.nomineeName }}<ng-container *ngIf="p.nomineeRelationship"> ({{ p.nomineeRelationship }})</ng-container></span>
                 </div>
-                <span class="meta-chip" *ngIf="p.memberId">Member</span>
+                <span class="vrow-tag" *ngIf="p.memberId">Member</span>
               </div>
             </div>
           </div>
 
-          <div class="members-section" *ngIf="selectedInvestment.documents?.length">
-            <h4>Documents ({{ selectedInvestment.documents.length }})</h4>
-            <div class="members-list">
-              <a
-                class="member-item document-item"
-                *ngFor="let d of selectedInvestment.documents"
-                [href]="d.fileUrl"
-                target="_blank"
-                rel="noopener">
-                <span class="material-icons">description</span>
-                <div class="member-info">
-                  <span class="member-name">{{ d.fileName }}</span>
-                  <span class="member-share">{{ (d.fileSizeBytes / 1024) | number:'1.0-0' }} KB</span>
+          <div class="vmodal-section" *ngIf="selectedInvestment.members && selectedInvestment.members.length > 0">
+            <div class="vmodal-section-head">
+              <h4 class="vmodal-section-title"><span class="material-icons">group</span> Invested Members</h4>
+              <span class="vmodal-count">{{ selectedInvestment.members.length }}</span>
+            </div>
+            <div class="vmodal-rows">
+              <div class="vrow" *ngFor="let m of selectedInvestment.members">
+                <div class="vrow-avatar">{{ getInitials(m.memberName) }}</div>
+                <div class="vrow-main">
+                  <span class="vrow-name">{{ m.memberName }}</span>
+                  <span class="vrow-meta">{{ m.sharePercentage.toFixed(2) }}% share</span>
                 </div>
+                <span class="vrow-value">{{ formatCurrency(m.shareValue) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="vmodal-section" *ngIf="selectedInvestment.documents?.length">
+            <div class="vmodal-section-head">
+              <h4 class="vmodal-section-title"><span class="material-icons">attach_file</span> Documents</h4>
+              <span class="vmodal-count">{{ selectedInvestment.documents.length }}</span>
+            </div>
+            <div class="vmodal-rows">
+              <a class="vrow doc" *ngFor="let d of selectedInvestment.documents" [href]="d.fileUrl" target="_blank" rel="noopener">
+                <span class="vrow-docicon material-icons">description</span>
+                <div class="vrow-main">
+                  <span class="vrow-name">{{ d.fileName }}</span>
+                  <span class="vrow-meta">{{ (d.fileSizeBytes / 1024) | number:'1.0-0' }} KB</span>
+                </div>
+                <span class="material-icons vrow-arrow">open_in_new</span>
               </a>
-            </div>
-          </div>
-          <div class="description-section" *ngIf="selectedInvestment.description">
-            <h4>Description</h4>
-            <p>{{ selectedInvestment.description }}</p>
-          </div>
-          <div class="members-section" *ngIf="selectedInvestment.members && selectedInvestment.members.length > 0">
-            <h4>Invested Members ({{ selectedInvestment.members.length }})</h4>
-            <div class="members-list">
-              <div class="member-item" *ngFor="let m of selectedInvestment.members">
-                <div class="member-avatar">{{ getInitials(m.memberName) }}</div>
-                <div class="member-info">
-                  <span class="member-name">{{ m.memberName }}</span>
-                  <span class="member-share">{{ m.sharePercentage.toFixed(2) }}% share</span>
-                </div>
-                <span class="member-value">{{ formatCurrency(m.shareValue) }}</span>
-              </div>
             </div>
           </div>
         </div>
@@ -584,9 +617,6 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .status-matured { background: #e3f2fd; color: #1565c0; }
     .status-closed { background: #eceff1; color: #546e7a; }
     .status-suspended { background: #fff3e0; color: #ef6c00; }
-    .partner-item .member-info { gap: 2px; }
-    .document-item { text-decoration: none; color: inherit; }
-    .document-item:hover .member-name { color: #667eea; }
 
     .investments-wrapper { max-width: 1600px; margin: 0 auto; padding: 24px; box-sizing: border-box; }
     
@@ -730,22 +760,54 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .modal-header h3 { font-size: 20px; font-weight: 600; color: #1a1a2e; margin: 0; }
     .close-btn { background: none; border: none; cursor: pointer; padding: 4px; color: #666; }
     .modal-body { padding: 24px; }
-    .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
-    .detail-card { background: #f8f9fa; border-radius: 12px; padding: 16px; }
-    .detail-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
-    .detail-value { font-size: 18px; font-weight: 600; color: #1a1a2e; display: block; }
-    .detail-value.currency.highlight { color: #667eea; }
-    .detail-value.positive { color: #27ae60; }
-    .detail-value.negative { color: #e74c3c; }
-    .description-section h4, .members-section h4 { font-size: 14px; font-weight: 600; color: #1a1a2e; margin: 0 0 12px; }
-    .description-section p { font-size: 14px; color: #666; line-height: 1.6; margin: 0 0 24px; }
-    .members-list { display: flex; flex-direction: column; gap: 12px; }
-    .member-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: #f8f9fa; border-radius: 12px; }
-    .member-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; }
-    .member-info { flex: 1; }
-    .member-name { font-weight: 600; color: #1a1a2e; display: block; }
-    .member-share { font-size: 12px; color: #666; }
-.member-value { font-weight: 600; color: #667eea; }
+
+    /* ==== Investment detail (view) modal ==== */
+    .vmodal { max-width: 760px; border-radius: var(--radius-xl, 16px); overflow: hidden; box-shadow: var(--shadow-xl, 0 8px 32px rgba(0,0,0,0.18)); }
+    .vmodal-hero { padding: 24px 28px 20px; color: #fff; background: linear-gradient(135deg, var(--color-navy, #0f172a) 0%, #134e4a 100%); }
+    .vmodal-hero-top { display: flex; align-items: center; gap: 10px; }
+    .vmodal-type { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; background: rgba(255,255,255,0.14); color: #fff; }
+    .vmodal-type .material-icons { font-size: 15px; }
+    .vmodal-status { margin-left: auto; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(255,255,255,0.18); color: #fff; }
+    .vmodal-close { margin-left: 4px; background: rgba(255,255,255,0.12); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background .2s; }
+    .vmodal-close:hover { background: rgba(255,255,255,0.24); }
+    .vmodal-title { margin: 14px 0 2px; font-size: 22px; font-weight: 700; letter-spacing: -0.2px; }
+    .vmodal-subtitle { margin: 0; font-size: 13px; color: rgba(255,255,255,0.7); }
+    .vmodal-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 20px; }
+    .kpi { background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.10); border-radius: var(--radius-lg, 12px); padding: 12px 14px; }
+    .kpi-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
+    .kpi-value { display: block; font-size: 17px; font-weight: 700; }
+    .kpi-value.pos { color: #34d399; }
+    .kpi-value.neg { color: #fca5a5; }
+    .kpi-sub { display: block; font-style: normal; font-size: 12px; font-weight: 600; opacity: .85; margin-top: 1px; }
+    .kpi-progress { display: block; height: 5px; background: rgba(255,255,255,0.18); border-radius: 999px; margin-top: 7px; overflow: hidden; }
+    .kpi-progress i { display: block; height: 100%; background: linear-gradient(90deg, #2dd4bf, #14b8a6); border-radius: 999px; }
+    .vmodal-body { padding: 12px 28px 28px; }
+    .vmodal-section { padding: 20px 0; border-bottom: 1px solid var(--color-divider, #f0f0f0); }
+    .vmodal-section:last-child { border-bottom: none; }
+    .vmodal-section-head { display: flex; align-items: center; justify-content: space-between; }
+    .vmodal-section-title { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 14px; font-weight: 700; color: var(--text-primary, #0f172a); letter-spacing: -0.1px; }
+    .vmodal-section-head .vmodal-section-title { margin-bottom: 14px; }
+    .vmodal-section-title .material-icons { font-size: 18px; color: var(--color-accent, #0d9488); }
+    .vmodal-count { font-size: 12px; font-weight: 600; color: var(--text-muted, #64748b); background: var(--color-background-alt, #f8fafc); border-radius: 999px; padding: 3px 10px; margin-bottom: 14px; }
+    .vmodal-defs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 24px; margin: 0; }
+    .def dt { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted, #64748b); margin-bottom: 3px; }
+    .def dd { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary, #0f172a); }
+    .def dd.pos { color: var(--color-success, #059669); }
+    .def-muted { font-weight: 500; color: var(--text-muted, #64748b); }
+    .vmodal-desc { margin: 0; font-size: 14px; line-height: 1.7; color: var(--text-secondary, #475569); white-space: pre-wrap; }
+    .vmodal-rows { display: flex; flex-direction: column; gap: 10px; }
+    .vrow { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--color-background-alt, #f8fafc); border: 1px solid var(--color-border-light, #f1f5f9); border-radius: var(--radius-lg, 12px); transition: border-color .2s, background .2s; }
+    .vrow.partner:hover, .vrow:hover:not(.doc) { border-color: var(--color-border, #e2e8f0); }
+    .vrow-avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, var(--color-accent, #0d9488), var(--color-navy, #0f172a)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .vrow-main { flex: 1; min-width: 0; }
+    .vrow-name { display: block; font-size: 14px; font-weight: 600; color: var(--text-primary, #0f172a); }
+    .vrow-meta { display: block; font-size: 12.5px; color: var(--text-muted, #64748b); }
+    .vrow-value { font-weight: 700; color: var(--text-primary, #0f172a); }
+    .vrow-tag { font-size: 11px; font-weight: 600; color: var(--color-accent, #0d9488); background: var(--color-accent-subtle, #ccfbf1); padding: 3px 10px; border-radius: 999px; }
+    .vrow.doc { text-decoration: none; color: inherit; cursor: pointer; }
+    .vrow.doc:hover { border-color: var(--color-accent, #0d9488); }
+    .vrow-docicon { color: var(--color-accent, #0d9488); }
+    .vrow-arrow { color: var(--text-light, #94a3b8); font-size: 18px; }
 
     .material-icons { font-size: 20px; }
 
