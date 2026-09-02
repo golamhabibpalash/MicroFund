@@ -116,7 +116,10 @@ public class CreateInvestmentDto
     public int? MaximumSharesPerMember { get; set; }
 
     [Range(0, 100, ErrorMessage = "Maintenance percentage must be between 0 and 100.")]
-    public decimal? OperationalExpensePercentage { get; set; }
+    public decimal? MaintenancePercentage { get; set; }
+
+    /// <summary>The organisation account that receives this project's maintenance amount.</summary>
+    public Guid? MaintenanceAccountId { get; set; }
 
     [Range(0, double.MaxValue, ErrorMessage = "Target gross profit cannot be negative.")]
     public decimal? TargetGrossProfit { get; set; }
@@ -184,7 +187,10 @@ public class UpdateInvestmentDto
     public int? MaximumSharesPerMember { get; set; }
 
     [Range(0, 100, ErrorMessage = "Maintenance percentage must be between 0 and 100.")]
-    public decimal? OperationalExpensePercentage { get; set; }
+    public decimal? MaintenancePercentage { get; set; }
+
+    /// <summary>The organisation account that receives this project's maintenance amount.</summary>
+    public Guid? MaintenanceAccountId { get; set; }
 
     [Range(0, double.MaxValue, ErrorMessage = "Target gross profit cannot be negative.")]
     public decimal? TargetGrossProfit { get; set; }
@@ -235,8 +241,9 @@ public class InvestmentResponseDto
 
     public decimal? TargetGrossProfit { get; set; }
     public decimal? ActualGrossProfit { get; set; }
-    public decimal OperationalExpensePercentage { get; set; }
-    public decimal? OperationalExpenseAmount { get; set; }
+    public decimal MaintenancePercentage { get; set; }
+    public decimal? MaintenanceAmount { get; set; }
+    public Guid? MaintenanceAccountId { get; set; }
     public decimal? NetProfit { get; set; }
     public decimal? UndistributedRemainder { get; set; }
 
@@ -251,6 +258,15 @@ public class InvestmentResponseDto
 
     /// <summary>Sum of all accrued interim profit entries.</summary>
     public decimal InterimProfitTotal { get; set; }
+
+    /// <summary>Sum of all project cost entries.</summary>
+    public decimal TotalProjectCost { get; set; }
+
+    /// <summary>Gross received + interim profits − project costs; the basis for profit.</summary>
+    public decimal ValueAfterCosts { get; set; }
+
+    /// <summary>Individual project cost records (feed, labour, transport, etc.).</summary>
+    public List<InvestmentProjectCostDto> ProjectCosts { get; set; } = new();
 
     public DateTime? CompletionDate { get; set; }
     public string? ClosingNotes { get; set; }
@@ -288,4 +304,47 @@ public class MemberInvestmentDto
     public string MemberName { get; set; } = string.Empty;
     public decimal SharePercentage { get; set; }
     public decimal ShareValue { get; set; }
+}
+
+public class InvestmentProjectCostDto
+{
+    public Guid Id { get; set; }
+    public Guid InvestmentId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string? Remarks { get; set; }
+    public DateTime CostDate { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public class CreateProjectCostDto
+{
+    [Required(ErrorMessage = "Cost title is required.")]
+    [MaxLength(150)]
+    public string Title { get; set; } = string.Empty;
+
+    [Range(0.01, double.MaxValue, ErrorMessage = "Cost amount must be greater than zero.")]
+    public decimal Amount { get; set; }
+
+    [MaxLength(500)]
+    public string? Remarks { get; set; }
+
+    public DateTime? CostDate { get; set; }
+}
+
+public class UpdateProjectCostDto
+{
+    [Required(ErrorMessage = "Cost title is required.")]
+    [MaxLength(150)]
+    public string Title { get; set; } = string.Empty;
+
+    [Range(0.01, double.MaxValue, ErrorMessage = "Cost amount must be greater than zero.")]
+    public decimal Amount { get; set; }
+
+    [MaxLength(500)]
+    public string? Remarks { get; set; }
+
+    public DateTime? CostDate { get; set; }
 }

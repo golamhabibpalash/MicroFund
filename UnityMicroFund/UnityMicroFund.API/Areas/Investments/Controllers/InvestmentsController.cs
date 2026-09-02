@@ -26,6 +26,7 @@ public class InvestmentsController : ControllerBase
     private readonly ISubscriptionService _subscriptionService;
     private readonly IInvestmentLifecycleService _lifecycleService;
     private readonly IInterimProfitService _interimProfitService;
+    private readonly IProjectCostService _projectCostService;
     private readonly UnityMicroFund.API.Data.AppDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _environment;
@@ -35,6 +36,7 @@ public class InvestmentsController : ControllerBase
         ISubscriptionService subscriptionService,
         IInvestmentLifecycleService lifecycleService,
         IInterimProfitService interimProfitService,
+        IProjectCostService projectCostService,
         UnityMicroFund.API.Data.AppDbContext context,
         IConfiguration configuration,
         IWebHostEnvironment environment)
@@ -43,6 +45,7 @@ public class InvestmentsController : ControllerBase
         _subscriptionService = subscriptionService;
         _lifecycleService = lifecycleService;
         _interimProfitService = interimProfitService;
+        _projectCostService = projectCostService;
         _context = context;
         _configuration = configuration;
         _environment = environment;
@@ -122,6 +125,34 @@ public class InvestmentsController : ControllerBase
         => await _interimProfitService.DeleteAsync(id, profitId, cancellationToken)
             ? NoContent()
             : NotFound(new { message = "Interim profit record not found" });
+
+    [HttpGet("{id}/project-costs")]
+    public async Task<IActionResult> GetProjectCosts(Guid id, CancellationToken cancellationToken)
+        => Ok(await _projectCostService.GetForInvestmentAsync(id, cancellationToken));
+
+    [HttpPost("{id}/project-costs")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateProjectCost(
+        Guid id, [FromBody] CreateProjectCostDto dto, CancellationToken cancellationToken)
+        => Ok(await _projectCostService.CreateAsync(id, dto, GetCurrentUserName(), cancellationToken));
+
+    [HttpPut("{id}/project-costs/{costId}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateProjectCost(
+        Guid id, Guid costId, [FromBody] UpdateProjectCostDto dto, CancellationToken cancellationToken)
+    {
+        var updated = await _projectCostService.UpdateAsync(id, costId, dto, GetCurrentUserName(), cancellationToken);
+        return updated == null
+            ? NotFound(new { message = "Project cost not found" })
+            : Ok(updated);
+    }
+
+    [HttpDelete("{id}/project-costs/{costId}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteProjectCost(Guid id, Guid costId, CancellationToken cancellationToken)
+        => await _projectCostService.DeleteAsync(id, costId, cancellationToken)
+            ? NoContent()
+            : NotFound(new { message = "Project cost not found" });
 
     [HttpPost("{id}/disburse")]
     [Authorize(Roles = "Admin")]

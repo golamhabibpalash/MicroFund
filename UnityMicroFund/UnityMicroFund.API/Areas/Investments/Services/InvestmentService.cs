@@ -42,6 +42,7 @@ public class InvestmentService : IInvestmentService
             .Include(i => i.Documents)
             .Include(i => i.Subscriptions)
             .Include(i => i.InterimProfits)
+            .Include(i => i.ProjectCosts)
             .OrderByDescending(i => i.DateInvested)
             .ToListAsync(cancellationToken);
 
@@ -67,6 +68,7 @@ public class InvestmentService : IInvestmentService
             .Include(i => i.Documents)
             .Include(i => i.Subscriptions)
             .Include(i => i.InterimProfits)
+            .Include(i => i.ProjectCosts)
             .OrderByDescending(i => i.DateInvested)
             .ToListAsync(cancellationToken);
 
@@ -85,6 +87,7 @@ public class InvestmentService : IInvestmentService
             .Include(i => i.Documents)
             .Include(i => i.Subscriptions)
             .Include(i => i.InterimProfits)
+            .Include(i => i.ProjectCosts)
             .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
 
         return investment == null ? null : MapToDto(investment);
@@ -102,8 +105,11 @@ public class InvestmentService : IInvestmentService
         var now = DateTime.UtcNow;
         // Per-project maintenance percentage. When the caller does not supply one for
         // a brand-new project, fall back to the global default so creation still works.
-        var operationalExpensePercentage = dto.OperationalExpensePercentage
-            ?? await _settings.GetOperationalExpensePercentageAsync(cancellationToken);
+        var maintenancePercentage = dto.MaintenancePercentage
+            ?? await _settings.GetMaintenancePercentageAsync(cancellationToken);
+
+        if (dto.MaintenanceAccountId.HasValue)
+            await EnsureAccountExistsAsync(dto.MaintenanceAccountId.Value, cancellationToken);
 
         var investment = new Investment
         {
@@ -122,7 +128,8 @@ public class InvestmentService : IInvestmentService
             TargetGrossProfit = dto.TargetGrossProfit,
             // Frozen at creation so a later change to the global rate cannot rewrite
             // the arithmetic of a project that has already been agreed.
-            OperationalExpensePercentage = operationalExpensePercentage,
+            MaintenancePercentage = maintenancePercentage,
+            MaintenanceAccountId = dto.MaintenanceAccountId,
             DateInvested = dto.DateInvested,
             MaturityDate = dto.MaturityDate,
             DurationMonths = ResolveDuration(dto.DurationMonths, dto.DateInvested, dto.MaturityDate),
@@ -198,8 +205,13 @@ public class InvestmentService : IInvestmentService
             investment.MinimumSharesPerMember = dto.MinimumSharesPerMember.Value;
         if (dto.MaximumSharesPerMember.HasValue)
             investment.MaximumSharesPerMember = dto.MaximumSharesPerMember.Value;
-        if (dto.OperationalExpensePercentage.HasValue)
-            investment.OperationalExpensePercentage = Math.Clamp(dto.OperationalExpensePercentage.Value, 0m, 100m);
+        if (dto.MaintenancePercentage.HasValue)
+            investment.MaintenancePercentage = Math.Clamp(dto.MaintenancePercentage.Value, 0m, 100m);
+        if (dto.MaintenanceAccountId.HasValue)
+        {
+            await EnsureAccountExistsAsync(dto.MaintenanceAccountId.Value, cancellationToken);
+            investment.MaintenanceAccountId = dto.MaintenanceAccountId.Value;
+        }
         if (dto.TargetGrossProfit.HasValue)
             investment.TargetGrossProfit = dto.TargetGrossProfit.Value;
         if (dto.DateInvested.HasValue)
@@ -516,6 +528,12 @@ public class InvestmentService : IInvestmentService
         UploadedAt = d.UploadedAt
     };
 
+    private async Task EnsureAccountExistsAsync(Guid accountId, CancellationToken cancellationToken)
+    {
+        if (!await _context.Accounts.AsNoTracking().AnyAsync(a => a.Id == accountId, cancellationToken))
+            throw new NotFoundException("Maintenance account not found.");
+    }
+
     private static InvestmentResponseDto MapToDto(Investment investment)
     {
         var totalShares = investment.TotalShares ?? 0;
@@ -562,8 +580,25 @@ public class InvestmentService : IInvestmentService
             TotalInvested = totalInvested,
             TotalSharesSold = soldShares,
             InterimProfitTotal = interimProfitTotal,
-            OperationalExpensePercentage = investment.OperationalExpensePercentage,
-            OperationalExpenseAmount = investment.OperationalExpenseAmount,
+            TotalProjectCost = investment.ProjectCosts.Sum(pc => pc.Amount),
+            ValueAfterCosts = (investment.ActualGrossProfit ?? 0m) + interimProfitTotal - investment.ProjectCosts.Sum(pc => pc.Amount),
+            ProjectCosts = investment.ProjectCosts
+                .OrderByDescending(pc => pc.CostDate)
+                .Select(pc => new InvestmentProjectCostDto
+                {
+                    Id = pc.Id,
+                    InvestmentId = pc.InvestmentId,
+                    Title = pc.Title,
+                    Amount = pc.Amount,
+                    Remarks = pc.Remarks,
+                    CostDate = pc.CostDate,
+                    CreatedBy = pc.CreatedBy,
+                    CreatedAt = pc.CreatedAt,
+                    UpdatedAt = pc.UpdatedAt
+                }).ToList(),
+            MaintenancePercentage = investment.MaintenancePercentage,
+            MaintenanceAmount = investment.MaintenanceAmount,
+            MaintenanceAccountId = investment.MaintenanceAccountId,
             NetProfit = investment.NetProfit,
             UndistributedRemainder = investment.UndistributedRemainder,
             CompletionDate = investment.CompletionDate,

@@ -158,8 +158,11 @@ export interface ProfitSettlement {
   investmentName: string;
   status: InvestmentStatusName;
   actualGrossProfit: number;
-  operationalExpensePercentage: number;
-  operationalExpenseAmount: number;
+  totalProjectCost: number;
+  valueAfterCosts: number;
+  maintenancePercentage: number;
+  maintenanceAmount: number;
+  maintenanceAccountName?: string | null;
   netProfit: number;
   /** Rounding remainder retained by the organisation. */
   undistributedRemainder: number;
@@ -219,13 +222,17 @@ export interface Investment {
   targetGrossProfit?: number | null;
   actualGrossProfit?: number | null;
   grossReceivedAmount?: number | null;
-  operationalExpensePercentage: number;
-  operationalExpenseAmount?: number | null;
+  maintenancePercentage: number;
+  maintenanceAmount?: number | null;
+  maintenanceAccountId?: string | null;
   netProfit?: number | null;
   undistributedRemainder?: number | null;
   totalInvested?: number;
   totalSharesSold?: number;
   interimProfitTotal?: number;
+  totalProjectCost?: number;
+  valueAfterCosts?: number;
+  projectCosts: InvestmentProjectCost[];
   completionDate?: string | null;
   closingNotes?: string | null;
   dateInvested: string;
@@ -242,6 +249,18 @@ export interface Investment {
   partners: InvestmentPartner[];
   documents: InvestmentDocument[];
   interimProfits: InterimProfit[];
+}
+
+export interface InvestmentProjectCost {
+  id: string;
+  investmentId: string;
+  title: string;
+  amount: number;
+  remarks?: string | null;
+  costDate: string;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
 }
 
 export interface InterimProfit {
@@ -266,7 +285,8 @@ export interface CreateInvestmentRequest {
   sharePrice?: number | null;
   minimumSharesPerMember?: number | null;
   maximumSharesPerMember?: number | null;
-  operationalExpensePercentage?: number | null;
+  maintenancePercentage?: number | null;
+  maintenanceAccountId?: string | null;
   targetGrossProfit?: number | null;
   dateInvested: string;
   maturityDate?: string | null;
@@ -280,6 +300,13 @@ export interface CreateInvestmentRequest {
 
 /** Every field optional — omitted fields are left untouched by the API. */
 export type UpdateInvestmentRequest = Partial<Omit<CreateInvestmentRequest, 'memberIds'>>;
+
+export interface ProjectCostRequest {
+  title: string;
+  amount: number;
+  remarks?: string | null;
+  costDate?: string | null;
+}
 
 @Injectable({
   providedIn: 'root',
@@ -324,6 +351,24 @@ export class InvestmentService {
 
   deleteDocument(id: string, documentId: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}/documents/${documentId}`);
+  }
+
+  // ---- project costs -------------------------------------------------------
+
+  getProjectCosts(id: string): Observable<InvestmentProjectCost[]> {
+    return this.http.get<InvestmentProjectCost[]>(`${this.apiUrl}/${id}/project-costs`);
+  }
+
+  createProjectCost(id: string, request: ProjectCostRequest): Observable<InvestmentProjectCost> {
+    return this.http.post<InvestmentProjectCost>(`${this.apiUrl}/${id}/project-costs`, request);
+  }
+
+  updateProjectCost(id: string, costId: string, request: ProjectCostRequest): Observable<InvestmentProjectCost> {
+    return this.http.put<InvestmentProjectCost>(`${this.apiUrl}/${id}/project-costs/${costId}`, request);
+  }
+
+  deleteProjectCost(id: string, costId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}/project-costs/${costId}`);
   }
 
   // ---- wallet ------------------------------------------------------------

@@ -64,11 +64,20 @@ public class ProfitSettlementDto
     /// <summary>Gross received + accrued interim profit before costs.</summary>
     public decimal GrossResult { get; set; }
 
-    public decimal OperationalExpensePercentage { get; set; }
-    public decimal OperationalExpenseAmount { get; set; }
+    /// <summary>Sum of project costs (deducted from gross).</summary>
+    public decimal TotalProjectCost { get; set; }
 
-    /// <summary>Net result after the maintenance/% fee. Could be negative (loss).</summary>
+    /// <summary>Gross received + accrued interim profit − project costs.</summary>
+    public decimal ValueAfterCosts { get; set; }
+
+    public decimal MaintenancePercentage { get; set; }
+    public decimal MaintenanceAmount { get; set; }
+
+    /// <summary>The profit available for distribution: ValueAfterCosts − principal − maintenance.</summary>
     public decimal NetProfit { get; set; }
+
+    /// <summary>The maintenance account the org fee was disbursed to (name, null if none).</summary>
+    public string? MaintenanceAccountName { get; set; }
 
     /// <summary>Rounding remainder retained by the organisation.</summary>
     public decimal UndistributedRemainder { get; set; }

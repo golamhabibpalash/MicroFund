@@ -21,7 +21,8 @@ public class AppDbContext : DbContext
         nameof(Member), nameof(Investment), nameof(Contribution), nameof(MemberInvestment),
         nameof(Account), nameof(Transaction), nameof(GroupSetting), nameof(ParamBusConfig),
         nameof(InvestmentPartner), nameof(InvestmentDocument),
-        nameof(WalletEntry), nameof(ShareSubscription), nameof(ProfitDistribution)
+        nameof(WalletEntry), nameof(ShareSubscription), nameof(ProfitDistribution),
+        nameof(InvestmentProjectCost), nameof(InvestmentMaintenanceDistribution)
     };
 
     // httpContextAccessor is optional so design-time tooling (dotnet ef) can still construct the context.
@@ -59,6 +60,8 @@ public class AppDbContext : DbContext
     public DbSet<LogEntry> LogEntries { get; set; }
     public DbSet<PasswordResetCode> PasswordResetCodes { get; set; }
     public DbSet<InvestmentInterimProfit> InvestmentInterimProfits { get; set; }
+    public DbSet<InvestmentProjectCost> InvestmentProjectCosts { get; set; }
+    public DbSet<InvestmentMaintenanceDistribution> InvestmentMaintenanceDistributions { get; set; }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -196,12 +199,17 @@ public class AppDbContext : DbContext
             entity.Property(e => e.SharePrice).HasPrecision(18, 2);
             entity.Property(e => e.TargetGrossProfit).HasPrecision(18, 2);
             entity.Property(e => e.ActualGrossProfit).HasPrecision(18, 2);
-            entity.Property(e => e.OperationalExpensePercentage).HasPrecision(5, 2);
-            entity.Property(e => e.OperationalExpenseAmount).HasPrecision(18, 2);
+            entity.Property(e => e.MaintenancePercentage).HasPrecision(5, 2);
+            entity.Property(e => e.MaintenanceAmount).HasPrecision(18, 2);
             entity.Property(e => e.NetProfit).HasPrecision(18, 2);
             entity.Property(e => e.UndistributedRemainder).HasPrecision(18, 2);
             entity.Property(e => e.Type).HasConversion<string>();
             entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+
+            entity.HasOne(e => e.MaintenanceAccount)
+                  .WithMany()
+                  .HasForeignKey(e => e.MaintenanceAccountId)
+                  .OnDelete(DeleteBehavior.SetNull);
 
             // MariaDB allows multiple NULLs in a unique index, so these enforce
             // "no duplicates" only for investments that actually carry a number.

@@ -437,9 +437,13 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
                 <dt>Interim Profits</dt>
                 <dd class="pos">{{ formatCurrency(selectedInvestment.interimProfitTotal) }}</dd>
               </div>
-              <div class="def" *ngIf="selectedInvestment.operationalExpensePercentage > 0">
+              <div class="def" *ngIf="selectedInvestment.totalProjectCost">
+                <dt>Project Costs</dt>
+                <dd class="neg">{{ formatCurrency(selectedInvestment.totalProjectCost) }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.maintenancePercentage > 0">
                 <dt>Maintenance</dt>
-                <dd>{{ selectedInvestment.operationalExpensePercentage }}%</dd>
+                <dd>{{ selectedInvestment.maintenancePercentage }}% of profit</dd>
               </div>
               <div class="def" *ngIf="selectedInvestment.certificateNumber">
                 <dt>Certificate No.</dt>

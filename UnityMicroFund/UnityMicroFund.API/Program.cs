@@ -175,6 +175,7 @@ builder.Services.AddScoped<ICashOutService, CashOutService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IInvestmentLifecycleService, InvestmentLifecycleService>();
 builder.Services.AddScoped<IInterimProfitService, InterimProfitService>();
+builder.Services.AddScoped<IProjectCostService, ProjectCostService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IRolesService, RolesService>();

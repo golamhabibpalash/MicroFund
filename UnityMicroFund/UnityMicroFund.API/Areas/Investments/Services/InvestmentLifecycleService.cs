@@ -122,6 +122,7 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
             IsolationLevel.Serializable, cancellationToken);
 
         var investment = await _context.Investments
+            .Include(i => i.ProjectCosts)
             .FirstOrDefaultAsync(i => i.Id == investmentId, cancellationToken)
             ?? throw new NotFoundException("Investment not found.");
 
@@ -164,16 +165,33 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
             .Where(p => p.InvestmentId == investmentId)
             .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
 
-        // Section 11: the organisation's maintenance/% fee comes off the top of the
-        // gross result (gross received + accrued interim profit).
+        // Project costs (feed, transport, labour, ...) reduce the gross value before
+        // any profit is derived. The running total is always the sum of the rows, so
+        // there is a single source of truth.
+        var totalProjectCost = investment.ProjectCosts.Sum(pc => pc.Amount);
+
+        // Confirmed financial model (single source of truth):
+        //   fundsAvailable = ActualGrossProfit + interimProfitTotal − totalProjectCost
+        //   profit         = fundsAvailable − principal
+        //   maintenance    = profit × maintenance%   (org service share, applied to PROFIT)
+        //   investorProfit = profit − maintenance
+        // Loss policy is preserved: on a loss () investors receive principal only and no
+        // maintenance is taken.
         var grossResult = grossProfit + interimProfitTotal;
-        var operationalExpense = Round2(grossResult * investment.OperationalExpensePercentage / 100m);
-        var netProfit = grossResult - operationalExpense;
+        var valueAfterCosts = grossResult - totalProjectCost;
+        var principalTotal = holdings.Sum(h => h.AmountInvested);
+        var profitBeforeMaintenance = Math.Max(0m, valueAfterCosts - principalTotal);
+
+        var maintenancePercentage = investment.MaintenancePercentage;
+        var maintenance = profitBeforeMaintenance > 0m
+            ? Round2(profitBeforeMaintenance * maintenancePercentage / 100m)
+            : 0m;
+        var investorProfitPool = profitBeforeMaintenance - maintenance;
 
         // Loss policy (confirmed): on a loss the investor receives their principal back
         // and no profit; the shortfall is absorbed by the organisation - the wallet is
         // never debited for a negative "profit".
-        var profitAvailable = Math.Max(0m, netProfit);
+        var profitAvailable = investorProfitPool;
 
         var now = DateTime.UtcNow;
         var distributions = new List<ProfitDistribution>();
@@ -217,10 +235,35 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
         }
 
         // Whatever rounding left behind stays with the organisation.
-        var remainder = netProfit - allocatedProfit;
+        var remainder = investorProfitPool - allocatedProfit;
 
-        investment.OperationalExpenseAmount = operationalExpense;
-        investment.NetProfit = netProfit;
+        // Disburse the organisation's maintenance share to the chosen account. This is
+        // recorded in the ledger (InvestmentMaintenanceDistribution) AND credited to the
+        // account balance, inside the same atomic settlement transaction, so it can never
+        // be disbursed twice.
+        if (maintenance > 0m && investment.MaintenanceAccountId.HasValue)
+        {
+            var account = await _context.Accounts
+                .FirstOrDefaultAsync(a => a.Id == investment.MaintenanceAccountId.Value, cancellationToken)
+                ?? throw new ValidationException("The configured maintenance account no longer exists.");
+
+            account.Balance += maintenance;
+
+            _context.InvestmentMaintenanceDistributions.Add(new InvestmentMaintenanceDistribution
+            {
+                Id = Guid.NewGuid(),
+                InvestmentId = investmentId,
+                AccountId = account.Id,
+                Amount = maintenance,
+                Percentage = maintenancePercentage,
+                DisbursedBy = actionedBy,
+                DisbursedAt = now,
+                Remarks = $"Maintenance ({maintenancePercentage}%) on profit for {investment.Name}"
+            });
+        }
+
+        investment.MaintenanceAmount = maintenance;
+        investment.NetProfit = Math.Round(investorProfitPool, 2, MidpointRounding.AwayFromZero);
         investment.UndistributedRemainder = remainder;
         ApplyStatus(investment, InvestmentStatus.ProfitDistributed, actionedBy);
 
@@ -265,14 +308,24 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
             })
             .ToListAsync(cancellationToken);
 
+        var totalProjectCost = await _context.InvestmentProjectCosts
+            .Where(pc => pc.InvestmentId == investmentId)
+            .SumAsync(pc => (decimal?)pc.Amount, cancellationToken) ?? 0m;
+
         var settlement = new ProfitSettlementDto
         {
             InvestmentId = investment.Id,
             InvestmentName = investment.Name,
             Status = investment.Status.ToString(),
             ActualGrossProfit = investment.ActualGrossProfit ?? 0m,
-            OperationalExpensePercentage = investment.OperationalExpensePercentage,
-            OperationalExpenseAmount = investment.OperationalExpenseAmount ?? 0m,
+            TotalProjectCost = totalProjectCost,
+            MaintenancePercentage = investment.MaintenancePercentage,
+            MaintenanceAmount = investment.MaintenanceAmount ?? 0m,
+            MaintenanceAccountName = investment.MaintenanceAccount?.Name ?? (await _context.Accounts
+                .AsNoTracking()
+                .Where(a => a.Id == investment.MaintenanceAccountId)
+                .Select(a => a.Name)
+                .FirstOrDefaultAsync(cancellationToken)),
             NetProfit = investment.NetProfit ?? 0m,
             UndistributedRemainder = investment.UndistributedRemainder ?? 0m,
             TotalPrincipalReturned = rows.Sum(r => r.PrincipalAmount),
@@ -293,6 +346,7 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
             .Where(p => p.InvestmentId == investmentId)
             .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
         settlement.GrossResult = (investment.ActualGrossProfit ?? 0m) + settlement.InterimProfitTotal;
+        settlement.ValueAfterCosts = settlement.GrossResult - settlement.TotalProjectCost;
 
         return settlement;
     }

@@ -24,6 +24,7 @@ import {
 } from '../core/services/investment.service';
 import { ToastService } from '../core/services/toast.service';
 import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
+import { AccountService, Account as BankAccount } from '../core/services/account';
 
 /** Minimal shape needed to pre-fill a partner from an existing member. */
 interface MemberOption {
@@ -136,9 +137,17 @@ function maturityAfterStartValidator(group: AbstractControl): ValidationErrors |
             <div class="form-row">
               <div class="form-group">
                 <label>Maintenance % (org fee)</label>
-                <input type="number" formControlName="operationalExpensePercentage" min="0" max="100" step="0.01" />
-                <span class="field-error" *ngIf="showError('operationalExpensePercentage')">Between 0 and 100.</span>
-                <span class="field-hint">Applied on top of gross invested proceeds.</span>
+                <input type="number" formControlName="maintenancePercentage" min="0" max="100" step="0.01" />
+                <span class="field-error" *ngIf="showError('maintenancePercentage')">Between 0 and 100.</span>
+                <span class="field-hint">A % of the project's profit; never of principal or gross.</span>
+              </div>
+              <div class="form-group">
+                <label>Maintenance Account</label>
+                <select formControlName="maintenanceAccountId">
+                  <option [ngValue]="null">— No account —</option>
+                  <option *ngFor="let acc of accounts" [ngValue]="acc.id">{{ acc.name }}</option>
+                </select>
+                <span class="field-hint">The org account that receives the maintenance amount on distribution.</span>
               </div>
               <div class="form-group">
                 <label>Status</label>
@@ -417,6 +426,7 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
   form!: FormGroup;
   members: MemberOption[] = [];
   categories: string[] = [];
+  accounts: BankAccount[] = [];
   pendingFiles: File[] = [];
   existingDocuments: InvestmentDocument[] = [];
   isSubmitting = false;
@@ -441,6 +451,7 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
     private fb: FormBuilder,
     private http: HttpClient,
     private investmentService: InvestmentService,
+    private accountService: AccountService,
     private toast: ToastService,
   ) {}
 
@@ -456,6 +467,7 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
     this.buildForm();
     this.loadMembers();
     this.loadCategories();
+    this.loadAccounts();
 
     if (this.investment) {
       this.patchFromInvestment(this.investment);
@@ -613,7 +625,8 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
         totalShares: [null as number | null, Validators.min(1)],
         minimumSharesPerMember: [null as number | null, Validators.min(1)],
         maximumSharesPerMember: [null as number | null, Validators.min(1)],
-        operationalExpensePercentage: [null as number | null, [Validators.min(0), Validators.max(100)]],
+        maintenancePercentage: [null as number | null, [Validators.min(0), Validators.max(100)]],
+        maintenanceAccountId: [null as string | null],
         targetGrossProfit: [null as number | null, Validators.min(0)],
         dateInvested: ['', Validators.required],
         maturityDate: [''],
@@ -654,7 +667,8 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
       totalShares: investment.totalShares ?? null,
       minimumSharesPerMember: investment.minimumSharesPerMember ?? null,
       maximumSharesPerMember: investment.maximumSharesPerMember ?? null,
-      operationalExpensePercentage: investment.operationalExpensePercentage ?? null,
+      maintenancePercentage: investment.maintenancePercentage ?? null,
+      maintenanceAccountId: investment.maintenanceAccountId ?? null,
       targetGrossProfit: investment.targetGrossProfit ?? null,
       dateInvested: this.toDateInput(investment.dateInvested),
       maturityDate: this.toDateInput(investment.maturityDate),
@@ -704,7 +718,8 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
       totalShares: v.totalShares ? Number(v.totalShares) : null,
       minimumSharesPerMember: v.minimumSharesPerMember ? Number(v.minimumSharesPerMember) : null,
       maximumSharesPerMember: v.maximumSharesPerMember ? Number(v.maximumSharesPerMember) : null,
-      operationalExpensePercentage: v.operationalExpensePercentage != null ? Number(v.operationalExpensePercentage) : null,
+      maintenancePercentage: v.maintenancePercentage != null ? Number(v.maintenancePercentage) : null,
+      maintenanceAccountId: v.maintenanceAccountId ?? null,
       targetGrossProfit: v.targetGrossProfit ? Number(v.targetGrossProfit) : null,
       // date inputs give a bare yyyy-MM-dd; send it as a UTC instant so the day
       // does not shift when the API echoes it back.
@@ -805,6 +820,17 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
             .filter(Boolean);
         },
         error: () => (this.categories = []),
+      });
+  }
+
+  private loadAccounts(): void {
+    this.accountService
+      .getAccounts()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: accounts => (this.accounts = accounts.filter(a => a.isActive)),
+        // A failed account list only costs the maintenance-account convenience.
+        error: () => (this.accounts = []),
       });
   }
 

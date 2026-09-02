@@ -6,6 +6,7 @@ import {
   INVESTMENT_STATUS_LABELS,
   InterimProfit,
   Investment,
+  InvestmentProjectCost,
   InvestmentService,
   InvestmentStatusName,
   ProfitSettlement,
@@ -188,8 +189,11 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
               <div class="calc">
                 <div><span class="k">Gross received</span><span class="v">{{ investment.actualGrossProfit || 0 | bdtCurrency }}</span></div>
                 <div *ngIf="investment.interimProfitTotal"><span class="k">Accrued interim profit</span><span class="v">{{ investment.interimProfitTotal | bdtCurrency }}</span></div>
-                <div><span class="k">Maintenance ({{ investment.operationalExpensePercentage }}%)</span>
-                     <span class="v minus">− {{ estimatedFee() | bdtCurrency }}</span></div>
+                <div *ngIf="projectCostTotal"><span class="k">Total project costs</span><span class="v minus">− {{ projectCostTotal | bdtCurrency }}</span></div>
+                <div *ngIf="valueAfterCosts() !== 0"><span class="k">Value after costs</span><span class="v">{{ valueAfterCosts() | bdtCurrency }}</span></div>
+                <div><span class="k">Principal returned</span><span class="v minus">− {{ principalTotal() | bdtCurrency }}</span></div>
+                <div *ngIf="estimatedProfit() > 0"><span class="k">Maintenance ({{ investment.maintenancePercentage || 0 }}% of profit)</span>
+                     <span class="v minus">− {{ estimatedMaintenance() | bdtCurrency }}</span></div>
                 <div class="total"><span class="k">Net to investors</span><span class="v">{{ estimatedNet() | bdtCurrency }}</span></div>
               </div>
               <button class="btn-primary" (click)="distribute()" [disabled]="isWorking">
@@ -208,9 +212,12 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
                 <span class="k">Accrued interim profit</span><span class="v">{{ settlement.interimProfitTotal | bdtCurrency }}</span>
               </div>
               <div><span class="k">Gross result</span><span class="v">{{ settlement.grossResult | bdtCurrency }}</span></div>
-              <div><span class="k">Maintenance ({{ settlement.operationalExpensePercentage }}%)</span>
-                   <span class="v minus">− {{ settlement.operationalExpenseAmount | bdtCurrency }}</span></div>
-              <div class="total"><span class="k">Net profit</span><span class="v">{{ settlement.netProfit | bdtCurrency }}</span></div>
+              <div *ngIf="settlement.totalProjectCost"><span class="k">Total project costs</span><span class="v minus">− {{ settlement.totalProjectCost | bdtCurrency }}</span></div>
+              <div *ngIf="settlement.valueAfterCosts"><span class="k">Value after costs</span><span class="v">{{ settlement.valueAfterCosts | bdtCurrency }}</span></div>
+              <div><span class="k">Principal returned</span><span class="v minus">− {{ settlement.totalPrincipalReturned | bdtCurrency }}</span></div>
+              <div *ngIf="settlement.maintenanceAmount > 0"><span class="k">Maintenance ({{ settlement.maintenancePercentage }}% of profit)</span>
+                   <span class="v minus">− {{ settlement.maintenanceAmount | bdtCurrency }}</span></div>
+              <div class="total"><span class="k">Investor profit</span><span class="v">{{ settlement.totalProfitDistributed | bdtCurrency }}</span></div>
               <div class="summary-row">
                 <span class="k">Capital collected</span><span class="v">{{ settlement.totalInvested | bdtCurrency }}</span>
                 <span class="k">Shares sold</span><span class="v">{{ settlement.sharesSold }}</span>
@@ -281,6 +288,12 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
 
     .actions { display: flex; gap: 10px; flex-wrap: wrap; }
     .hint { font-size: 12px; color: #888; margin: 10px 0 0 0; }
+    .section-title-row { display: flex; justify-content: space-between; align-items: center; }
+    .section-title-row h4 { margin-bottom: 12px; }
+    .muted { color: #888; font-size: 12px; font-weight: 400; margin-top: 2px; }
+    .cost-form { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 12px; align-items: end; margin-top: 14px; padding: 14px; background: #fbfbfd; border: 1px solid #eee; border-radius: 10px; }
+    .cost-form .actions { align-self: center; }
+    .btn-link.danger { color: #c62828; margin-left: 12px; }
 
     .calc { background: #fbfbfd; border: 1px solid #eee; border-radius: 10px; padding: 14px; margin-bottom: 14px; }
     .calc > div { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
@@ -314,7 +327,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .btn-link { background: none; border: none; color: #667eea; cursor: pointer; font-size: 13px; font-weight: 500; padding: 0; }
     .material-icons { font-size: 18px; }
 
-    @media (max-width: 768px) { .share-stats { grid-template-columns: repeat(2, 1fr); } .buy-row { flex-direction: column; align-items: stretch; } }
+    @media (max-width: 768px) { .share-stats { grid-template-columns: repeat(2, 1fr); } .buy-row { flex-direction: column; align-items: stretch; } .cost-form { grid-template-columns: 1fr; } }
   `]
 })
 export class InvestmentManageComponent implements OnInit, OnDestroy {
@@ -328,6 +341,7 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
   settlement: ProfitSettlement | null = null;
   balances: { memberId: string; memberName: string; balance: number }[] = [];
   interimProfits: InterimProfit[] = [];
+  projectCosts: InvestmentProjectCost[] = [];
 
   sharesToBuy: number | null = null;
   onBehalfOfMemberId: string | null = null;
@@ -337,6 +351,11 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
   interimAmount: number | null = null;
   interimDate = '';
   interimRemarks = '';
+  costTitle = '';
+  costAmount: number | null = null;
+  costDate = '';
+  costRemarks = '';
+  editingCost: InvestmentProjectCost | null = null;
   isWorking = false;
 
   private destroy$ = new Subject<void>();
@@ -345,6 +364,7 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.interimProfits = [...(this.investment.interimProfits ?? [])];
+    this.projectCosts = [...(this.investment.projectCosts ?? [])];
     this.loadSubscriptions();
     if (this.investment.status === 'ProfitDistributed' || this.investment.status === 'Closed') {
       this.loadSettlement();
@@ -389,13 +409,34 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
     return this.interimProfits.reduce((sum, p) => sum + p.amount, 0);
   }
 
-  estimatedFee(): number {
-    const grossResult = (this.investment.actualGrossProfit ?? 0) + this.interimProfitTotal;
-    return Math.round(grossResult * this.investment.operationalExpensePercentage) / 100;
+  get projectCostTotal(): number {
+    return this.projectCosts.reduce((sum, c) => sum + c.amount, 0);
+  }
+
+  /** Gross received + accrued interim profit − project costs. */
+  valueAfterCosts(): number {
+    return (this.investment.actualGrossProfit ?? 0) + this.interimProfitTotal - this.projectCostTotal;
+  }
+
+  /** Total capital collected from investors, used to derive profit. */
+  principalTotal(): number {
+    return this.investment.totalInvested
+      ?? this.subscriptions.reduce((sum, s) => sum + s.amountPaid, 0);
+  }
+
+  /** Profit before the maintenance share; floored at zero (loss → none). */
+  estimatedProfit(): number {
+    return Math.max(0, this.valueAfterCosts() - this.principalTotal());
+  }
+
+  estimatedMaintenance(): number {
+    const profit = this.estimatedProfit();
+    if (profit <= 0) return 0;
+    return Math.round(profit * (this.investment.maintenancePercentage || 0)) / 100;
   }
 
   estimatedNet(): number {
-    return (this.investment.actualGrossProfit ?? 0) + this.interimProfitTotal - this.estimatedFee();
+    return this.estimatedProfit() - this.estimatedMaintenance();
   }
 
   hasPending(): boolean {
@@ -465,6 +506,82 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
         error: err => {
           this.isWorking = false;
           this.toast.error(err?.error?.message || 'Could not remove the interim profit.');
+        },
+      });
+  }
+
+  /** Mirrors the server rule: costs are editable while the project is open/active. */
+  get canEditCosts(): boolean {
+    return (
+      this.investment.status === 'OpenForSubscription' ||
+      this.investment.status === 'Active'
+    );
+  }
+
+  startEditCost(cost: InvestmentProjectCost): void {
+    this.editingCost = cost;
+    this.costTitle = cost.title;
+    this.costAmount = cost.amount;
+    this.costDate = cost.costDate ? new Date(cost.costDate).toISOString().slice(0, 10) : '';
+    this.costRemarks = cost.remarks ?? '';
+  }
+
+  cancelEditCost(): void {
+    this.editingCost = null;
+    this.costTitle = '';
+    this.costAmount = null;
+    this.costDate = '';
+    this.costRemarks = '';
+  }
+
+  saveCost(): void {
+    if (!this.costTitle || !this.costAmount || this.costAmount < 0.01) return;
+
+    this.isWorking = true;
+    const request = {
+      title: this.costTitle.trim(),
+      amount: this.costAmount,
+      remarks: this.costRemarks || null,
+      costDate: this.costDate ? `${this.costDate}T00:00:00Z` : null,
+    };
+
+    const call = this.editingCost
+      ? this.service.updateProjectCost(this.investment.id, this.editingCost.id, request)
+      : this.service.createProjectCost(this.investment.id, request);
+
+    call.pipe(takeUntil(this.destroy$)).subscribe({
+      next: saved => {
+        if (this.editingCost) {
+          this.projectCosts = this.projectCosts.map(c => (c.id === saved.id ? saved : c));
+        } else {
+          this.projectCosts = [saved, ...this.projectCosts];
+        }
+        this.cancelEditCost();
+        this.isWorking = false;
+        this.toast.success('Project cost saved.');
+        this.refresh();
+      },
+      error: err => {
+        this.isWorking = false;
+        this.toast.error(err?.error?.message || 'Could not save the project cost.');
+      },
+    });
+  }
+
+  removeCost(cost: InvestmentProjectCost): void {
+    this.isWorking = true;
+    this.service
+      .deleteProjectCost(this.investment.id, cost.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.projectCosts = this.projectCosts.filter(c => c.id !== cost.id);
+          this.isWorking = false;
+          this.toast.success('Project cost removed.');
+        },
+        error: err => {
+          this.isWorking = false;
+          this.toast.error(err?.error?.message || 'Could not remove the project cost.');
         },
       });
   }
@@ -569,6 +686,7 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
         next: i => {
           this.investment = i;
           this.interimProfits = [...(i.interimProfits ?? [])];
+          this.projectCosts = [...(i.projectCosts ?? [])];
           this.loadSubscriptions();
           if (i.status === 'ProfitDistributed' || i.status === 'Closed') {
             this.loadSettlement();
