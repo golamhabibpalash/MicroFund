@@ -141,10 +141,11 @@ function maturityAfterStartValidator(group: AbstractControl): ValidationErrors |
                 <span class="field-hint">Applied on top of gross invested proceeds.</span>
               </div>
               <div class="form-group">
-                <label>Status *</label>
-                <select formControlName="status">
-                  <option *ngFor="let s of investmentStatuses" [value]="s">{{ s }}</option>
+                <label>Status</label>
+                <select formControlName="status" [disabled]="isEditMode">
+                  <option *ngFor="let s of selectableStatuses" [value]="s">{{ s }}</option>
                 </select>
+                <span class="field-hint" *ngIf="isEditMode">Status is changed from the project's lifecycle panel.</span>
               </div>
             </div>
             <div class="form-row">
@@ -427,6 +428,13 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
   readonly investmentTypes = INVESTMENT_TYPES;
   readonly investmentStatuses = INVESTMENT_STATUSES;
 
+  /** New projects always start as Draft and are published via the lifecycle panel,
+   *  so members never see (or buy into) a project that hasn't been circulated.
+   *  Status edits are also restricted so the publish/start/complete flow is preserved. */
+  get selectableStatuses(): InvestmentStatusName[] {
+    return this.isEditMode ? [this.investment?.status ?? 'Draft'] : ['Draft'];
+  }
+
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -610,7 +618,7 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
         dateInvested: ['', Validators.required],
         maturityDate: [''],
         durationMonths: [null as number | null, [Validators.min(1), Validators.max(1200)]],
-        status: ['Active' as InvestmentStatusName, Validators.required],
+        status: ['Draft' as InvestmentStatusName, Validators.required],
         description: ['', Validators.maxLength(1000)],
         certificateNumber: ['', Validators.maxLength(100)],
         referenceNumber: ['', Validators.maxLength(100)],

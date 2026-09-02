@@ -174,7 +174,14 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
           </div>
 
           <div class="card-footer">
-            <div class="members-preview" *ngIf="investment.members.length > 0">
+            <button
+              class="btn-invest"
+              *ngIf="investment.status === 'OpenForSubscription'"
+              (click)="openInvest(investment)">
+              <span class="material-icons">payments</span>
+              Invest / Buy Shares
+            </button>
+            <div class="members-preview" *ngIf="investment.members.length > 0 && investment.status !== 'OpenForSubscription'">
               <div class="member-avatars">
                 <div class="avatar" *ngFor="let m of investment.members.slice(0, 3)" [title]="m.memberName">
                   {{ getInitials(m.memberName) }}
@@ -192,7 +199,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
               <button class="btn-icon" *ngIf="isAdmin" (click)="editInvestment(investment)" title="Edit">
                 <span class="material-icons">edit</span>
               </button>
-              <button class="btn-icon" (click)="manageInvestment(investment)" title="Shares & lifecycle">
+              <button class="btn-icon" *ngIf="isAdmin" (click)="manageInvestment(investment)" title="Shares & lifecycle">
                 <span class="material-icons">tune</span>
               </button>
               <button class="btn-icon danger" *ngIf="isAdmin" (click)="confirmDelete(investment)" title="Delete">
@@ -256,16 +263,22 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
                 <td>{{ inv.members.length }}</td>
                 <td class="date">{{ inv.dateInvested | date:'mediumDate' }}</td>
                 <td class="actions">
-                  <button class="btn-icon" (click)="viewInvestment(inv)">
+                  <button class="btn-icon" (click)="viewInvestment(inv)" title="View">
                     <span class="material-icons">visibility</span>
                   </button>
-                  <button class="btn-icon" *ngIf="isAdmin" (click)="editInvestment(inv)">
+                  <button
+                    class="btn-invest-table"
+                    *ngIf="inv.status === 'OpenForSubscription'"
+                    (click)="openInvest(inv)">
+                    <span class="material-icons">payments</span> Invest
+                  </button>
+                  <button class="btn-icon" *ngIf="isAdmin" (click)="editInvestment(inv)" title="Edit">
                     <span class="material-icons">edit</span>
                   </button>
-                  <button class="btn-icon" (click)="manageInvestment(inv)" title="Shares & lifecycle">
+                  <button class="btn-icon" *ngIf="isAdmin" (click)="manageInvestment(inv)" title="Shares & lifecycle">
                     <span class="material-icons">tune</span>
                   </button>
-                  <button class="btn-icon danger" *ngIf="isAdmin" (click)="confirmDelete(inv)">
+                  <button class="btn-icon danger" *ngIf="isAdmin" (click)="confirmDelete(inv)" title="Delete">
                     <span class="material-icons">delete</span>
                   </button>
                 </td>
@@ -460,6 +473,66 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
       (closed)="managing = null">
     </app-investment-manage>
 
+    <!-- Invest / Buy Shares -->
+    <div class="modal-overlay" *ngIf="investingInvestment" (click)="cancelInvest()">
+      <div class="modal-content invest-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Invest in {{ investingInvestment.name }}</h3>
+          <button class="close-btn" (click)="cancelInvest()">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+        <div class="modal-body" *ngIf="investingInvestment as inv">
+          <div class="invest-summary">
+            <div><span class="k">Share Price</span><span class="v">{{ formatCurrency(inv.sharePrice || 0) }}</span></div>
+            <div><span class="k">Available</span><span class="v">{{ inv.remainingShares }}</span></div>
+            <div *ngIf="inv.minimumSharesPerMember"><span class="k">Minimum</span><span class="v">{{ inv.minimumSharesPerMember }}</span></div>
+            <div *ngIf="inv.maximumSharesPerMember"><span class="k">Maximum</span><span class="v">{{ inv.maximumSharesPerMember }}</span></div>
+          </div>
+
+          <div class="field">
+            <label>Number of shares *</label>
+            <input
+              type="number"
+              min="1"
+              [max]="inv.remainingShares"
+              step="1"
+              [(ngModel)]="investShares"
+              name="invest-shares" />
+            <span class="field-error" *ngIf="investShares && (inv.minimumSharesPerMember && investShares < inv.minimumSharesPerMember)">
+              Minimum purchase is {{ inv.minimumSharesPerMember }} share(s).
+            </span>
+          </div>
+
+          <div class="field" *ngIf="isAdmin && investBalances.length > 0">
+            <label>Invest on behalf of (delegation)</label>
+            <select [(ngModel)]="investForMemberId" name="invest-member">
+              <option [ngValue]="null">Myself</option>
+              <option *ngFor="let b of investBalances" [ngValue]="b.memberId">
+                {{ b.memberName }}
+              </option>
+            </select>
+            <span class="field-hint">Select a member to allocate the shares to their account.</span>
+          </div>
+
+          <div class="cost-box">
+            <span class="k">Total cost</span>
+            <span class="v">{{ formatCurrency((investShares || 0) * (inv.sharePrice || 0)) }}</span>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-secondary" (click)="cancelInvest()">Cancel</button>
+          <button
+            class="btn-invest-confirm"
+            [disabled]="isInvesting || !investValid()"
+            (click)="confirmInvest()">
+            <span class="material-icons">payments</span>
+            {{ isInvesting ? 'Investing...' : 'Confirm Investment' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Delete Confirmation -->
     <div class="modal-overlay" *ngIf="showDeleteModal" (click)="cancelDelete()">
       <div class="modal-content delete-modal" (click)="$event.stopPropagation()">
@@ -538,6 +611,22 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .btn-refresh:hover { background: #667eea; color: white; border-color: #667eea; }
     .btn-primary { display: flex; align-items: center; gap: 8px; padding: 12px 24px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 12px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.3s; }
     .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+
+    /* Invest / buy share */
+    .btn-invest { display: flex; align-items: center; gap: 6px; padding: 10px 16px; background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; border: none; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+    .btn-invest:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4); }
+    .btn-invest-table { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+    .btn-invest-table:hover { box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4); }
+    .invest-modal { max-width: 460px; }
+    .invest-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; background: #f8f9fa; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .invest-summary > div { display: flex; flex-direction: column; gap: 3px; }
+    .invest-summary .k { font-size: 12px; color: #888; }
+    .invest-summary .v { font-size: 16px; font-weight: 600; color: #1a1a2e; }
+    .cost-box { display: flex; justify-content: space-between; align-items: center; background: #e8f5e9; border-radius: 12px; padding: 14px 16px; margin-top: 12px; }
+    .cost-box .k { font-size: 13px; color: #2e7d32; }
+    .cost-box .v { font-size: 20px; font-weight: 700; color: #1b5e20; }
+    .btn-invest-confirm { display: inline-flex; align-items: center; gap: 6px; padding: 11px 20px; background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .btn-invest-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
 
     /* Loading */
     .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; }
@@ -707,6 +796,12 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
   managing: Investment | null = null;
   isAdmin = false;
 
+  investingInvestment: Investment | null = null;
+  investShares: number | null = null;
+  investForMemberId: string | null = null;
+  investBalances: { memberId: string; memberName: string }[] = [];
+  isInvesting = false;
+
   showDeleteModal = false;
   deletingInvestment: Investment | null = null;
   isDeleting = false;
@@ -851,6 +946,69 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
           this.cdr.detectChanges();
         },
         error: () => this.toast.error('Could not load the investment.'),
+      });
+  }
+
+  openInvest(investment: Investment) {
+    this.investingInvestment = investment;
+    this.investShares = investment.minimumSharesPerMember ?? 1;
+    this.investForMemberId = null;
+    if (this.isAdmin && this.investBalances.length === 0) {
+      this.loadInvestBalances();
+    }
+  }
+
+  private loadInvestBalances(): void {
+    this.investmentService
+      .getAllBalances()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: b => (this.investBalances = b),
+        error: () => (this.investBalances = []),
+      });
+  }
+
+  cancelInvest() {
+    this.investingInvestment = null;
+    this.investShares = null;
+    this.investForMemberId = null;
+    this.isInvesting = false;
+  }
+
+  investValid(): boolean {
+    const inv = this.investingInvestment;
+    if (!inv || !this.investShares || this.investShares < 1) return false;
+    if (this.investShares > inv.remainingShares) return false;
+    if (inv.minimumSharesPerMember && this.investShares < inv.minimumSharesPerMember) return false;
+    if (inv.maximumSharesPerMember && this.investShares > inv.maximumSharesPerMember) return false;
+    return true;
+  }
+
+  confirmInvest() {
+    if (!this.investingInvestment || !this.investValid()) {
+      this.toast.error('Please enter a valid number of shares.');
+      return;
+    }
+
+    this.isInvesting = true;
+    this.investmentService
+      .subscribe(this.investingInvestment.id, this.investShares!, this.investForMemberId ?? undefined)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.success(
+            this.investForMemberId
+              ? `${this.investShares} share(s) allocated.`
+              : `${this.investShares} share(s) purchased.`,
+          );
+          this.isInvesting = false;
+          this.cancelInvest();
+          this.loadInvestments();
+        },
+        error: err => {
+          this.isInvesting = false;
+          this.toast.error(err?.error?.message || 'Could not complete the purchase.');
+        },
       });
   }
 
