@@ -163,13 +163,20 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
             </div>
           </div>
 
-          <div class="progress-section">
-            <div class="progress-header">
-              <span>Return Progress</span>
-              <span>{{ ((investment.returnPercentage + 10) / 20 * 100).toFixed(0) }}%</span>
+          <div class="share-progress" *ngIf="investment.totalShares">
+            <div class="share-progress-head">
+              <span class="sp-label">Shares</span>
+              <span class="sp-count">
+                <strong>{{ investment.remainingShares }}</strong> / {{ investment.totalShares }} available
+              </span>
             </div>
-            <div class="progress-bar">
-              <div class="progress-fill" [style.width.%]="Math.min(((investment.returnPercentage + 10) / 20 * 100), 100)"></div>
+            <div class="sp-bar">
+              <div class="sp-fill" [class.sold-out]="investment.subscriptionPercentage >= 100"
+                   [style.width.%]="Math.min(investment.subscriptionPercentage, 100)"></div>
+            </div>
+            <div class="share-progress-foot">
+              <span>{{ investment.soldShares | number }} sold</span>
+              <span class="sp-pct">{{ investment.subscriptionPercentage.toFixed(0) }}% subscribed</span>
             </div>
           </div>
 
@@ -690,10 +697,16 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .value-row.return { padding-top: 8px; border-top: 1px dashed #ddd; margin-top: 8px; }
     .value-row.return .amount.positive { color: #27ae60; }
     .value-row.return .amount.negative { color: #e74c3c; }
-    .progress-section { margin-bottom: 16px; }
-    .progress-header { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 6px; }
-    .progress-bar { height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
-    .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 4px; transition: width 0.5s ease; }
+    .share-progress { margin-bottom: 16px; padding: 12px 14px; background: var(--color-background-alt, #f8fafc); border: 1px solid var(--color-border-light, #f1f5f9); border-radius: var(--radius-lg, 12px); }
+    .share-progress-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+    .sp-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted, #64748b); font-weight: 600; }
+    .sp-count { font-size: 13px; color: var(--text-muted, #64748b); }
+    .sp-count strong { font-size: 15px; color: var(--color-accent, #0d9488); font-weight: 700; }
+    .sp-bar { height: 8px; background: var(--color-border, #e2e8f0); border-radius: 999px; overflow: hidden; }
+    .sp-fill { height: 100%; background: linear-gradient(90deg, #14b8a6, #0d9488); border-radius: 999px; transition: width 0.5s ease; }
+    .sp-fill.sold-out { background: linear-gradient(90deg, #34d399, #059669); }
+    .share-progress-foot { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11.5px; color: var(--text-muted, #64748b); }
+    .sp-pct { font-weight: 600; color: var(--color-accent, #0d9488); }
     .card-footer { display: flex; justify-content: space-between; align-items: center; }
     .members-preview { display: flex; align-items: center; gap: 8px; }
     .member-avatars { display: flex; }
