@@ -38,6 +38,7 @@ public class AppDbContext : DbContext
     public DbSet<InvestmentPartner> InvestmentPartners { get; set; }
     public DbSet<InvestmentDocument> InvestmentDocuments { get; set; }
     public DbSet<WalletEntry> WalletEntries { get; set; }
+    public DbSet<CashOutRequest> CashOutRequests { get; set; }
     public DbSet<ShareSubscription> ShareSubscriptions { get; set; }
     public DbSet<ProfitDistribution> ProfitDistributions { get; set; }
     public DbSet<MemberTransactionMap> MemberTransactionMaps { get; set; }
@@ -272,6 +273,20 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.InvestmentId)
                   .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<CashOutRequest>(entity =>
+        {
+            entity.Property(e => e.Amount).HasPrecision(18, 2);
+            entity.Property(e => e.WalletBalanceAtRequest).HasPrecision(18, 2);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+            entity.HasIndex(e => new { e.MemberId, e.Status });
+            entity.HasIndex(e => e.Status);
+
+            entity.HasOne(e => e.Member)
+                  .WithMany()
+                  .HasForeignKey(e => e.MemberId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<ShareSubscription>(entity =>

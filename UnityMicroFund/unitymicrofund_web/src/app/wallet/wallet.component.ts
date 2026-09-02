@@ -197,6 +197,7 @@ import { MemberWalletDrawerComponent } from './member-wallet-drawer.component';
     .e-principalreturn { background: #e3f2fd; color: #1565c0; }
     .e-profitcredit { background: #fff8e1; color: #f9a825; }
     .e-disbursement { background: #eceff1; color: #546e7a; }
+    .e-withdrawal { background: #fdecea; color: #c62828; }
     .sub-active { background: #e8f5e9; color: #2e7d32; }
     .sub-settled { background: #e3f2fd; color: #1565c0; }
     .sub-cancelled { background: #eceff1; color: #546e7a; }

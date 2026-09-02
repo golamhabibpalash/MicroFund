@@ -266,6 +266,9 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
     public async Task<ProfitSettlementDto> DisburseAsync(
         Guid investmentId, Guid? memberId, string? actionedBy, CancellationToken cancellationToken = default)
     {
+        await using var tx = await _context.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable, cancellationToken);
+
         var investment = await _context.Investments
             .FirstOrDefaultAsync(i => i.Id == investmentId, cancellationToken)
             ?? throw new NotFoundException("Investment not found.");
@@ -312,6 +315,7 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
 
         return await GetSettlementAsync(investmentId, cancellationToken);
     }

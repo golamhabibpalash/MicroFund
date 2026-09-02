@@ -10,6 +10,13 @@ public interface IWalletService
     Task<WalletSummaryDto?> GetSummaryAsync(Guid memberId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// One-time, idempotent backfill: credits every already-approved Fund transaction
+    /// that has no matching wallet entry into the member's wallet as a Deposit. Safe
+    /// to re-run - the unique TransactionId index prevents any double-credit.
+    /// </summary>
+    Task BackfillDepositsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Appends an entry. Does not save - the caller commits, so a wallet movement and
     /// the thing that caused it always land in the same transaction.
     /// </summary>

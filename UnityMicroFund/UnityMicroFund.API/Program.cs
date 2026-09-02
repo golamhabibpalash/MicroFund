@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using UnityMicroFund.API.Areas.Accounts.Services;
 using UnityMicroFund.API.Areas.Auth.Services;
+using UnityMicroFund.API.Areas.CashOut.Services;
 using UnityMicroFund.API.Areas.Chat.Hubs;
 using UnityMicroFund.API.Areas.Chat.Services;
 using UnityMicroFund.API.Areas.Contributions.Services;
@@ -170,6 +171,7 @@ builder.Services.AddScoped<IContributionService, ContributionService>();
 builder.Services.AddScoped<IInvestmentService, InvestmentService>();
 builder.Services.AddScoped<IInvestmentSettings, InvestmentSettings>();
 builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<ICashOutService, CashOutService>();
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>();
 builder.Services.AddScoped<IInvestmentLifecycleService, InvestmentLifecycleService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
@@ -323,6 +325,11 @@ using (var scope = app.Services.CreateScope())
     {
         await db.Database.MigrateAsync();
         Console.WriteLine("Database connected and schema ensured.");
+
+        // Idempotent one-time fix: credit already-approved Fund transactions into the
+        // member wallets so wallet balances reconcile with real funding.
+        var wallet = scope.ServiceProvider.GetRequiredService<IWalletService>();
+        await wallet.BackfillDepositsAsync();
     }
     catch (Exception ex)
     {

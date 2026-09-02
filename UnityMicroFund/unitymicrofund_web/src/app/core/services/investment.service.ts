@@ -59,7 +59,8 @@ export type WalletEntryTypeName =
   | 'PurchaseRefund'
   | 'PrincipalReturn'
   | 'ProfitCredit'
-  | 'Disbursement';
+  | 'Disbursement'
+  | 'Withdrawal';
 
 export interface WalletEntry {
   id: string;
@@ -110,6 +111,33 @@ export interface ShareSubscription {
   ownershipPercentage: number;
   status: string;
   purchasedAt: string;
+}
+
+export type CashOutStatusName = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
+
+export interface CashOutRequest {
+  id: string;
+  memberId: string;
+  memberName?: string | null;
+  memberCode?: string | null;
+  memberEmail?: string | null;
+  amount: number;
+  status: CashOutStatusName;
+  remarks?: string | null;
+  adminRemarks?: string | null;
+  requestedAt: string;
+  requestedBy?: string | null;
+  actionedAt?: string | null;
+  actionedBy?: string | null;
+  walletBalanceAtRequest?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CashOutBalance {
+  balance: number;
+  pending: number;
+  available: number;
 }
 
 export interface ProfitDistributionLine {
@@ -284,6 +312,40 @@ export class InvestmentService {
 
   getMySubscriptions(): Observable<ShareSubscription[]> {
     return this.http.get<ShareSubscription[]>('/api/wallet/me/subscriptions');
+  }
+
+  // ---- cash-out (withdraw) -------------------------------------------------
+
+  getMyCashOutRequests(): Observable<CashOutRequest[]> {
+    return this.http.get<CashOutRequest[]>('/api/cashout/me');
+  }
+
+  getCashOutAvailableBalance(): Observable<CashOutBalance> {
+    return this.http.get<CashOutBalance>('/api/cashout/me/available');
+  }
+
+  createCashOutRequest(amount: number, remarks?: string | null): Observable<CashOutRequest> {
+    return this.http.post<CashOutRequest>('/api/cashout', { amount, remarks: remarks ?? null });
+  }
+
+  cancelCashOutRequest(id: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`/api/cashout/${id}/cancel`, {});
+  }
+
+  adminGetCashOutRequests(status?: string, search?: string): Observable<CashOutRequest[]> {
+    const params: string[] = [];
+    if (status) params.push(`status=${encodeURIComponent(status)}`);
+    if (search) params.push(`search=${encodeURIComponent(search)}`);
+    const query = params.length ? `?${params.join('&')}` : '';
+    return this.http.get<CashOutRequest[]>(`/api/cashout${query}`);
+  }
+
+  adminApproveCashOut(id: string): Observable<CashOutRequest> {
+    return this.http.post<CashOutRequest>(`/api/cashout/${id}/approve`, {});
+  }
+
+  adminRejectCashOut(id: string, adminRemarks?: string | null): Observable<CashOutRequest> {
+    return this.http.post<CashOutRequest>(`/api/cashout/${id}/reject`, { adminRemarks: adminRemarks ?? null });
   }
 
   // ---- subscription ------------------------------------------------------

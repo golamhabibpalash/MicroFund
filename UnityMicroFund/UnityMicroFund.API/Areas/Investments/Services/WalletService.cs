@@ -98,11 +98,56 @@ public class WalletService : IWalletService
         // Purchases and disbursements are stored negative; report them as magnitudes.
         summary.TotalInvested = -entries.Where(e => e.EntryType == WalletEntryType.SharePurchase).Sum(e => e.Amount);
         summary.TotalDisbursed = -entries.Where(e => e.EntryType == WalletEntryType.Disbursement).Sum(e => e.Amount);
+        summary.TotalWithdrawn = -entries.Where(e => e.EntryType == WalletEntryType.Withdrawal).Sum(e => e.Amount);
 
         // Newest first for display; the running balance was computed oldest-first.
         summary.Entries.Reverse();
 
         return summary;
+    }
+
+    public async Task BackfillDepositsAsync(CancellationToken cancellationToken = default)
+    {
+        var funding = await _context.Transactions
+            .AsNoTracking()
+            .Where(t => t.Status == TransactionStatus.Fund
+                     && t.ApprovalStatus == TransactionApprovalStatus.Approved)
+            .SelectMany(t => t.MemberTransactionMaps, (t, m) => new { t.Id, t.Amount, t.TransactionId, m.MemberId })
+            .ToListAsync(cancellationToken);
+
+        var creditedIds = await _context.WalletEntries
+            .AsNoTracking()
+            .Where(w => w.TransactionId != null)
+            .Select(w => w.TransactionId!.Value)
+            .ToListAsync(cancellationToken);
+
+        var existing = creditedIds.ToHashSet();
+        var now = DateTime.UtcNow;
+        var added = 0;
+
+        foreach (var row in funding)
+        {
+            if (existing.Contains(row.Id)) continue;
+
+            _context.WalletEntries.Add(new WalletEntry
+            {
+                Id = Guid.NewGuid(),
+                MemberId = row.MemberId,
+                EntryType = WalletEntryType.Deposit,
+                Amount = row.Amount,
+                TransactionId = row.Id,
+                Description = $"Fund credited - {row.TransactionId}",
+                CreatedBy = "system",
+                CreatedAt = now
+            });
+            added++;
+        }
+
+        if (added > 0)
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+            Console.WriteLine($"Wallet backfill: credited {added} approved fund transaction(s).");
+        }
     }
 
     public WalletEntry AddEntry(

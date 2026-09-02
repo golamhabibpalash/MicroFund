@@ -38,6 +38,7 @@ public class WalletSummaryDto
     public decimal TotalInvested { get; set; }
     public decimal TotalProfitEarned { get; set; }
     public decimal TotalDisbursed { get; set; }
+    public decimal TotalWithdrawn { get; set; }
     public List<WalletEntryDto> Entries { get; set; } = new();
 }
 

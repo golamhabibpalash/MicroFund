@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
+using UnityMicroFund.API.Areas.Investments.Services;
 using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Areas.Transactions.DTOs;
 using UnityMicroFund.API.Data;
@@ -18,13 +19,15 @@ public class TransactionService : ITransactionService
     private readonly IEmailService _emailService;
     private readonly IAuditService _auditService;
     private readonly INotificationService _notificationService;
+    private readonly IWalletService _walletService;
 
-    public TransactionService(AppDbContext context, IEmailService emailService, IAuditService auditService, INotificationService notificationService)
+    public TransactionService(AppDbContext context, IEmailService emailService, IAuditService auditService, INotificationService notificationService, IWalletService walletService)
     {
         _context = context;
         _emailService = emailService;
         _auditService = auditService;
         _notificationService = notificationService;
+        _walletService = walletService;
     }
 
     private IQueryable<Transaction> BuildFilteredQuery(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false)
@@ -449,6 +452,8 @@ public class TransactionService : ITransactionService
         var transaction = await _context.Transactions
             .Include(t => t.Account)
             .Include(t => t.CreatedBy)
+            .Include(t => t.MemberTransactionMaps)
+                .ThenInclude(m => m.Member)
             .FirstOrDefaultAsync(t => t.Id == id);
 
         if (transaction == null) return null;
@@ -502,6 +507,42 @@ public class TransactionService : ITransactionService
                 transaction.Account.Balance -= transaction.Amount;
             }
             transaction.Account.UpdatedAt = DateTime.UtcNow;
+        }
+
+        if (dto.IsApproved)
+        {
+            // Mirror the account movement into the member's wallet. Fund money is a
+            // credit (Deposit); refunded money is a debit (Withdrawal). The unique
+            // index on WalletEntry.TransactionId guarantees the same transaction can
+            // never be credited twice.
+            var member = transaction.MemberTransactionMaps
+                .Select(m => m.Member)
+                .FirstOrDefault(m => m != null);
+
+            if (member != null)
+            {
+                var alreadyCredited = await _context.WalletEntries
+                    .AnyAsync(w => w.TransactionId == transaction.Id);
+
+                if (!alreadyCredited)
+                {
+                    var operatorName = approver.Name ?? approver.Email ?? "system";
+                    if (transaction.Status == TransactionStatus.Fund)
+                    {
+                        _walletService.AddEntry(
+                            member.Id, WalletEntryType.Deposit, transaction.Amount,
+                            $"Fund credited - {transaction.TransactionId}",
+                            operatorName, transactionId: transaction.Id);
+                    }
+                    else
+                    {
+                        _walletService.AddEntry(
+                            member.Id, WalletEntryType.Withdrawal, -transaction.Amount,
+                            $"Fund refunded - {transaction.TransactionId}",
+                            operatorName, transactionId: transaction.Id);
+                    }
+                }
+            }
         }
 
         transaction.UpdatedAt = DateTime.UtcNow;

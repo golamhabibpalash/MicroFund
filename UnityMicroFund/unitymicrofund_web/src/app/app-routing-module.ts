@@ -7,6 +7,7 @@ import { DashboardComponent } from './dashboard/dashboard.component';
 import { InvestorsComponent } from './investors/investors.component';
 import { ProfileComponent } from './profile/profile.component';
 import { WalletComponent } from './wallet/wallet.component';
+import { CashOutComponent } from './cashout/cashout.component';
 import { PaymentsComponent } from './payments/payments.component';
 import { AccountsComponent } from './accounts/accounts.component';
 import { ReportsComponent } from './reports/reports.component';
@@ -68,6 +69,12 @@ const routes: Routes = [
     component: AdminLayoutComponent,
     canActivate: [AuthGuard, CompleteProfileGuard],
     children: [{ path: '', component: WalletComponent }],
+  },
+  {
+    path: 'withdraw',
+    component: AdminLayoutComponent,
+    canActivate: [AuthGuard, CompleteProfileGuard],
+    children: [{ path: '', component: CashOutComponent }],
   },
   {
     path: 'profile',
