@@ -81,23 +81,23 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
           <table class="accounts-table">
             <thead>
               <tr>
-                <th>Account Name</th>
+                <th>Account</th>
                 <th>Type</th>
                 <th>Bank</th>
-                <th>Account Number</th>
-                <th>Balance</th>
-                <th>Total Funded</th>
-                <th>Total Refunded</th>
-                <th>Transactions</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Actions</th>
+                <th class="num">Balance</th>
+                <th class="num">Transactions</th>
+                <th class="actions-col">Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr *ngFor="let account of filteredAccounts">
                 <td class="name-cell">
-                  <strong>{{ account.name }}</strong>
+                  <div class="name-row">
+                    <strong>{{ account.name }}</strong>
+                    <span class="status-badge" [class.active]="account.isActive" [class.inactive]="!account.isActive">
+                      {{ account.isActive ? 'Active' : 'Inactive' }}
+                    </span>
+                  </div>
                   <span class="description" *ngIf="account.description">{{ account.description }}</span>
                 </td>
                 <td>
@@ -105,18 +105,29 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
                     {{ formatAccountType(account.accountType) }}
                   </span>
                 </td>
-                <td>{{ account.bankName || '-' }}</td>
-                <td class="mono">{{ account.accountNumber || '-' }}</td>
-                <td class="balance">{{ account.balance | bdtCurrency }}</td>
-                <td class="funded">{{ account.totalFunded | bdtCurrency }}</td>
-                <td class="refunded">{{ account.totalRefunded | bdtCurrency }}</td>
-                <td class="transactions">{{ account.transactionCount }}</td>
                 <td>
-                  <span class="status-badge" [class.active]="account.isActive" [class.inactive]="!account.isActive">
-                    {{ account.isActive ? 'Active' : 'Inactive' }}
-                  </span>
+                  <div class="bank-cell">
+                    <span class="bank-name">{{ account.bankName || '-' }}</span>
+                    <span class="bank-sub" *ngIf="account.accountNumber">#{{ account.accountNumber }}</span>
+                    <span class="bank-sub" *ngIf="account.accountHolderName">{{ account.accountHolderName }}</span>
+                  </div>
                 </td>
-                <td class="date">{{ account.createdAt | date:'mediumDate' }}</td>
+                <td class="num">
+                  <div class="finance-cell">
+                    <span class="balance">{{ account.balance | bdtCurrency }}</span>
+                    <span class="finance-sub">
+                      <i class="material-icons caret-up">arrow_upward</i> {{ account.totalFunded | bdtCurrency }}
+                    </span>
+                  </div>
+                </td>
+                <td class="num">
+                  <div class="finance-cell">
+                    <span class="transactions">{{ account.transactionCount }}</span>
+                    <span class="finance-sub refunded">
+                      <i class="material-icons caret-down">arrow_downward</i> {{ account.totalRefunded | bdtCurrency }}
+                    </span>
+                  </div>
+                </td>
                 <td class="actions">
                   <button class="btn-icon" (click)="editAccount(account)" title="Edit">
                     <span class="material-icons">edit</span>
@@ -127,7 +138,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
                 </td>
               </tr>
               <tr *ngIf="filteredAccounts.length === 0">
-                <td colspan="11" class="empty-row">
+                <td colspan="6" class="empty-row">
                   <span class="material-icons">account_balance</span>
                   <span>No accounts found</span>
                 </td>
@@ -352,19 +363,28 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     /* Table Styles */
     .table-container { overflow-x: auto; }
     .accounts-table { width: 100%; border-collapse: collapse; }
-    .accounts-table th { text-align: left; padding: 12px 16px; background: #f8f9fa; color: #666; font-weight: 600; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #e9ecef; }
-    .accounts-table td { padding: 16px; border-bottom: 1px solid #e9ecef; vertical-align: middle; }
+    .accounts-table th { text-align: left; padding: 12px 16px; background: #f8f9fa; color: #666; font-weight: 600; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #e9ecef; white-space: nowrap; }
+    .accounts-table th.num, .accounts-table td.num { text-align: right; }
+    .accounts-table td { padding: 14px 16px; border-bottom: 1px solid #e9ecef; vertical-align: middle; }
+    .accounts-table tbody tr { transition: background 0.15s ease; }
     .accounts-table tbody tr:hover { background: #f8f9fa; }
-    .name-cell { display: flex; flex-direction: column; gap: 2px; }
-    .name-cell strong { color: #1a1a2e; font-weight: 600; }
+    .name-cell { display: flex; flex-direction: column; gap: 4px; min-width: 180px; }
+    .name-row { display: flex; align-items: center; gap: 10px; }
+    .name-cell strong { color: #1a1a2e; font-weight: 600; white-space: nowrap; }
     .name-cell .description { font-size: 12px; color: #999; }
-    .mono { font-family: monospace; letter-spacing: 1px; }
-    .balance { font-weight: 700; color: #27ae60; }
-    .funded { color: #2196f3; }
-    .refunded { color: #f39c12; }
+    .bank-cell { display: flex; flex-direction: column; gap: 2px; }
+    .bank-cell .bank-name { font-weight: 500; color: #1a1a2e; }
+    .bank-cell .bank-sub { font-size: 12px; color: #999; font-family: monospace; letter-spacing: 0.3px; }
+    .finance-cell { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+    .finance-sub { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; color: #2196f3; }
+    .finance-sub .material-icons { font-size: 14px; }
+    .finance-sub.refunded { color: #f39c12; }
+    .finance-sub .caret-up, .finance-sub .caret-down { vertical-align: middle; }
+    .balance { font-weight: 700; color: #27ae60; white-space: nowrap; }
     .transactions { font-weight: 600; color: #667eea; }
-    .date { color: #666; font-size: 13px; }
-    .actions { display: flex; gap: 4px; }
+    .date { color: #666; font-size: 13px; white-space: nowrap; }
+    .actions-col { width: 1%; }
+    .actions { display: flex; gap: 4px; justify-content: flex-end; white-space: nowrap; }
     .empty-row { text-align: center; padding: 40px; color: #999; }
     .empty-row .material-icons { font-size: 48px; display: block; margin-bottom: 8px; }
     
