@@ -123,6 +123,32 @@ function maturityAfterStartValidator(group: AbstractControl): ValidationErrors |
             </div>
             <div class="form-row">
               <div class="form-group">
+                <label>Minimum Shares per Member</label>
+                <input type="number" formControlName="minimumSharesPerMember" min="1" step="1" />
+                <span class="field-error" *ngIf="showError('minimumSharesPerMember')">Minimum must be at least 1.</span>
+              </div>
+              <div class="form-group">
+                <label>Maximum Shares per Member</label>
+                <input type="number" formControlName="maximumSharesPerMember" min="1" step="1" />
+                <span class="field-error" *ngIf="showError('maximumSharesPerMember')">Maximum must be at least 1.</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Maintenance % (org fee)</label>
+                <input type="number" formControlName="operationalExpensePercentage" min="0" max="100" step="0.01" />
+                <span class="field-error" *ngIf="showError('operationalExpensePercentage')">Between 0 and 100.</span>
+                <span class="field-hint">Applied on top of gross invested proceeds.</span>
+              </div>
+              <div class="form-group">
+                <label>Status *</label>
+                <select formControlName="status">
+                  <option *ngFor="let s of investmentStatuses" [value]="s">{{ s }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
                 <label>Start Date *</label>
                 <input type="date" formControlName="dateInvested" />
                 <span class="field-error" *ngIf="showError('dateInvested')">Start date is required.</span>
@@ -132,10 +158,6 @@ function maturityAfterStartValidator(group: AbstractControl): ValidationErrors |
                 <input type="date" formControlName="maturityDate" />
               </div>
             </div>
-            <span class="field-error block" *ngIf="form.errors?.['maturityBeforeStart'] && form.touched">
-              Maturity date must be after the start date.
-            </span>
-
             <div class="form-row">
               <div class="form-group">
                 <label>Duration (months)</label>
@@ -144,13 +166,10 @@ function maturityAfterStartValidator(group: AbstractControl): ValidationErrors |
                   Derived from the dates: {{ derivedDuration }} months.
                 </span>
               </div>
-              <div class="form-group">
-                <label>Status *</label>
-                <select formControlName="status">
-                  <option *ngFor="let s of investmentStatuses" [value]="s">{{ s }}</option>
-                </select>
-              </div>
             </div>
+            <span class="field-error block" *ngIf="form.errors?.['maturityBeforeStart'] && form.touched">
+              Maturity date must be after the start date.
+            </span>
 
             <div class="form-group">
               <label>Description / Remarks</label>
@@ -584,6 +603,9 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
         category: ['', Validators.maxLength(100)],
         principalAmount: [null as number | null, [Validators.required, Validators.min(0.01)]],
         totalShares: [null as number | null, Validators.min(1)],
+        minimumSharesPerMember: [null as number | null, Validators.min(1)],
+        maximumSharesPerMember: [null as number | null, Validators.min(1)],
+        operationalExpensePercentage: [null as number | null, [Validators.min(0), Validators.max(100)]],
         targetGrossProfit: [null as number | null, Validators.min(0)],
         dateInvested: ['', Validators.required],
         maturityDate: [''],
@@ -622,6 +644,9 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
       category: investment.category ?? '',
       principalAmount: investment.principalAmount,
       totalShares: investment.totalShares ?? null,
+      minimumSharesPerMember: investment.minimumSharesPerMember ?? null,
+      maximumSharesPerMember: investment.maximumSharesPerMember ?? null,
+      operationalExpensePercentage: investment.operationalExpensePercentage ?? null,
       targetGrossProfit: investment.targetGrossProfit ?? null,
       dateInvested: this.toDateInput(investment.dateInvested),
       maturityDate: this.toDateInput(investment.maturityDate),
@@ -669,6 +694,9 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
       category: this.blankToNull(v.category),
       principalAmount: Number(v.principalAmount),
       totalShares: v.totalShares ? Number(v.totalShares) : null,
+      minimumSharesPerMember: v.minimumSharesPerMember ? Number(v.minimumSharesPerMember) : null,
+      maximumSharesPerMember: v.maximumSharesPerMember ? Number(v.maximumSharesPerMember) : null,
+      operationalExpensePercentage: v.operationalExpensePercentage != null ? Number(v.operationalExpensePercentage) : null,
       targetGrossProfit: v.targetGrossProfit ? Number(v.targetGrossProfit) : null,
       // date inputs give a bare yyyy-MM-dd; send it as a UTC instant so the day
       // does not shift when the API echoes it back.

@@ -166,6 +166,10 @@ export interface ProfitSettlement {
   totalPrincipalReturned: number;
   totalProfitDistributed: number;
   totalPayable: number;
+  totalInvested: number;
+  sharesSold: number;
+  interimProfitTotal: number;
+  grossResult: number;
   distributions: ProfitDistributionLine[];
 }
 
@@ -210,12 +214,18 @@ export interface Investment {
   soldShares: number;
   remainingShares: number;
   subscriptionPercentage: number;
+  minimumSharesPerMember?: number | null;
+  maximumSharesPerMember?: number | null;
   targetGrossProfit?: number | null;
   actualGrossProfit?: number | null;
+  grossReceivedAmount?: number | null;
   operationalExpensePercentage: number;
   operationalExpenseAmount?: number | null;
   netProfit?: number | null;
   undistributedRemainder?: number | null;
+  totalInvested?: number;
+  totalSharesSold?: number;
+  interimProfitTotal?: number;
   completionDate?: string | null;
   closingNotes?: string | null;
   dateInvested: string;
@@ -231,6 +241,17 @@ export interface Investment {
   members: MemberInvestment[];
   partners: InvestmentPartner[];
   documents: InvestmentDocument[];
+  interimProfits: InterimProfit[];
+}
+
+export interface InterimProfit {
+  id: string;
+  investmentId: string;
+  amount: number;
+  profitDate: string;
+  remarks?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
 }
 
 export interface CreateInvestmentRequest {
@@ -243,6 +264,9 @@ export interface CreateInvestmentRequest {
   totalShares?: number | null;
   /** Server-derived from value / shares; sent for compatibility but ignored. */
   sharePrice?: number | null;
+  minimumSharesPerMember?: number | null;
+  maximumSharesPerMember?: number | null;
+  operationalExpensePercentage?: number | null;
   targetGrossProfit?: number | null;
   dateInvested: string;
   maturityDate?: string | null;
@@ -268,6 +292,12 @@ export class InvestmentService {
   getInvestments(type?: string): Observable<Investment[]> {
     const query = type ? `?type=${encodeURIComponent(type)}` : '';
     return this.http.get<Investment[]>(`${this.apiUrl}${query}`);
+  }
+
+  /** Published feed for members - only circulated projects are returned. */
+  getPublishedInvestments(type?: string): Observable<Investment[]> {
+    const query = type ? `?type=${encodeURIComponent(type)}` : '';
+    return this.http.get<Investment[]>(`${this.apiUrl}/published${query}`);
   }
 
   getInvestment(id: string): Observable<Investment> {
@@ -386,5 +416,22 @@ export class InvestmentService {
   /** Omit memberId to disburse to every investor not yet paid. */
   disburse(id: string, memberId?: string): Observable<ProfitSettlement> {
     return this.http.post<ProfitSettlement>(`${this.apiUrl}/${id}/disburse`, { memberId: memberId ?? null });
+  }
+
+  // ---- interim profit ----------------------------------------------------
+
+  getInterimProfits(id: string): Observable<InterimProfit[]> {
+    return this.http.get<InterimProfit[]>(`${this.apiUrl}/${id}/interim-profits`);
+  }
+
+  createInterimProfit(
+    id: string,
+    payload: { amount: number; profitDate: string; remarks?: string | null },
+  ): Observable<InterimProfit> {
+    return this.http.post<InterimProfit>(`${this.apiUrl}/${id}/interim-profits`, payload);
+  }
+
+  deleteInterimProfit(id: string, profitId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}/interim-profits/${profitId}`);
   }
 }

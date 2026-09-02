@@ -41,6 +41,32 @@ public class InvestmentService : IInvestmentService
             .Include(i => i.Partners)
             .Include(i => i.Documents)
             .Include(i => i.Subscriptions)
+            .Include(i => i.InterimProfits)
+            .OrderByDescending(i => i.DateInvested)
+            .ToListAsync(cancellationToken);
+
+        return investments.Select(MapToDto);
+    }
+
+    public async Task<IEnumerable<InvestmentResponseDto>> GetPublishedInvestmentsAsync(
+        InvestmentType? type = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Investments.AsNoTracking()
+            .Where(i => i.Status != InvestmentStatus.Draft && i.Status != InvestmentStatus.Cancelled);
+
+        if (type.HasValue)
+        {
+            query = query.Where(i => i.Type == type.Value);
+        }
+
+        var investments = await query
+            .Include(i => i.MemberInvestments)
+                .ThenInclude(mi => mi.Member)
+            .Include(i => i.Partners)
+            .Include(i => i.Documents)
+            .Include(i => i.Subscriptions)
+            .Include(i => i.InterimProfits)
             .OrderByDescending(i => i.DateInvested)
             .ToListAsync(cancellationToken);
 
@@ -58,6 +84,7 @@ public class InvestmentService : IInvestmentService
             .Include(i => i.Partners)
             .Include(i => i.Documents)
             .Include(i => i.Subscriptions)
+            .Include(i => i.InterimProfits)
             .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
 
         return investment == null ? null : MapToDto(investment);
@@ -70,9 +97,13 @@ public class InvestmentService : IInvestmentService
     {
         ValidateDates(dto.DateInvested, dto.MaturityDate);
         await ValidateUniqueNumbersAsync(dto.CertificateNumber, dto.ReferenceNumber, null, cancellationToken);
+        ValidateShareLimits(dto.MinimumSharesPerMember, dto.MaximumSharesPerMember, dto.TotalShares);
 
         var now = DateTime.UtcNow;
-        var operationalExpensePercentage = await _settings.GetOperationalExpensePercentageAsync(cancellationToken);
+        // Per-project maintenance percentage. When the caller does not supply one for
+        // a brand-new project, fall back to the global default so creation still works.
+        var operationalExpensePercentage = dto.OperationalExpensePercentage
+            ?? await _settings.GetOperationalExpensePercentageAsync(cancellationToken);
 
         var investment = new Investment
         {
@@ -86,6 +117,8 @@ public class InvestmentService : IInvestmentService
             CurrentValue = dto.CurrentValue ?? dto.PrincipalAmount,
             TotalShares = dto.TotalShares,
             SharePrice = DeriveSharePrice(dto.PrincipalAmount, dto.TotalShares),
+            MinimumSharesPerMember = dto.MinimumSharesPerMember,
+            MaximumSharesPerMember = dto.MaximumSharesPerMember,
             TargetGrossProfit = dto.TargetGrossProfit,
             // Frozen at creation so a later change to the global rate cannot rewrite
             // the arithmetic of a project that has already been agreed.
@@ -161,6 +194,12 @@ public class InvestmentService : IInvestmentService
             investment.CurrentValue = dto.CurrentValue.Value;
         if (dto.TotalShares.HasValue)
             investment.TotalShares = dto.TotalShares.Value;
+        if (dto.MinimumSharesPerMember.HasValue)
+            investment.MinimumSharesPerMember = dto.MinimumSharesPerMember.Value;
+        if (dto.MaximumSharesPerMember.HasValue)
+            investment.MaximumSharesPerMember = dto.MaximumSharesPerMember.Value;
+        if (dto.OperationalExpensePercentage.HasValue)
+            investment.OperationalExpensePercentage = Math.Clamp(dto.OperationalExpensePercentage.Value, 0m, 100m);
         if (dto.TargetGrossProfit.HasValue)
             investment.TargetGrossProfit = dto.TargetGrossProfit.Value;
         if (dto.DateInvested.HasValue)
@@ -182,6 +221,8 @@ public class InvestmentService : IInvestmentService
         // update cannot leave the record internally inconsistent.
         ValidateDates(investment.DateInvested, investment.MaturityDate);
         await GuardShareStructureChangeAsync(investment, cancellationToken);
+        ValidateShareLimits(investment.MinimumSharesPerMember, investment.MaximumSharesPerMember, investment.TotalShares);
+        await GuardShareLimitChangeAsync(investment, cancellationToken);
         await ValidateUniqueNumbersAsync(investment.CertificateNumber, investment.ReferenceNumber, id, cancellationToken);
 
         investment.DurationMonths = ResolveDuration(
@@ -330,6 +371,51 @@ public class InvestmentService : IInvestmentService
         }
     }
 
+    /// <summary>Per-investment per-member share ceiling cannot be lowered below what a member already owns.</summary>
+    private async Task GuardShareLimitChangeAsync(Investment investment, CancellationToken cancellationToken)
+    {
+        var maxChanged = _context.Entry(investment).Property(i => i.MaximumSharesPerMember).IsModified;
+        if (!maxChanged) return;
+
+        var maxShares = investment.MaximumSharesPerMember;
+        if (!maxShares.HasValue) return;
+
+        var highest = await _context.MemberInvestments
+            .AsNoTracking()
+            .Where(mi => mi.InvestmentId == investment.Id)
+            .MaxAsync(mi => (int?)mi.SharesOwned, cancellationToken) ?? 0;
+
+        if (highest > maxShares.Value)
+        {
+            throw new ValidationException(
+                $"{highest} shares are already held by a member, which exceeds the new {maxShares.Value}-share maximum per member.");
+        }
+    }
+
+    /// <summary>
+    /// Section 5: minimum must not exceed maximum, none may be zero, and a maximum
+    /// larger than the total share count is meaningless.
+    /// </summary>
+    private static void ValidateShareLimits(int? min, int? max, int? totalShares)
+    {
+        if (min.HasValue && min.Value < 1)
+        {
+            throw new ValidationException("Minimum shares per member must be at least 1.");
+        }
+        if (max.HasValue && max.Value < 1)
+        {
+            throw new ValidationException("Maximum shares per member must be at least 1.");
+        }
+        if (min.HasValue && max.HasValue && min.Value > max.Value)
+        {
+            throw new ValidationException("Minimum shares per member cannot exceed the maximum.");
+        }
+        if (max.HasValue && totalShares.HasValue && max.Value > totalShares.Value)
+        {
+            throw new ValidationException("Maximum shares per member cannot exceed the total number of shares available.");
+        }
+    }
+
     private static void ValidateDates(DateTime dateInvested, DateTime? maturityDate)
     {
         if (maturityDate.HasValue && maturityDate.Value.Date <= dateInvested.Date)
@@ -444,6 +530,12 @@ public class InvestmentService : IInvestmentService
             ? (returnAmount / investment.PrincipalAmount) * 100
             : 0;
 
+        var activeSubs = investment.Subscriptions
+            .Where(s => s.Status == ShareSubscriptionStatus.Active)
+            .ToList();
+        var totalInvested = activeSubs.Sum(s => s.AmountPaid);
+        var interimProfitTotal = investment.InterimProfits.Sum(p => p.Amount);
+
         return new InvestmentResponseDto
         {
             Id = investment.Id,
@@ -457,6 +549,8 @@ public class InvestmentService : IInvestmentService
             ReturnPercentage = returnPercentage,
             TotalShares = investment.TotalShares,
             SharePrice = investment.SharePrice,
+            MinimumSharesPerMember = investment.MinimumSharesPerMember,
+            MaximumSharesPerMember = investment.MaximumSharesPerMember,
             SoldShares = soldShares,
             RemainingShares = Math.Max(0, totalShares - soldShares),
             SubscriptionPercentage = totalShares > 0
@@ -464,6 +558,10 @@ public class InvestmentService : IInvestmentService
                 : 0m,
             TargetGrossProfit = investment.TargetGrossProfit,
             ActualGrossProfit = investment.ActualGrossProfit,
+            GrossReceivedAmount = investment.ActualGrossProfit,
+            TotalInvested = totalInvested,
+            TotalSharesSold = soldShares,
+            InterimProfitTotal = interimProfitTotal,
             OperationalExpensePercentage = investment.OperationalExpensePercentage,
             OperationalExpenseAmount = investment.OperationalExpenseAmount,
             NetProfit = investment.NetProfit,
@@ -488,7 +586,19 @@ public class InvestmentService : IInvestmentService
                 ShareValue = mi.ShareValue
             }).ToList(),
             Partners = investment.Partners.Select(ToDto).ToList(),
-            Documents = investment.Documents.Select(ToDto).ToList()
+            Documents = investment.Documents.Select(ToDto).ToList(),
+            InterimProfits = investment.InterimProfits
+                .OrderBy(p => p.ProfitDate)
+                .Select(p => new InterimProfitDto
+                {
+                    Id = p.Id,
+                    InvestmentId = p.InvestmentId,
+                    Amount = p.Amount,
+                    ProfitDate = p.ProfitDate,
+                    Remarks = p.Remarks,
+                    CreatedBy = p.CreatedBy,
+                    CreatedAt = p.CreatedAt
+                }).ToList()
         };
     }
 }

@@ -109,6 +109,15 @@ public class CreateInvestmentDto
     /// </summary>
     public decimal? SharePrice { get; set; }
 
+    [Range(1, int.MaxValue, ErrorMessage = "Minimum shares per member must be at least 1.")]
+    public int? MinimumSharesPerMember { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "Maximum shares per member must be at least 1.")]
+    public int? MaximumSharesPerMember { get; set; }
+
+    [Range(0, 100, ErrorMessage = "Maintenance percentage must be between 0 and 100.")]
+    public decimal? OperationalExpensePercentage { get; set; }
+
     [Range(0, double.MaxValue, ErrorMessage = "Target gross profit cannot be negative.")]
     public decimal? TargetGrossProfit { get; set; }
 
@@ -168,6 +177,15 @@ public class UpdateInvestmentDto
     /// <summary>Ignored on input; re-derived from value / shares (section 3).</summary>
     public decimal? SharePrice { get; set; }
 
+    [Range(1, int.MaxValue, ErrorMessage = "Minimum shares per member must be at least 1.")]
+    public int? MinimumSharesPerMember { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "Maximum shares per member must be at least 1.")]
+    public int? MaximumSharesPerMember { get; set; }
+
+    [Range(0, 100, ErrorMessage = "Maintenance percentage must be between 0 and 100.")]
+    public decimal? OperationalExpensePercentage { get; set; }
+
     [Range(0, double.MaxValue, ErrorMessage = "Target gross profit cannot be negative.")]
     public decimal? TargetGrossProfit { get; set; }
 
@@ -207,6 +225,8 @@ public class InvestmentResponseDto
     public decimal ReturnPercentage { get; set; }
     public int? TotalShares { get; set; }
     public decimal? SharePrice { get; set; }
+    public int? MinimumSharesPerMember { get; set; }
+    public int? MaximumSharesPerMember { get; set; }
 
     // Section 8 - real-time share availability.
     public int SoldShares { get; set; }
@@ -219,6 +239,19 @@ public class InvestmentResponseDto
     public decimal? OperationalExpenseAmount { get; set; }
     public decimal? NetProfit { get; set; }
     public decimal? UndistributedRemainder { get; set; }
+
+    /// <summary>Alias of ActualGrossProfit - the gross amount received from the project.</summary>
+    public decimal? GrossReceivedAmount { get; set; }
+
+    /// <summary>Total capital collected from investors for this project.</summary>
+    public decimal TotalInvested { get; set; }
+
+    /// <summary>Shares currently sold (active subscriptions).</summary>
+    public int TotalSharesSold { get; set; }
+
+    /// <summary>Sum of all accrued interim profit entries.</summary>
+    public decimal InterimProfitTotal { get; set; }
+
     public DateTime? CompletionDate { get; set; }
     public string? ClosingNotes { get; set; }
 
@@ -235,6 +268,18 @@ public class InvestmentResponseDto
     public List<MemberInvestmentDto> Members { get; set; } = new();
     public List<InvestmentPartnerDto> Partners { get; set; } = new();
     public List<InvestmentDocumentDto> Documents { get; set; } = new();
+    public List<InterimProfitDto> InterimProfits { get; set; } = new();
+}
+
+public class InterimProfitDto
+{
+    public Guid Id { get; set; }
+    public Guid InvestmentId { get; set; }
+    public decimal Amount { get; set; }
+    public DateTime ProfitDate { get; set; }
+    public string? Remarks { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public class MemberInvestmentDto

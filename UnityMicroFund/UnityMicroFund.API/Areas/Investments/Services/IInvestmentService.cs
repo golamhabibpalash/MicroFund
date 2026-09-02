@@ -6,6 +6,13 @@ namespace UnityMicroFund.API.Areas.Investments.Services;
 public interface IInvestmentService
 {
     Task<IEnumerable<InvestmentResponseDto>> GetInvestmentsAsync(InvestmentType? type = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Published investment feed for members: only investments that are (or have been)
+    /// circulated. Draft and Cancelled projects are excluded so a member never sees an
+    /// opportunity that is not yet real.
+    /// </summary>
+    Task<IEnumerable<InvestmentResponseDto>> GetPublishedInvestmentsAsync(InvestmentType? type = null, CancellationToken cancellationToken = default);
     Task<InvestmentResponseDto?> GetInvestmentByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<InvestmentResponseDto> CreateInvestmentAsync(CreateInvestmentDto dto, string? createdBy, CancellationToken cancellationToken = default);
     Task<InvestmentResponseDto?> UpdateInvestmentAsync(Guid id, UpdateInvestmentDto dto, string? modifiedBy, CancellationToken cancellationToken = default);

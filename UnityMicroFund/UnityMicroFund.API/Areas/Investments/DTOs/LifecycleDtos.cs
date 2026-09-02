@@ -13,8 +13,12 @@ public class ChangeInvestmentStatusDto
 
 public class CompleteInvestmentDto
 {
-    [Required(ErrorMessage = "Actual gross profit is required.")]
-    [Range(0, double.MaxValue, ErrorMessage = "Actual gross profit cannot be negative.")]
+    /// <summary>
+    /// The gross amount received from the project. Backward-compatible: the service
+    /// stores this into GrossReceivedAmount (formerly ActualGrossProfit).
+    /// </summary>
+    [Required(ErrorMessage = "Gross received amount is required.")]
+    [Range(0, double.MaxValue, ErrorMessage = "Gross received amount cannot be negative.")]
     public decimal ActualGrossProfit { get; set; }
 
     public DateTime? CompletionDate { get; set; }
@@ -44,9 +48,26 @@ public class ProfitSettlementDto
     public Guid InvestmentId { get; set; }
     public string InvestmentName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+
+    /// <summary>Gross amount received from the project.</summary>
     public decimal ActualGrossProfit { get; set; }
+
+    /// <summary>Total capital collected from investors.</summary>
+    public decimal TotalInvested { get; set; }
+
+    /// <summary>Total shares sold (active subscriptions).</summary>
+    public int SharesSold { get; set; }
+
+    /// <summary>Sum of accrued interim profit entries (included in net result).</summary>
+    public decimal InterimProfitTotal { get; set; }
+
+    /// <summary>Gross received + accrued interim profit before costs.</summary>
+    public decimal GrossResult { get; set; }
+
     public decimal OperationalExpensePercentage { get; set; }
     public decimal OperationalExpenseAmount { get; set; }
+
+    /// <summary>Net result after the maintenance/% fee. Could be negative (loss).</summary>
     public decimal NetProfit { get; set; }
 
     /// <summary>Rounding remainder retained by the organisation.</summary>
@@ -56,6 +77,19 @@ public class ProfitSettlementDto
     public decimal TotalProfitDistributed { get; set; }
     public decimal TotalPayable { get; set; }
     public List<ProfitDistributionDto> Distributions { get; set; } = new();
+}
+
+public class CreateInterimProfitDto
+{
+    [Required(ErrorMessage = "Profit amount is required.")]
+    [Range(0.01, double.MaxValue, ErrorMessage = "Profit amount must be greater than zero.")]
+    public decimal Amount { get; set; }
+
+    [Required(ErrorMessage = "Profit date is required.")]
+    public DateTime ProfitDate { get; set; }
+
+    [MaxLength(500)]
+    public string? Remarks { get; set; }
 }
 
 public class DisburseDto

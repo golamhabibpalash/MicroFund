@@ -25,6 +25,7 @@ public class InvestmentsController : ControllerBase
     private readonly IInvestmentService _investmentService;
     private readonly ISubscriptionService _subscriptionService;
     private readonly IInvestmentLifecycleService _lifecycleService;
+    private readonly IInterimProfitService _interimProfitService;
     private readonly UnityMicroFund.API.Data.AppDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _environment;
@@ -33,6 +34,7 @@ public class InvestmentsController : ControllerBase
         IInvestmentService investmentService,
         ISubscriptionService subscriptionService,
         IInvestmentLifecycleService lifecycleService,
+        IInterimProfitService interimProfitService,
         UnityMicroFund.API.Data.AppDbContext context,
         IConfiguration configuration,
         IWebHostEnvironment environment)
@@ -40,6 +42,7 @@ public class InvestmentsController : ControllerBase
         _investmentService = investmentService;
         _subscriptionService = subscriptionService;
         _lifecycleService = lifecycleService;
+        _interimProfitService = interimProfitService;
         _context = context;
         _configuration = configuration;
         _environment = environment;
@@ -103,6 +106,23 @@ public class InvestmentsController : ControllerBase
     public async Task<IActionResult> GetSettlement(Guid id, CancellationToken cancellationToken)
         => Ok(await _lifecycleService.GetSettlementAsync(id, cancellationToken));
 
+    [HttpGet("{id}/interim-profits")]
+    public async Task<IActionResult> GetInterimProfits(Guid id, CancellationToken cancellationToken)
+        => Ok(await _interimProfitService.GetForInvestmentAsync(id, cancellationToken));
+
+    [HttpPost("{id}/interim-profits")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateInterimProfit(
+        Guid id, [FromBody] CreateInterimProfitDto dto, CancellationToken cancellationToken)
+        => Ok(await _interimProfitService.CreateAsync(id, dto, GetCurrentUserName(), cancellationToken));
+
+    [HttpDelete("{id}/interim-profits/{profitId}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteInterimProfit(Guid id, Guid profitId, CancellationToken cancellationToken)
+        => await _interimProfitService.DeleteAsync(id, profitId, cancellationToken)
+            ? NoContent()
+            : NotFound(new { message = "Interim profit record not found" });
+
     [HttpPost("{id}/disburse")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Disburse(
@@ -145,6 +165,19 @@ public class InvestmentsController : ControllerBase
         return Ok(investments);
     }
 
+    /// <summary>
+    /// Published investment feed for members - only circulated projects are shown.
+    /// Draft/Cancelled projects are never exposed to the investing membership.
+    /// </summary>
+    [HttpGet("published")]
+    public async Task<IActionResult> GetPublishedInvestments(
+        [FromQuery] InvestmentType? type = null,
+        CancellationToken cancellationToken = default)
+    {
+        var investments = await _investmentService.GetPublishedInvestmentsAsync(type, cancellationToken);
+        return Ok(investments);
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetInvestment(Guid id, CancellationToken cancellationToken)
     {
@@ -157,7 +190,7 @@ public class InvestmentsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateInvestment(
         [FromBody] CreateInvestmentDto dto,
         CancellationToken cancellationToken)
@@ -167,7 +200,7 @@ public class InvestmentsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateInvestment(
         Guid id,
         [FromBody] UpdateInvestmentDto dto,

@@ -79,6 +79,18 @@ public class Investment
     [Column(TypeName = "decimal(18,2)")]
     public decimal? SharePrice { get; set; }
 
+    /// <summary>
+    /// Minimum total shares a member may hold in this investment (cumulative across
+    /// all purchases). Null means no minimum beyond 1.
+    /// </summary>
+    public int? MinimumSharesPerMember { get; set; }
+
+    /// <summary>
+    /// Maximum total shares a member may hold in this investment (cumulative across
+    /// all purchases). Null means no limit.
+    /// </summary>
+    public int? MaximumSharesPerMember { get; set; }
+
     /// <summary>Estimated profit, captured when the project is created.</summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal? TargetGrossProfit { get; set; }
@@ -156,4 +168,6 @@ public class Investment
     public virtual ICollection<ShareSubscription> Subscriptions { get; set; } = new List<ShareSubscription>();
 
     public virtual ICollection<ProfitDistribution> ProfitDistributions { get; set; } = new List<ProfitDistribution>();
+
+    public virtual ICollection<InvestmentInterimProfit> InterimProfits { get; set; } = new List<InvestmentInterimProfit>();
 }

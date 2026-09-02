@@ -58,6 +58,7 @@ public class AppDbContext : DbContext
     public DbSet<ParamBusConfig> ParamBusConfigs { get; set; }
     public DbSet<LogEntry> LogEntries { get; set; }
     public DbSet<PasswordResetCode> PasswordResetCodes { get; set; }
+    public DbSet<InvestmentInterimProfit> InvestmentInterimProfits { get; set; }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -239,6 +240,17 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Amount).HasPrecision(18, 2);
             entity.Property(e => e.Status).HasConversion<string>();
             entity.HasIndex(e => new { e.MemberId, e.Month, e.Year }).IsUnique();
+        });
+
+        modelBuilder.Entity<InvestmentInterimProfit>(entity =>
+        {
+            entity.Property(e => e.Amount).HasPrecision(18, 2);
+            entity.HasOne(e => e.Investment)
+                  .WithMany(i => i.InterimProfits)
+                  .HasForeignKey(e => e.InvestmentId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.InvestmentId);
+            entity.HasIndex(e => new { e.InvestmentId, e.ProfitDate });
         });
 
         modelBuilder.Entity<MemberInvestment>(entity =>

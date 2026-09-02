@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import {
   INVESTMENT_STATUS_LABELS,
+  InterimProfit,
   Investment,
   InvestmentService,
   InvestmentStatusName,
@@ -110,20 +111,61 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
                 {{ statusLabel(t) }}
               </button>
             </div>
-            <p class="hint" *ngIf="investment.status === 'OpenForSubscription' && investment.remainingShares > 0">
-              All {{ investment.totalShares }} shares must be sold before the project can start
-              ({{ investment.remainingShares }} remaining).
+            <p class="hint" *ngIf="investment.status === 'OpenForSubscription' && investment.remainingShares > 0 && availableTransitions().includes('Active')">
+              Start the project to close buying. Unsold shares ({{ investment.remainingShares }}) remain with the organisation.
             </p>
             <p class="hint" *ngIf="availableTransitions().length === 0 && investment.status !== 'Active' && investment.status !== 'Completed'">
               No further status changes are available from {{ statusLabel(investment.status) }}.
             </p>
+
+            <!-- Interim / occasional profit -->
+            <div class="sub-block" *ngIf="investment.status === 'OpenForSubscription' || investment.status === 'Active'">
+              <h5>Interim / Occasional Profit</h5>
+              <div class="buy-row">
+                <div class="field">
+                  <label>Amount *</label>
+                  <input type="number" step="0.01" min="0.01" [(ngModel)]="interimAmount" name="ipamt" />
+                </div>
+                <div class="field">
+                  <label>Profit date *</label>
+                  <input type="date" [(ngModel)]="interimDate" name="ipdate" />
+                </div>
+                <button class="btn-primary" (click)="addInterimProfit()" [disabled]="isWorking || !interimAmount || interimAmount < 0.01 || !interimDate">
+                  <span class="material-icons">add</span> Add
+                </button>
+              </div>
+              <div class="field">
+                <label>Remarks</label>
+                <input type="text" maxlength="500" [(ngModel)]="interimRemarks" name="iprem" placeholder="Optional note" />
+              </div>
+              <p class="hint">Interim profits are accrued and included in the final settlement. They are not paid out until distribution.</p>
+
+              <table class="data-table" *ngIf="interimProfits.length > 0">
+                <thead>
+                  <tr><th>Date</th><th class="right">Amount</th><th>Remarks</th><th></th></tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let p of interimProfits">
+                    <td>{{ p.profitDate | date: 'mediumDate' }}</td>
+                    <td class="right num profit">{{ p.amount | bdtCurrency }}</td>
+                    <td>{{ p.remarks || '—' }}</td>
+                    <td>
+                      <button class="btn-link" [disabled]="isWorking" (click)="removeInterimProfit(p.id)">Remove</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="calc" *ngIf="interimProfits.length > 0">
+                <div><span class="k">Accrued interim profit</span><span class="v">{{ interimProfitTotal | bdtCurrency }}</span></div>
+              </div>
+            </div>
 
             <!-- Completion -->
             <div class="sub-block" *ngIf="investment.status === 'Active'">
               <h5>Record Completion</h5>
               <div class="buy-row">
                 <div class="field">
-                  <label>Actual gross profit *</label>
+                  <label>Gross received amount *</label>
                   <input type="number" step="0.01" min="0" [(ngModel)]="actualGrossProfit" name="agp" />
                 </div>
                 <div class="field">
@@ -144,8 +186,9 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
             <div class="sub-block" *ngIf="investment.status === 'Completed'">
               <h5>Distribute Profit</h5>
               <div class="calc">
-                <div><span class="k">Gross profit</span><span class="v">{{ investment.actualGrossProfit || 0 | bdtCurrency }}</span></div>
-                <div><span class="k">Operational fee ({{ investment.operationalExpensePercentage }}%)</span>
+                <div><span class="k">Gross received</span><span class="v">{{ investment.actualGrossProfit || 0 | bdtCurrency }}</span></div>
+                <div *ngIf="investment.interimProfitTotal"><span class="k">Accrued interim profit</span><span class="v">{{ investment.interimProfitTotal | bdtCurrency }}</span></div>
+                <div><span class="k">Maintenance ({{ investment.operationalExpensePercentage }}%)</span>
                      <span class="v minus">− {{ estimatedFee() | bdtCurrency }}</span></div>
                 <div class="total"><span class="k">Net to investors</span><span class="v">{{ estimatedNet() | bdtCurrency }}</span></div>
               </div>
@@ -160,10 +203,18 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
           <section class="block" *ngIf="settlement && settlement.distributions.length > 0">
             <h4>Settlement</h4>
             <div class="calc">
-              <div><span class="k">Gross profit</span><span class="v">{{ settlement.actualGrossProfit | bdtCurrency }}</span></div>
-              <div><span class="k">Operational fee ({{ settlement.operationalExpensePercentage }}%)</span>
+              <div><span class="k">Gross received</span><span class="v">{{ settlement.actualGrossProfit | bdtCurrency }}</span></div>
+              <div *ngIf="settlement.interimProfitTotal" class="interim-line">
+                <span class="k">Accrued interim profit</span><span class="v">{{ settlement.interimProfitTotal | bdtCurrency }}</span>
+              </div>
+              <div><span class="k">Gross result</span><span class="v">{{ settlement.grossResult | bdtCurrency }}</span></div>
+              <div><span class="k">Maintenance ({{ settlement.operationalExpensePercentage }}%)</span>
                    <span class="v minus">− {{ settlement.operationalExpenseAmount | bdtCurrency }}</span></div>
               <div class="total"><span class="k">Net profit</span><span class="v">{{ settlement.netProfit | bdtCurrency }}</span></div>
+              <div class="summary-row">
+                <span class="k">Capital collected</span><span class="v">{{ settlement.totalInvested | bdtCurrency }}</span>
+                <span class="k">Shares sold</span><span class="v">{{ settlement.sharesSold }}</span>
+              </div>
               <div *ngIf="settlement.undistributedRemainder > 0" class="remainder">
                 <span class="k">Rounding remainder retained</span>
                 <span class="v">{{ settlement.undistributedRemainder | bdtCurrency }}</span>
@@ -276,12 +327,16 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
   subscriptions: ShareSubscription[] = [];
   settlement: ProfitSettlement | null = null;
   balances: { memberId: string; memberName: string; balance: number }[] = [];
+  interimProfits: InterimProfit[] = [];
 
   sharesToBuy: number | null = null;
   onBehalfOfMemberId: string | null = null;
   actualGrossProfit: number | null = null;
   completionDate = '';
   closingNotes = '';
+  interimAmount: number | null = null;
+  interimDate = '';
+  interimRemarks = '';
   isWorking = false;
 
   private destroy$ = new Subject<void>();
@@ -289,6 +344,7 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
   constructor(private service: InvestmentService, private toast: ToastService) {}
 
   ngOnInit(): void {
+    this.interimProfits = [...(this.investment.interimProfits ?? [])];
     this.loadSubscriptions();
     if (this.investment.status === 'ProfitDistributed' || this.investment.status === 'Closed') {
       this.loadSettlement();
@@ -319,7 +375,7 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
       case 'Draft':
         return ['OpenForSubscription', 'Cancelled'];
       case 'OpenForSubscription':
-        return ['Draft', 'Cancelled'];
+        return ['Draft', 'Active', 'Cancelled'];
       case 'FullySubscribed':
         return ['Active', 'Cancelled'];
       case 'ProfitDistributed':
@@ -329,13 +385,17 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
     }
   }
 
+  get interimProfitTotal(): number {
+    return this.interimProfits.reduce((sum, p) => sum + p.amount, 0);
+  }
+
   estimatedFee(): number {
-    const gross = this.investment.actualGrossProfit ?? 0;
-    return Math.round(gross * this.investment.operationalExpensePercentage) / 100;
+    const grossResult = (this.investment.actualGrossProfit ?? 0) + this.interimProfitTotal;
+    return Math.round(grossResult * this.investment.operationalExpensePercentage) / 100;
   }
 
   estimatedNet(): number {
-    return (this.investment.actualGrossProfit ?? 0) - this.estimatedFee();
+    return (this.investment.actualGrossProfit ?? 0) + this.interimProfitTotal - this.estimatedFee();
   }
 
   hasPending(): boolean {
@@ -359,6 +419,52 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
         error: err => {
           this.isWorking = false;
           this.toast.error(err?.error?.message || 'Could not complete the purchase.');
+        },
+      });
+  }
+
+  addInterimProfit(): void {
+    if (!this.interimAmount || this.interimAmount < 0.01 || !this.interimDate) return;
+
+    this.isWorking = true;
+    this.service
+      .createInterimProfit(this.investment.id, {
+        amount: this.interimAmount,
+        profitDate: `${this.interimDate}T00:00:00Z`,
+        remarks: this.interimRemarks || null,
+      })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: p => {
+          this.interimProfits = [p, ...this.interimProfits];
+          this.interimAmount = null;
+          this.interimDate = '';
+          this.interimRemarks = '';
+          this.isWorking = false;
+          this.toast.success('Interim profit recorded.');
+          this.refresh();
+        },
+        error: err => {
+          this.isWorking = false;
+          this.toast.error(err?.error?.message || 'Could not record the interim profit.');
+        },
+      });
+  }
+
+  removeInterimProfit(id: string): void {
+    this.isWorking = true;
+    this.service
+      .deleteInterimProfit(this.investment.id, id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.interimProfits = this.interimProfits.filter(p => p.id !== id);
+          this.isWorking = false;
+          this.toast.success('Interim profit removed.');
+        },
+        error: err => {
+          this.isWorking = false;
+          this.toast.error(err?.error?.message || 'Could not remove the interim profit.');
         },
       });
   }
@@ -462,6 +568,7 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
       .subscribe({
         next: i => {
           this.investment = i;
+          this.interimProfits = [...(i.interimProfits ?? [])];
           this.loadSubscriptions();
           if (i.status === 'ProfitDistributed' || i.status === 'Closed') {
             this.loadSettlement();

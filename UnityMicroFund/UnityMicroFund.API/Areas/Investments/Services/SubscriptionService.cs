@@ -87,7 +87,7 @@ public class SubscriptionService : ISubscriptionService
                 $"Insufficient wallet balance. Required {amount:N2}, available {balance:N2}.");
         }
 
-        await EnforceInvestorLimitsAsync(investmentId, memberId, shares, soldShares: 0, totalShares, cancellationToken);
+        await EnforceInvestorLimitsAsync(investment, memberId, shares, totalShares, cancellationToken);
 
         var now = DateTime.UtcNow;
 
@@ -210,31 +210,49 @@ public class SubscriptionService : ISubscriptionService
     }
 
     /// <summary>
-    /// Applies the configurable per-investor caps from section 5. Checks the member's
-    /// resulting total holding, not just this one purchase, so the limit cannot be
-    /// side-stepped by buying in small batches.
+    /// Applies the per-investment, per-member share limits (spec section 4). Checks the
+    /// member's resulting CUMULATIVE holding - already owned plus this purchase - so the
+    /// cap cannot be side-stepped by buying in small batches.
     /// </summary>
     private async Task EnforceInvestorLimitsAsync(
-        Guid investmentId,
+        Investment investment,
         Guid memberId,
         int newShares,
-        int soldShares,
         int totalShares,
         CancellationToken cancellationToken)
     {
         var alreadyHeld = await _context.ShareSubscriptions
-            .Where(s => s.InvestmentId == investmentId
+            .Where(s => s.InvestmentId == investment.Id
                      && s.MemberId == memberId
                      && s.Status == ShareSubscriptionStatus.Active)
             .SumAsync(s => (int?)s.SharesPurchased, cancellationToken) ?? 0;
 
         var resulting = alreadyHeld + newShares;
 
-        var maxShares = await _settings.GetMaxSharesPerInvestorAsync(cancellationToken);
+        var minShares = investment.MinimumSharesPerMember;
+        if (minShares.HasValue && resulting < minShares.Value)
+        {
+            throw new ValidationException(
+                $"This would leave you with {resulting} share(s), below the {minShares.Value}-share minimum per member for this project.");
+        }
+
+        var maxShares = investment.MaximumSharesPerMember;
         if (maxShares.HasValue && resulting > maxShares.Value)
         {
             throw new ValidationException(
-                $"This purchase would take your holding to {resulting} shares, above the {maxShares.Value}-share limit per investor.");
+                $"This purchase would take your holding to {resulting} shares, above the {maxShares.Value}-share maximum per member for this project.");
+        }
+
+        // Ownership ceiling is a measure against undesirable concentration; when the
+        // project has not configured a per-member cap, fall back to the global default.
+        if (!maxShares.HasValue)
+        {
+            var globalMax = await _settings.GetMaxSharesPerInvestorAsync(cancellationToken);
+            if (globalMax.HasValue && resulting > globalMax.Value)
+            {
+                throw new ValidationException(
+                    $"This purchase would take your holding to {resulting} shares, above the {globalMax.Value}-share limit per investor.");
+            }
         }
 
         var maxOwnership = await _settings.GetMaxOwnershipPercentageAsync(cancellationToken);

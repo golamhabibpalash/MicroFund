@@ -26,7 +26,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
         <button actions class="btn-refresh" (click)="loadInvestments()">
           <span class="material-icons">refresh</span>
         </button>
-        <button actions class="btn-primary" (click)="openCreateModal()">
+        <button actions class="btn-primary" *ngIf="isAdmin" (click)="openCreateModal()">
           <span class="material-icons">add</span>
           New Investment
         </button>
@@ -189,13 +189,13 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
               <button class="btn-icon" (click)="viewInvestment(investment)" title="View">
                 <span class="material-icons">visibility</span>
               </button>
-              <button class="btn-icon" (click)="editInvestment(investment)" title="Edit">
+              <button class="btn-icon" *ngIf="isAdmin" (click)="editInvestment(investment)" title="Edit">
                 <span class="material-icons">edit</span>
               </button>
               <button class="btn-icon" (click)="manageInvestment(investment)" title="Shares & lifecycle">
                 <span class="material-icons">tune</span>
               </button>
-              <button class="btn-icon danger" (click)="confirmDelete(investment)" title="Delete">
+              <button class="btn-icon danger" *ngIf="isAdmin" (click)="confirmDelete(investment)" title="Delete">
                 <span class="material-icons">delete</span>
               </button>
             </div>
@@ -205,8 +205,8 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
         <div class="empty-state" *ngIf="filteredInvestments.length === 0">
           <span class="material-icons">trending_up</span>
           <h3>No Investments Found</h3>
-          <p>Start by creating your first investment</p>
-          <button class="btn-primary" (click)="openCreateModal()">
+          <p>{{ isAdmin ? 'Start by creating your first investment' : 'No circulated investments are available yet' }}</p>
+          <button class="btn-primary" *ngIf="isAdmin" (click)="openCreateModal()">
             <span class="material-icons">add</span>
             Create Investment
           </button>
@@ -259,13 +259,13 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
                   <button class="btn-icon" (click)="viewInvestment(inv)">
                     <span class="material-icons">visibility</span>
                   </button>
-                  <button class="btn-icon" (click)="editInvestment(inv)">
+                  <button class="btn-icon" *ngIf="isAdmin" (click)="editInvestment(inv)">
                     <span class="material-icons">edit</span>
                   </button>
                   <button class="btn-icon" (click)="manageInvestment(inv)" title="Shares & lifecycle">
                     <span class="material-icons">tune</span>
                   </button>
-                  <button class="btn-icon danger" (click)="confirmDelete(inv)">
+                  <button class="btn-icon danger" *ngIf="isAdmin" (click)="confirmDelete(inv)">
                     <span class="material-icons">delete</span>
                   </button>
                 </td>
@@ -776,8 +776,10 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
 
   loadInvestments() {
     this.isLoading = true;
-    this.investmentService
-      .getInvestments()
+    const source = this.isAdmin
+      ? this.investmentService.getInvestments()
+      : this.investmentService.getPublishedInvestments();
+    source
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (data) => {
