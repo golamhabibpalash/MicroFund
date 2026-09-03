@@ -220,18 +220,9 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
             distributions.Add(distribution);
             _context.ProfitDistributions.Add(distribution);
 
-            // Section 13: principal and profit both land back in the wallet, so the
-            // investor can reinvest or request payout.
-            _wallet.AddEntry(
-                holding.MemberId, WalletEntryType.PrincipalReturn, holding.AmountInvested,
-                $"Principal returned from {investment.Name}", actionedBy, investmentId: investmentId);
-
-            if (profit > 0)
-            {
-                _wallet.AddEntry(
-                    holding.MemberId, WalletEntryType.ProfitCredit, profit,
-                    $"Profit from {investment.Name}", actionedBy, investmentId: investmentId);
-            }
+            // Distribution only records each investor's entitlement (the ProfitDistribution
+            // row). Principal and profit are credited to the wallet later, in DisburseAsync,
+            // so the money is not shown as spendable before it has actually been paid out.
         }
 
         // Whatever rounding left behind stays with the organisation.
@@ -381,22 +372,20 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
 
         foreach (var row in pending)
         {
-            var balance = await _context.WalletEntries
-                .Where(w => w.MemberId == row.MemberId)
-                .SumAsync(w => (decimal?)w.Amount, cancellationToken) ?? 0m;
-
-            // The investor may already have reinvested the credited money elsewhere;
-            // paying out more than the wallet holds would drive it negative.
-            if (balance < row.TotalPayable)
-            {
-                throw new ValidationException(
-                    $"{row.Member?.Name ?? "This investor"} has a wallet balance of {balance:N2}, " +
-                    $"which is less than the {row.TotalPayable:N2} payable. The funds may already have been reinvested.");
-            }
-
+            // Disbursement is the point where the settled funds actually reach the
+            // investor: principal and profit are credited to the wallet here, not at
+            // distribution time, so the wallet never carries money that has not yet
+            // been paid out.
             _wallet.AddEntry(
-                row.MemberId, WalletEntryType.Disbursement, -row.TotalPayable,
-                $"Settlement paid out for {investment.Name}", actionedBy, investmentId: investmentId);
+                row.MemberId, WalletEntryType.PrincipalReturn, row.PrincipalAmount,
+                $"Principal returned from {investment.Name}", actionedBy, investmentId: investmentId);
+
+            if (row.ProfitAmount > 0m)
+            {
+                _wallet.AddEntry(
+                    row.MemberId, WalletEntryType.ProfitCredit, row.ProfitAmount,
+                    $"Profit from {investment.Name}", actionedBy, investmentId: investmentId);
+            }
 
             row.DisbursedAt = now;
             row.DisbursedBy = actionedBy;

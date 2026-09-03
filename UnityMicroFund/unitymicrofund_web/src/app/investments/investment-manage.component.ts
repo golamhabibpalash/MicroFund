@@ -200,7 +200,7 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
               <button class="btn-primary" (click)="distribute()" [disabled]="isWorking">
                 <span class="material-icons">paid</span> Distribute to {{ subscriptions.length }} investor(s)
               </button>
-              <p class="hint">Principal and profit are credited to each investor's wallet. This cannot be undone.</p>
+              <p class="hint">This locks in each investor's principal and profit. Nothing reaches their wallet until you disburse below.</p>
             </div>
           </section>
 
@@ -751,9 +751,9 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
       .confirm({
         title: isBulk ? 'Disburse All Pending' : 'Disburse Funds',
         message: isBulk
-          ? 'Disburse funds to all members with pending payouts?'
-          : 'Disburse this member\u2019s payout from the project funds?',
-        detail: 'This moves funds out of the project and cannot be undone.',
+          ? 'Credit the settled principal and profit to every member with a pending payout?'
+          : 'Credit this member\u2019s settled principal and profit to their wallet?',
+        detail: 'This releases the funds into investor wallets and cannot be undone.',
         confirmText: 'Disburse',
         danger: true,
         icon: 'payments',

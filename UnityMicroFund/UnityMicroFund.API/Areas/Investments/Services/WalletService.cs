@@ -95,9 +95,14 @@ public class WalletService : IWalletService
         summary.TotalDeposited = entries.Where(e => e.EntryType == WalletEntryType.Deposit).Sum(e => e.Amount);
         summary.TotalProfitEarned = entries.Where(e => e.EntryType == WalletEntryType.ProfitCredit).Sum(e => e.Amount);
 
-        // Purchases and disbursements are stored negative; report them as magnitudes.
+        // Settlement funds now land in the wallet at disbursement time as positive
+        // PrincipalReturn + ProfitCredit entries, so "disbursed" is the sum of those.
+        summary.TotalDisbursed = entries
+            .Where(e => e.EntryType is WalletEntryType.PrincipalReturn or WalletEntryType.ProfitCredit)
+            .Sum(e => e.Amount);
+
+        // Purchases and withdrawals are stored negative; report them as magnitudes.
         summary.TotalInvested = -entries.Where(e => e.EntryType == WalletEntryType.SharePurchase).Sum(e => e.Amount);
-        summary.TotalDisbursed = -entries.Where(e => e.EntryType == WalletEntryType.Disbursement).Sum(e => e.Amount);
         summary.TotalWithdrawn = -entries.Where(e => e.EntryType == WalletEntryType.Withdrawal).Sum(e => e.Amount);
 
         // Newest first for display; the running balance was computed oldest-first.
