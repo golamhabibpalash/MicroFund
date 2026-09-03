@@ -700,10 +700,10 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
     /* Grid View */
-    .investments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: stretch; perspective: 1200px; }
-    .investment-card { display: flex; flex-direction: column; background: white; border: 1px solid var(--color-border-light, #eef2f7); border-radius: var(--radius-xl, 14px); padding: 14px 14px 12px; box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)); transition: all 0.25s ease; animation: fadeInUp 0.4s ease forwards; opacity: 0; overflow: hidden; min-width: 0; transform-style: preserve-3d; }
+    .investments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: stretch; }
+    .investment-card { display: flex; flex-direction: column; background: white; border: 1px solid var(--color-border-light, #eef2f7); border-radius: var(--radius-xl, 14px); padding: 14px 14px 12px; box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)); transition: transform 0.25s ease, box-shadow 0.25s ease; animation: fadeInUp 0.4s ease forwards; opacity: 0; overflow: hidden; min-width: 0; will-change: transform; }
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-    .investment-card:hover { transform: translateY(-3px) rotateX(1deg) rotateY(-1deg) scale(1.01); box-shadow: 0 18px 40px rgba(0,0,0,0.16), 0 6px 16px rgba(0,0,0,0.10); }
+    .investment-card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(0,0,0,0.16), 0 6px 16px rgba(0,0,0,0.10); }
     .investment-card::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0)); pointer-events: none; }
 
     .icard-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 12px; min-width: 0; }
