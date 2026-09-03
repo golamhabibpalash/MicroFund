@@ -150,13 +150,14 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
               <span class="material-icons">event</span> Matures {{ investment.maturityDate | date:'mediumDate' }}
             </span>
           </div>
-          <div class="icard-desc-wrap" *ngIf="investment.description"
-               (mouseenter)="onDescEnter(investment.id, descEl)" (mouseleave)="onDescLeave()">
-            <p #descEl class="icard-desc">{{ investment.description }}</p>
-            <span class="icard-readmore" *ngIf="descMeta[investment.id] && hoveredDescId !== investment.id">
+          <div class="icard-desc-wrap"
+               (mouseenter)="onDescEnter(investment.id, $event.currentTarget)"
+               (mouseleave)="onDescLeave()">
+            <p class="icard-desc" *ngIf="investment.description">{{ investment.description }}</p>
+            <span class="icard-readmore" *ngIf="investment.description && descMeta[investment.id] && hoveredDescId !== investment.id">
               Read more
             </span>
-            <div class="icard-desc-tooltip" *ngIf="hoveredDescId === investment.id">{{ investment.description }}</div>
+            <div class="icard-desc-tooltip" *ngIf="investment.description && hoveredDescId === investment.id">{{ investment.description }}</div>
           </div>
 
           <div class="icard-stats">
@@ -699,13 +700,14 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
     /* Grid View */
-    .investments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: stretch; }
-    .investment-card { display: flex; flex-direction: column; background: white; border: 1px solid var(--color-border-light, #eef2f7); border-radius: var(--radius-xl, 14px); padding: 14px 14px 12px; box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)); transition: all 0.2s; animation: fadeInUp 0.4s ease forwards; opacity: 0; }
+    .investments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: stretch; perspective: 1200px; }
+    .investment-card { display: flex; flex-direction: column; background: white; border: 1px solid var(--color-border-light, #eef2f7); border-radius: var(--radius-xl, 14px); padding: 14px 14px 12px; box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)); transition: all 0.25s ease; animation: fadeInUp 0.4s ease forwards; opacity: 0; overflow: hidden; min-width: 0; transform-style: preserve-3d; }
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-    .investment-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-card-hover, 0 4px 16px rgba(0,0,0,0.1)); }
+    .investment-card:hover { transform: translateY(-3px) rotateX(1deg) rotateY(-1deg) scale(1.01); box-shadow: 0 18px 40px rgba(0,0,0,0.16), 0 6px 16px rgba(0,0,0,0.10); }
+    .investment-card::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0)); pointer-events: none; }
 
-    .icard-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
-    .icard-type { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+    .icard-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 12px; min-width: 0; }
+    .icard-type { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .icard-type .material-icons { font-size: 14px; }
     .icard-type.stock { background: #e3f2fd; color: #1976d2; }
     .icard-type.bond { background: #f3e5f5; color: #7b1fa2; }
@@ -714,18 +716,18 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .icard-type.savings { background: #fff3e0; color: #f57c00; }
     .icard-type.fixeddeposit { background: #fce4ec; color: #c2185b; }
     .icard-type.other { background: #eceff1; color: #546e7a; }
-    .icard-status { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--color-background-alt, #f8fafc); color: var(--text-muted, #64748b); }
+    .icard-status { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--color-background-alt, #f8fafc); color: var(--text-muted, #64748b); max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .icard-status .material-icons { font-size: 13px; }
     .icard-status.active { background: #ecfdf5; color: var(--color-success, #059669); }
     .icard-status.circulated { background: #ecfdf5; color: var(--color-success, #059669); }
     .icard-status.closed { background: #fef2f2; color: var(--color-error, #dc2626); }
     .icard-status.completed { background: #f0f9ff; color: var(--color-info, #0284c7); }
 
-    .icard-name { font-size: 15px; font-weight: 700; color: var(--text-primary, #0f172a); margin: 0 0 2px; letter-spacing: -0.2px; }
+    .icard-name { font-size: 15px; font-weight: 700; color: var(--text-primary, #0f172a); margin: 0 0 2px; letter-spacing: -0.2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .icard-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 8px; }
-    .icard-meta-item { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-muted, #64748b); }
+    .icard-meta-item { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-muted, #64748b); min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .icard-meta-item .material-icons { font-size: 13px; }
-    .icard-desc-wrap { position: relative; margin-bottom: 10px; }
+    .icard-desc-wrap { position: relative; margin-bottom: 10px; min-height: 35px; }
     .icard-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; color: var(--text-secondary, #475569); margin: 0; line-height: 1.45; }
     .icard-readmore { display: inline-block; margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--color-accent, #0d9488); cursor: pointer; }
     .icard-desc-tooltip { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20; background: #0f172a; color: #f1f5f9; padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.5; box-shadow: 0 8px 24px rgba(0,0,0,0.18); white-space: normal; word-break: break-word; }
@@ -1255,8 +1257,9 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
   }
 
   /** Mark a description as truncated (scrolls past its clamped box) for the "Read more" affordance. */
-  onDescEnter(id: string, el: HTMLElement): void {
-    const truncated = el.scrollHeight > el.clientHeight + 1;
+  onDescEnter(id: string, el: EventTarget | null): void {
+    const desc = (el as HTMLElement | null)?.querySelector('.icard-desc') as HTMLElement | null;
+    const truncated = !!desc && desc.scrollHeight > desc.clientHeight + 1;
     this.descMeta = { ...this.descMeta, [id]: truncated };
     this.hoveredDescId = truncated ? id : null;
   }
