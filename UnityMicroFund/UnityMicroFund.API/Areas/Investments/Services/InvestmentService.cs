@@ -543,7 +543,16 @@ public class InvestmentService : IInvestmentService
             .Where(s => s.Status == ShareSubscriptionStatus.Active)
             .Sum(s => s.SharesPurchased);
 
-        var returnAmount = investment.CurrentValue - investment.PrincipalAmount;
+        var interimProfitTotal = investment.InterimProfits.Sum(p => p.Amount);
+        var totalProjectCost = investment.ProjectCosts.Sum(pc => pc.Amount);
+
+        // Realized funds available: actual gross received + interim profit, net of project costs.
+        // While a project is underway it is common for nothing to be recorded yet, so we floor the
+        // reflected value at principal (investors are never shown a loss before it is realized).
+        var fundsAvailable = (investment.ActualGrossProfit ?? 0m) + interimProfitTotal - totalProjectCost;
+        var effectiveCurrentValue = Math.Max(investment.PrincipalAmount, fundsAvailable);
+
+        var returnAmount = effectiveCurrentValue - investment.PrincipalAmount;
         var returnPercentage = investment.PrincipalAmount > 0
             ? (returnAmount / investment.PrincipalAmount) * 100
             : 0;
@@ -552,7 +561,6 @@ public class InvestmentService : IInvestmentService
             .Where(s => s.Status == ShareSubscriptionStatus.Active)
             .ToList();
         var totalInvested = activeSubs.Sum(s => s.AmountPaid);
-        var interimProfitTotal = investment.InterimProfits.Sum(p => p.Amount);
 
         return new InvestmentResponseDto
         {
@@ -562,7 +570,7 @@ public class InvestmentService : IInvestmentService
             Type = investment.Type.ToString(),
             Category = investment.Category,
             PrincipalAmount = investment.PrincipalAmount,
-            CurrentValue = investment.CurrentValue,
+            CurrentValue = effectiveCurrentValue,
             ReturnAmount = returnAmount,
             ReturnPercentage = returnPercentage,
             TotalShares = investment.TotalShares,
