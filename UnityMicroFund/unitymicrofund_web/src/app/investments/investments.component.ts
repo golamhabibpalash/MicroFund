@@ -701,10 +701,9 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
 
     /* Grid View */
     .investments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: stretch; }
-    .investment-card { display: flex; flex-direction: column; background: white; border: 1px solid var(--color-border-light, #eef2f7); border-radius: var(--radius-xl, 14px); padding: 14px 14px 12px; box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)); transition: transform 0.25s ease, box-shadow 0.25s ease; animation: fadeInUp 0.4s ease forwards; opacity: 0; overflow: hidden; min-width: 0; will-change: transform; }
-    @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .investment-card { display: flex; flex-direction: column; background: white; border: 1px solid var(--color-border-light, #eef2f7); border-radius: var(--radius-xl, 14px); padding: 14px 14px 12px; box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)); transition: transform 0.25s ease, box-shadow 0.25s ease; overflow: hidden; min-width: 0; will-change: transform; }
+    @keyframes fadeInUp { from { transform: translateY(8px); } to { transform: translateY(0); } }
     .investment-card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(0,0,0,0.16), 0 6px 16px rgba(0,0,0,0.10); }
-    .investment-card::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0)); pointer-events: none; }
 
     .icard-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 12px; min-width: 0; }
     .icard-type { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
