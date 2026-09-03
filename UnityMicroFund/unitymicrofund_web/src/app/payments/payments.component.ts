@@ -1,9 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef, HostListener, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, HostListener, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router, NavigationEnd } from '@angular/router';
-import { Subject, debounceTime } from 'rxjs';
+import { Subject, debounceTime, takeUntil } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { saveAs } from 'file-saver';
 import { jsPDF } from 'jspdf';
@@ -12,8 +12,9 @@ import { TransactionService, Account, Transaction, CreateTransactionRequest, Rec
 import { ToastService } from '../core/services/toast.service';
 import { UserService } from '../core/services/user';
 import { ParamBusConfigService, ParamBusConfig } from '../core/services/param-bus-config.service';
-import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
+import { BdtCurrencyPipe, formatBdt } from '../shared/pipes/bdt-currency.pipe';
 import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
+import { ConfirmationService } from '../shared/confirmation/confirmation.service';
 
 interface Member {
   id: string;
@@ -97,49 +98,77 @@ interface Member {
         <div class="section-header">
           <h2>All Transactions</h2>
         </div>
-        <div class="filter-bar">
-          <div class="filter-row filter-row-top">
+        <div class="filters">
+          <div class="filters-main">
             <div class="search-box">
               <span class="material-icons">search</span>
-              <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" placeholder="Search transactions..." />
+              <input type="text" [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()"
+                     placeholder="Search by ID, member, account or remarks…" />
+              <button type="button" class="search-clear" *ngIf="searchTerm"
+                      (click)="searchTerm = ''; onSearchChange()" title="Clear search" aria-label="Clear search">
+                <span class="material-icons">close</span>
+              </button>
             </div>
-            <div class="date-filter">
-              <span class="material-icons">date_range</span>
-              <input type="date" [(ngModel)]="filterFromDate" (ngModelChange)="applyFilters()" placeholder="From" />
-              <span class="date-divider">—</span>
-              <input type="date" [(ngModel)]="filterToDate" (ngModelChange)="applyFilters()" placeholder="To" />
+
+            <div class="filter-fields">
+              <label class="field" *ngIf="isAdmin">
+                <span class="field-label">Member</span>
+                <select [(ngModel)]="filterMemberId" (ngModelChange)="applyFilters()">
+                  <option value="">All members</option>
+                  <option *ngFor="let member of members" [value]="member.id">{{ member.name }}</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Account</span>
+                <select [(ngModel)]="filterAccountId" (ngModelChange)="applyFilters()">
+                  <option value="">All accounts</option>
+                  <option *ngFor="let account of accounts" [value]="account.id">{{ account.name }}</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Type</span>
+                <select [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()">
+                  <option value="">All types</option>
+                  <option value="Fund">Fund</option>
+                  <option value="Refund">Refund</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span class="field-label">Status</span>
+                <select [(ngModel)]="filterApprovalStatus" (ngModelChange)="applyFilters()">
+                  <option value="">All statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </label>
+
+              <div class="field field-date">
+                <span class="field-label">Date range</span>
+                <div class="date-range">
+                  <input type="date" [(ngModel)]="filterFromDate" (ngModelChange)="applyFilters()" aria-label="From date" />
+                  <span class="date-sep material-icons">arrow_forward</span>
+                  <input type="date" [(ngModel)]="filterToDate" (ngModelChange)="applyFilters()" aria-label="To date" />
+                </div>
+              </div>
             </div>
-            <button class="btn-clear" *ngIf="hasActiveFilters()" (click)="clearFilters()">
-              <span class="material-icons">close</span>
-              Clear
-            </button>
           </div>
-          <div class="filter-row filter-row-bottom">
-            <div class="filter-group">
-              <select *ngIf="isAdmin" [(ngModel)]="filterMemberId" (ngModelChange)="applyFilters()">
-                <option value="">All Members</option>
-                <option *ngFor="let member of members" [value]="member.id">
-                  {{ member.name }}
-                </option>
-              </select>
-              <select [(ngModel)]="filterAccountId" (ngModelChange)="applyFilters()">
-                <option value="">All Accounts</option>
-                <option *ngFor="let account of accounts" [value]="account.id">
-                  {{ account.name }}
-                </option>
-              </select>
-              <select [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()">
-                <option value="">All Types</option>
-                <option value="Fund">Fund</option>
-                <option value="Refund">Refund</option>
-              </select>
-              <select [(ngModel)]="filterApprovalStatus" (ngModelChange)="applyFilters()">
-                <option value="">All Status</option>
-                <option value="Pending">Pending</option>
-                <option value="Approved">Approved</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-            </div>
+
+          <div class="filters-active" *ngIf="hasActiveFilters()">
+            <span class="active-label">Filters</span>
+            <button type="button" class="chip" *ngFor="let chip of activeFilterChips" (click)="clearFilter(chip.key)"
+                    [title]="'Remove ' + chip.label + ' filter'">
+              <span class="chip-key">{{ chip.label }}</span>
+              <span class="chip-val">{{ chip.value }}</span>
+              <span class="material-icons">close</span>
+            </button>
+            <button type="button" class="clear-all" (click)="clearFilters()">
+              <span class="material-icons">restart_alt</span>
+              Clear all
+            </button>
           </div>
         </div>
         <div class="table-container">
@@ -752,30 +781,23 @@ interface Member {
       margin: 0;
     }
 
-    .filter-bar {
+    /* ===== Filter toolbar ===== */
+    .filters {
       display: flex;
       flex-direction: column;
-      gap: var(--space-2);
+      gap: var(--space-3);
       margin-bottom: var(--space-5);
       background: var(--color-background-alt);
       border: 1px solid var(--color-border-light);
       border-radius: var(--radius-lg);
-      padding: var(--space-3);
+      padding: var(--space-4);
     }
 
-    .filter-row {
+    .filters-main {
       display: flex;
-      align-items: center;
-      gap: var(--space-3);
+      align-items: flex-end;
+      gap: var(--space-4);
       flex-wrap: wrap;
-    }
-
-    .filter-row-top {
-      flex: 1;
-    }
-
-    .filter-row-bottom {
-      flex: 1;
     }
 
     .search-box {
@@ -786,18 +808,18 @@ interface Member {
       background: var(--color-surface);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
-      min-height: 36px;
-      flex: 1 1 260px;
-      max-width: 360px;
-      transition: all var(--transition-fast);
+      height: 38px;
+      flex: 1 1 280px;
+      max-width: 380px;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
     }
 
     .search-box:focus-within {
       border-color: var(--color-accent);
-      box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.12);
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
     }
 
-    .search-box .material-icons {
+    .search-box > .material-icons {
       font-size: 18px;
       color: var(--text-light);
       flex-shrink: 0;
@@ -810,119 +832,223 @@ interface Member {
       font-size: var(--text-sm);
       color: var(--text-primary);
       width: 100%;
-      min-width: 120px;
+      min-width: 100px;
     }
 
     .search-box input::placeholder {
       color: var(--text-light);
     }
 
-    .filter-group {
-      display: flex;
-      gap: var(--space-2);
+    .search-clear {
+      display: inline-flex;
       align-items: center;
-      flex-wrap: wrap;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: none;
+      border-radius: var(--radius-full, 50%);
+      background: var(--color-background-alt);
+      color: var(--text-muted);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background var(--transition-fast), color var(--transition-fast);
     }
 
-    .filter-group select {
-      padding: 0 26px 0 10px;
+    .search-clear:hover {
+      background: var(--color-error-bg);
+      color: var(--color-error);
+    }
+
+    .search-clear .material-icons {
+      font-size: 14px;
+    }
+
+    .filter-fields {
+      display: flex;
+      align-items: flex-end;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+      flex: 1 1 auto;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .field-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding-left: 2px;
+    }
+
+    .field select {
+      height: 38px;
+      padding: 0 30px 0 12px;
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
       font-size: var(--text-sm);
-      color: var(--text-secondary);
-      background: var(--color-surface);
+      color: var(--text-primary);
+      background-color: var(--color-surface);
       cursor: pointer;
       outline: none;
       appearance: none;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
       background-repeat: no-repeat;
-      background-position: right 7px center;
-      transition: all var(--transition-fast);
-      min-height: 36px;
-      min-width: 120px;
-      max-width: 160px;
+      background-position: right 9px center;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+      min-width: 140px;
+      max-width: 190px;
     }
 
-    .filter-group select:hover {
+    .field select:hover {
       border-color: var(--color-accent);
     }
 
-    .filter-group select:focus {
+    .field select:focus {
       border-color: var(--color-accent);
-      box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.12);
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
     }
 
-    .date-filter {
+    .field-date {
+      flex: 0 0 auto;
+    }
+
+    .date-range {
       display: flex;
       align-items: center;
       gap: var(--space-2);
+      height: 38px;
       padding: 0 var(--space-3);
       background: var(--color-surface);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-md);
-      min-height: 36px;
-      transition: all var(--transition-fast);
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
     }
 
-    .date-filter:focus-within {
+    .date-range:focus-within {
       border-color: var(--color-accent);
-      box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.12);
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
     }
 
-    .date-filter .material-icons {
-      font-size: 18px;
+    .date-range input[type="date"] {
+      font-size: var(--text-sm);
+      color: var(--text-primary);
+      border: none;
+      background: transparent;
+      outline: none;
+      width: 118px;
+      cursor: pointer;
+    }
+
+    .date-range .date-sep {
+      font-size: 14px;
       color: var(--text-light);
       flex-shrink: 0;
     }
 
-    .date-filter input[type="date"] {
-      font-size: var(--text-sm);
+    .date-range input[type="date"]::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+      opacity: 0.45;
+    }
+
+    .date-range input[type="date"]::-webkit-calendar-picker-indicator:hover {
+      opacity: 0.9;
+    }
+
+    /* ===== Active filter chips ===== */
+    .filters-active {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      padding-top: var(--space-3);
+      border-top: 1px dashed var(--color-border);
+    }
+
+    .active-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-right: var(--space-1);
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px 4px 10px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-full, 999px);
+      font-size: var(--text-xs);
       color: var(--text-secondary);
-      border: none;
-      background: transparent;
-      outline: none;
-      min-height: 34px;
-      width: 110px;
       cursor: pointer;
+      transition: border-color var(--transition-fast), background var(--transition-fast);
     }
 
-    .date-filter input[type="date"]::-webkit-calendar-picker-indicator {
-      cursor: pointer;
-      opacity: 0.4;
+    .chip:hover {
+      border-color: var(--color-error);
+      background: var(--color-error-bg);
     }
 
-    .date-filter input[type="date"]::-webkit-calendar-picker-indicator:hover {
-      opacity: 0.8;
+    .chip .chip-key {
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      font-size: 10px;
     }
 
-    .date-divider {
+    .chip .chip-val {
+      font-weight: 500;
+      color: var(--text-primary);
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .chip .material-icons {
+      font-size: 13px;
       color: var(--text-light);
-      font-size: var(--text-sm);
     }
 
-    .btn-clear {
+    .chip:hover .material-icons {
+      color: var(--color-error);
+    }
+
+    .clear-all {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 0 var(--space-3);
+      margin-left: auto;
+      padding: 4px 10px;
       background: transparent;
       color: var(--color-error);
       border: 1px solid transparent;
       border-radius: var(--radius-md);
-      font-size: var(--text-sm);
-      font-weight: 500;
+      font-size: var(--text-xs);
+      font-weight: 600;
       cursor: pointer;
-      transition: all var(--transition-fast);
-      min-height: 36px;
       white-space: nowrap;
+      transition: background var(--transition-fast), border-color var(--transition-fast);
     }
 
-    .btn-clear:hover {
+    .clear-all:hover {
       background: var(--color-error-bg);
       border-color: var(--color-error);
     }
 
-    .btn-clear .material-icons {
+    .clear-all .material-icons {
       font-size: 15px;
     }
 
@@ -1588,33 +1714,41 @@ interface Member {
       .top-header { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
       .header-actions { width: 100%; }
       .stats-grid { grid-template-columns: 1fr; }
-      .filter-row-top { flex-direction: column; align-items: stretch; }
-      .search-box { max-width: none; flex: auto; }
-      .date-filter { width: 100%; }
-      .date-filter input[type="date"] { width: 100%; flex: 1; }
-      .filter-group select { flex: 1; max-width: none; }
+      .filters-main { align-items: stretch; }
+      .search-box { max-width: none; flex: 1 1 100%; }
+      .filter-fields { width: 100%; }
+      .field { flex: 1 1 calc(50% - var(--space-3) / 2); }
+      .field select { min-width: 0; max-width: none; width: 100%; }
+      .field-date { flex: 1 1 100%; }
+      .date-range { width: 100%; }
+      .date-range input[type="date"] { flex: 1; width: auto; }
+      .clear-all { margin-left: 0; }
       .pagination { flex-direction: column; align-items: flex-start; }
       .pagination-right { width: 100%; justify-content: space-between; }
     }
     @media (max-width: 768px) {
       .top-header h1 { font-size: var(--text-xl); }
-      .filter-row-bottom .filter-group { flex-wrap: wrap; }
-      .filter-group select { flex: 1 1 auto; min-width: calc(50% - var(--space-2)); }
       .modal-content { margin: var(--space-3); max-width: calc(100% - 24px); }
       .pagination-right { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
     }
     @media (max-width: 576px) {
       .stat-card { padding: var(--space-3) var(--space-4); }
       .stat-value { font-size: var(--text-lg); }
-      .filter-group select { min-width: 100%; max-width: none; }
-      .date-filter { flex-wrap: wrap; }
+      .field { flex: 1 1 100%; }
       .form-row { grid-template-columns: 1fr; }
     }
   `]
 })
-export class PaymentsComponent implements OnInit {
+export class PaymentsComponent implements OnInit, OnDestroy {
   Math = Math;
-  
+
+  private destroy$ = new Subject<void>();
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   accounts: Account[] = [];
   members: Member[] = [];
   transactions: Transaction[] = [];
@@ -1692,7 +1826,8 @@ export class PaymentsComponent implements OnInit {
     private toastService: ToastService,
     private userService: UserService,
     private cdr: ChangeDetectorRef,
-    private router: Router
+    private router: Router,
+    private confirmation: ConfirmationService,
   ) {}
 
   ngOnInit() {
@@ -1867,6 +2002,42 @@ export class PaymentsComponent implements OnInit {
     this.filterToDate = '';
     if (this.isAdmin) {
       this.filterMemberId = '';
+    }
+    this.currentPage = 1;
+    this.applyFiltersAndSort();
+  }
+
+  get activeFilterChips(): { key: string; label: string; value: string }[] {
+    const chips: { key: string; label: string; value: string }[] = [];
+    if (this.searchTerm) {
+      chips.push({ key: 'search', label: 'Search', value: this.searchTerm });
+    }
+    if (this.isAdmin && this.filterMemberId) {
+      chips.push({ key: 'member', label: 'Member', value: this.members.find(m => m.id === this.filterMemberId)?.name || 'Selected' });
+    }
+    if (this.filterAccountId) {
+      chips.push({ key: 'account', label: 'Account', value: this.accounts.find(a => a.id === this.filterAccountId)?.name || 'Selected' });
+    }
+    if (this.filterStatus) {
+      chips.push({ key: 'type', label: 'Type', value: this.filterStatus });
+    }
+    if (this.filterApprovalStatus) {
+      chips.push({ key: 'status', label: 'Status', value: this.filterApprovalStatus });
+    }
+    if (this.filterFromDate || this.filterToDate) {
+      chips.push({ key: 'date', label: 'Date', value: `${this.filterFromDate || 'Any'} → ${this.filterToDate || 'Any'}` });
+    }
+    return chips;
+  }
+
+  clearFilter(key: string) {
+    switch (key) {
+      case 'search': this.searchTerm = ''; break;
+      case 'member': this.filterMemberId = ''; break;
+      case 'account': this.filterAccountId = ''; break;
+      case 'type': this.filterStatus = ''; break;
+      case 'status': this.filterApprovalStatus = ''; break;
+      case 'date': this.filterFromDate = ''; this.filterToDate = ''; break;
     }
     this.currentPage = 1;
     this.applyFiltersAndSort();
@@ -2156,8 +2327,20 @@ export class PaymentsComponent implements OnInit {
       transactionDate: this.transactionDate || undefined
     };
 
+    this.confirmation
+      .confirm({
+        title: this.isEditing ? 'Update Transaction' : 'Record Transaction',
+        message: `Save this ${transactionData.receiptType || 'fund'} transaction of ${formatBdt(transactionData.amount)}?`,
+        detail: `Transfer To: ${transactionData.transferTo}`,
+        confirmText: this.isEditing ? 'Update' : 'Save Transaction',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => this.doCreateTransaction(transactionData));
+  }
+
+  private doCreateTransaction(transactionData: CreateTransactionRequest): void {
     this.isSubmitting = true;
-    
+
     this.transactionService.createTransaction(transactionData).subscribe({
       next: (transaction) => {
         if (this.receiptFile) {
@@ -2234,6 +2417,18 @@ export class PaymentsComponent implements OnInit {
       referenceNumber: this.transactionId || undefined
     };
 
+    this.confirmation
+      .confirm({
+        title: 'Update Transaction',
+        message: `Save changes to this ${updateData.receiptType || 'fund'} transaction of ${formatBdt(updateData.amount)}?`,
+        detail: `Transfer To: ${updateData.transferTo}`,
+        confirmText: 'Update',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => this.doUpdateTransaction(updateData));
+  }
+
+  private doUpdateTransaction(updateData: any): void {
     this.isSubmitting = true;
     this.transactionService.updateTransaction(this.editTransactionId, updateData).subscribe({
       next: (transaction) => {
@@ -2304,6 +2499,22 @@ export class PaymentsComponent implements OnInit {
   approveTransaction() {
     if (!this.selectedTransaction) return;
 
+    this.confirmation
+      .confirm({
+        title: 'Approve Transaction',
+        message: `Approve this ${this.selectedTransaction.receiptType || 'fund'} transaction of ${formatBdt(this.selectedTransaction.amount)}?`,
+        detail: `Transfer To: ${this.selectedTransaction.transferTo}`,
+        confirmText: 'Approve',
+        danger: true,
+        icon: 'verified',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => this.doApproveTransaction());
+  }
+
+  private doApproveTransaction() {
+    if (!this.selectedTransaction) return;
+
     this.isSubmitting = true;
     this.transactionService.approveTransaction(
       this.selectedTransaction.id,
@@ -2325,6 +2536,22 @@ export class PaymentsComponent implements OnInit {
   }
 
   rejectTransaction() {
+    if (!this.selectedTransaction) return;
+
+    this.confirmation
+      .confirm({
+        title: 'Reject Transaction',
+        message: `Reject this ${this.selectedTransaction.receiptType || 'fund'} transaction of ${formatBdt(this.selectedTransaction.amount)}?`,
+        detail: 'The transaction will be voided and not recorded in the ledger.',
+        confirmText: 'Reject',
+        danger: true,
+        icon: 'block',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => this.doRejectTransaction());
+  }
+
+  private doRejectTransaction() {
     if (!this.selectedTransaction) return;
 
     this.isSubmitting = true;

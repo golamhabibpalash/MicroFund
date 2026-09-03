@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Subject, takeUntil } from 'rxjs';
+import { filter, Subject, takeUntil } from 'rxjs';
 import {
   InvestmentService,
   CashOutRequest,
@@ -10,8 +10,9 @@ import {
 } from '../core/services/investment.service';
 import { UserService } from '../core/services/user';
 import { ToastService } from '../core/services/toast.service';
-import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
+import { BdtCurrencyPipe, formatBdt } from '../shared/pipes/bdt-currency.pipe';
 import { TimeAgoPipe } from '../shared/pipes/time-ago.pipe';
+import { ConfirmationService } from '../shared/confirmation/confirmation.service';
 
 @Component({
   selector: 'app-cashout',
@@ -225,6 +226,7 @@ export class CashOutComponent implements OnInit, OnDestroy {
     private toast: ToastService,
     private fb: FormBuilder,
     private cdr: ChangeDetectorRef,
+    private confirmation: ConfirmationService,
   ) {
     this.form = this.fb.group({
       amount: [null, [Validators.required, Validators.min(0.01)]],
@@ -300,6 +302,18 @@ export class CashOutComponent implements OnInit, OnDestroy {
 
     const amount = this.form.value.amount;
     const remarks = this.form.value.remarks?.trim() || null;
+    this.confirmation
+      .confirm({
+        title: 'Request Cash-out',
+        message: `Submit a withdrawal of ${formatBdt(amount)} from your wallet?`,
+        detail: remarks || 'No remarks provided.',
+        confirmText: 'Submit Request',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => this.doRequestCashOut(amount, remarks));
+  }
+
+  private doRequestCashOut(amount: number, remarks: string | null): void {
     this.submitting = true;
     this.cdr.detectChanges();
 
@@ -322,32 +336,66 @@ export class CashOutComponent implements OnInit, OnDestroy {
   }
 
   cancel(r: CashOutRequest): void {
-    this.investmentService
-      .cancelCashOutRequest(r.id)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.toast.success('Request cancelled.');
-          this.load();
-        },
-        error: err => this.toast.error(err?.error?.message || 'Could not cancel request.'),
+    this.confirmation
+      .confirm({
+        title: 'Cancel Cash-out',
+        message: `Cancel the cash-out request of ${formatBdt(r.amount)}?`,
+        confirmText: 'Cancel Request',
+        danger: true,
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.investmentService
+          .cancelCashOutRequest(r.id)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: () => {
+              this.toast.success('Request cancelled.');
+              this.load();
+            },
+            error: err => this.toast.error(err?.error?.message || 'Could not cancel request.'),
+          });
       });
   }
 
   approve(r: CashOutRequest): void {
-    this.investmentService
-      .adminApproveCashOut(r.id)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.toast.success(`${r.amount} approved.`);
-          this.load();
-        },
-        error: err => this.toast.error(err?.error?.message || 'Could not approve request.'),
+    this.confirmation
+      .confirm({
+        title: 'Approve Cash-out',
+        message: `Approve the payout of ${formatBdt(r.amount)} to this member's wallet?`,
+        detail: 'This releases real funds and cannot be undone.',
+        confirmText: 'Approve Payout',
+        danger: true,
+        icon: 'payments',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.investmentService
+          .adminApproveCashOut(r.id)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: () => {
+              this.toast.success(`${formatBdt(r.amount)} approved.`);
+              this.load();
+            },
+            error: err => this.toast.error(err?.error?.message || 'Could not approve request.'),
+          });
       });
   }
 
   reject(r: CashOutRequest): void {
+    this.confirmation
+      .confirm({
+        title: 'Reject Cash-out',
+        message: `Reject the cash-out request of ${formatBdt(r.amount)}?`,
+        confirmText: 'Reject',
+        danger: true,
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => this.doReject(r));
+  }
+
+  private doReject(r: CashOutRequest): void {
     const note = window.prompt('Reason for rejection (optional):');
     if (note === null) return; // user cancelled the prompt
     this.investmentService

@@ -11,7 +11,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { Subject, forkJoin, of, takeUntil } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, filter } from 'rxjs/operators';
 import {
   CreateInvestmentRequest,
   INVESTMENT_STATUSES,
@@ -23,6 +23,7 @@ import {
   InvestmentTypeName,
 } from '../core/services/investment.service';
 import { ToastService } from '../core/services/toast.service';
+import { ConfirmationService } from '../shared/confirmation/confirmation.service';
 import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
 import { AccountService, Account as BankAccount } from '../core/services/account';
 
@@ -453,6 +454,7 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
     private investmentService: InvestmentService,
     private accountService: AccountService,
     private toast: ToastService,
+    private confirmation: ConfirmationService,
   ) {}
 
   get isEditMode(): boolean {
@@ -573,16 +575,29 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
 
   deleteExistingDocument(document: InvestmentDocument): void {
     if (!this.investment) return;
+    const investment = this.investment;
 
-    this.investmentService
-      .deleteDocument(this.investment.id, document.id)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.existingDocuments = this.existingDocuments.filter(d => d.id !== document.id);
-          this.toast.success('Document removed.');
-        },
-        error: () => this.toast.error('Could not remove the document.'),
+    this.confirmation
+      .confirm({
+        title: 'Remove Document',
+        message: `Remove "${document.fileName}" from this investment?`,
+        detail: 'This cannot be undone.',
+        confirmText: 'Remove',
+        danger: true,
+        icon: 'delete',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.investmentService
+          .deleteDocument(investment.id, document.id)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: () => {
+              this.existingDocuments = this.existingDocuments.filter(d => d.id !== document.id);
+              this.toast.success('Document removed.');
+            },
+            error: () => this.toast.error('Could not remove the document.'),
+          });
       });
   }
 

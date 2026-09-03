@@ -1,7 +1,7 @@
-import { Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
+import { ChangeDetectorRef, Component, EventEmitter, Input, OnDestroy, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, takeUntil } from 'rxjs';
+import { filter, finalize, Subject, takeUntil } from 'rxjs';
 import {
   INVESTMENT_STATUS_LABELS,
   InterimProfit,
@@ -13,8 +13,9 @@ import {
   ShareSubscription,
 } from '../core/services/investment.service';
 import { ToastService } from '../core/services/toast.service';
-import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
+import { BdtCurrencyPipe, formatBdt } from '../shared/pipes/bdt-currency.pipe';
 import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
+import { ConfirmationService } from '../shared/confirmation/confirmation.service';
 
 /**
  * Subscription + lifecycle panel for one project: buy shares, drive the status
@@ -360,7 +361,13 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
 
   private destroy$ = new Subject<void>();
 
-  constructor(private service: InvestmentService, private toast: ToastService) {}
+  constructor(private service: InvestmentService, private toast: ToastService,
+              private confirmation: ConfirmationService, private cdr: ChangeDetectorRef) {}
+
+  /** Zoneless app: async callbacks must ask for a re-render explicitly. */
+  private tick(): void {
+    this.cdr.markForCheck();
+  }
 
   ngOnInit(): void {
     this.interimProfits = [...(this.investment.interimProfits ?? [])];
@@ -371,8 +378,8 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
     }
     if (this.isAdmin) {
       this.service.getAllBalances().pipe(takeUntil(this.destroy$)).subscribe({
-        next: b => (this.balances = b),
-        error: () => (this.balances = []),
+        next: b => { this.balances = b; this.tick(); },
+        error: () => { this.balances = []; this.tick(); },
       });
     }
   }
@@ -445,14 +452,27 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
 
   buy(): void {
     if (!this.sharesToBuy || this.sharesToBuy < 1) return;
+    const sharesToBuy = this.sharesToBuy;
 
+    this.confirmation
+      .confirm({
+        title: 'Confirm Share Purchase',
+        message: `Purchase ${sharesToBuy} share(s) out of your wallet funds?`,
+        detail: `Investment: ${this.investment.name}`,
+        confirmText: 'Purchase',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => this.doBuy(sharesToBuy));
+  }
+
+  private doBuy(sharesToBuy: number): void {
     this.isWorking = true;
     this.service
-      .subscribe(this.investment.id, this.sharesToBuy, this.onBehalfOfMemberId ?? undefined)
-      .pipe(takeUntil(this.destroy$))
+      .subscribe(this.investment.id, sharesToBuy, this.onBehalfOfMemberId ?? undefined)
+      .pipe(takeUntil(this.destroy$), finalize(() => this.tick()))
       .subscribe({
         next: () => {
-          this.toast.success(`${this.sharesToBuy} share(s) purchased.`);
+          this.toast.success(`${sharesToBuy} share(s) purchased.`);
           this.sharesToBuy = null;
           this.isWorking = false;
           this.refresh();
@@ -474,7 +494,7 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
         profitDate: `${this.interimDate}T00:00:00Z`,
         remarks: this.interimRemarks || null,
       })
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$), finalize(() => this.tick()))
       .subscribe({
         next: p => {
           this.interimProfits = [p, ...this.interimProfits];
@@ -493,10 +513,22 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
   }
 
   removeInterimProfit(id: string): void {
+    this.confirmation
+      .confirm({
+        title: 'Remove Interim Profit',
+        message: 'Remove this interim profit record? This cannot be undone.',
+        danger: true,
+        confirmText: 'Remove',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => this.doRemoveInterimProfit(id));
+  }
+
+  private doRemoveInterimProfit(id: string): void {
     this.isWorking = true;
     this.service
       .deleteInterimProfit(this.investment.id, id)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$), finalize(() => this.tick()))
       .subscribe({
         next: () => {
           this.interimProfits = this.interimProfits.filter(p => p.id !== id);
@@ -549,7 +581,7 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
       ? this.service.updateProjectCost(this.investment.id, this.editingCost.id, request)
       : this.service.createProjectCost(this.investment.id, request);
 
-    call.pipe(takeUntil(this.destroy$)).subscribe({
+    call.pipe(takeUntil(this.destroy$), finalize(() => this.tick())).subscribe({
       next: saved => {
         if (this.editingCost) {
           this.projectCosts = this.projectCosts.map(c => (c.id === saved.id ? saved : c));
@@ -569,10 +601,22 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
   }
 
   removeCost(cost: InvestmentProjectCost): void {
+    this.confirmation
+      .confirm({
+        title: 'Remove Project Cost',
+        message: `Remove "${cost.title}" (${formatBdt(cost.amount)})? This cannot be undone.`,
+        danger: true,
+        confirmText: 'Remove',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => this.doRemoveCost(cost));
+  }
+
+  private doRemoveCost(cost: InvestmentProjectCost): void {
     this.isWorking = true;
     this.service
       .deleteProjectCost(this.investment.id, cost.id)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$), finalize(() => this.tick()))
       .subscribe({
         next: () => {
           this.projectCosts = this.projectCosts.filter(c => c.id !== cost.id);
@@ -592,10 +636,27 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
         ? 'Cancelled by administrator'
         : undefined;
 
+    const destructive = status === 'Cancelled' || status === 'Closed';
+    this.confirmation
+      .confirm({
+        title: destructive ? `Change Status to ${this.statusLabel(status)}` : 'Change Status',
+        message: `Change this project's status to "${this.statusLabel(status)}"?`,
+        detail: destructive
+          ? 'This transitions the project lifecycle and cannot be reversed.'
+          : `Investment: ${this.investment.name}`,
+        confirmText: `Set ${this.statusLabel(status)}`,
+        danger: destructive,
+        icon: destructive ? 'lock' : 'swap_horiz',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => this.doChangeStatus(status, reason));
+  }
+
+  private doChangeStatus(status: InvestmentStatusName, reason?: string): void {
     this.isWorking = true;
     this.service
       .changeStatus(this.investment.id, status, reason)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$), finalize(() => this.tick()))
       .subscribe({
         next: updated => {
           this.investment = updated;
@@ -612,15 +673,30 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
 
   complete(): void {
     if (this.actualGrossProfit === null) return;
+    const actualGrossProfit = this.actualGrossProfit;
 
+    this.confirmation
+      .confirm({
+        title: 'Complete Project',
+        message: 'Record completion with the entered gross profit? This locks the project lifecycle.',
+        detail: `Actual Gross Profit: ${formatBdt(actualGrossProfit)}`,
+        confirmText: 'Complete',
+        danger: true,
+        icon: 'task_alt',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => this.doComplete(actualGrossProfit));
+  }
+
+  private doComplete(actualGrossProfit: number): void {
     this.isWorking = true;
     this.service
       .complete(this.investment.id, {
-        actualGrossProfit: this.actualGrossProfit,
+        actualGrossProfit,
         completionDate: this.completionDate ? `${this.completionDate}T00:00:00Z` : null,
         closingNotes: this.closingNotes || null,
       })
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$), finalize(() => this.tick()))
       .subscribe({
         next: updated => {
           this.investment = updated;
@@ -636,10 +712,24 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
   }
 
   distribute(): void {
+    this.confirmation
+      .confirm({
+        title: 'Distribute Profit',
+        message: `Distribute the profit to all ${this.investment.members?.length || 'investor'} wallet(s)?`,
+        detail: 'This moves funds into investor wallets and cannot be undone.',
+        confirmText: 'Distribute',
+        danger: true,
+        icon: 'payments',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => this.doDistribute());
+  }
+
+  private doDistribute(): void {
     this.isWorking = true;
     this.service
       .distributeProfit(this.investment.id)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$), finalize(() => this.tick()))
       .subscribe({
         next: s => {
           this.settlement = s;
@@ -656,10 +746,27 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
   }
 
   disburse(memberId?: string): void {
+    const isBulk = !memberId;
+    this.confirmation
+      .confirm({
+        title: isBulk ? 'Disburse All Pending' : 'Disburse Funds',
+        message: isBulk
+          ? 'Disburse funds to all members with pending payouts?'
+          : 'Disburse this member\u2019s payout from the project funds?',
+        detail: 'This moves funds out of the project and cannot be undone.',
+        confirmText: 'Disburse',
+        danger: true,
+        icon: 'payments',
+      })
+      .pipe(filter(Boolean), takeUntil(this.destroy$))
+      .subscribe(() => this.doDisburse(memberId));
+  }
+
+  private doDisburse(memberId?: string): void {
     this.isWorking = true;
     this.service
       .disburse(this.investment.id, memberId)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$), finalize(() => this.tick()))
       .subscribe({
         next: s => {
           this.settlement = s;
@@ -681,7 +788,7 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
   private refresh(): void {
     this.service
       .getInvestment(this.investment.id)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$), finalize(() => this.tick()))
       .subscribe({
         next: i => {
           this.investment = i;
@@ -692,6 +799,7 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
             this.loadSettlement();
           }
           this.changed.emit();
+          this.tick();
         },
         error: () => {},
       });
@@ -700,20 +808,20 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
   private loadSubscriptions(): void {
     this.service
       .getSubscriptions(this.investment.id)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$), finalize(() => this.tick()))
       .subscribe({
-        next: s => (this.subscriptions = s),
-        error: () => (this.subscriptions = []),
+        next: s => { this.subscriptions = s; this.tick(); },
+        error: () => { this.subscriptions = []; this.tick(); },
       });
   }
 
   private loadSettlement(): void {
     this.service
       .getSettlement(this.investment.id)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$), finalize(() => this.tick()))
       .subscribe({
-        next: s => (this.settlement = s),
-        error: () => (this.settlement = null),
+        next: s => { this.settlement = s; this.tick(); },
+        error: () => { this.settlement = null; this.tick(); },
       });
   }
 }
