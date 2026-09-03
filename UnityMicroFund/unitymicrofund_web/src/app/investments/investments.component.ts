@@ -150,7 +150,14 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
               <span class="material-icons">event</span> Matures {{ investment.maturityDate | date:'mediumDate' }}
             </span>
           </div>
-          <p class="icard-desc" *ngIf="investment.description">{{ investment.description }}</p>
+          <div class="icard-desc-wrap" *ngIf="investment.description"
+               (mouseenter)="onDescEnter(investment.id, descEl)" (mouseleave)="onDescLeave()">
+            <p #descEl class="icard-desc">{{ investment.description }}</p>
+            <span class="icard-readmore" *ngIf="descMeta[investment.id] && hoveredDescId !== investment.id">
+              Read more
+            </span>
+            <div class="icard-desc-tooltip" *ngIf="hoveredDescId === investment.id">{{ investment.description }}</div>
+          </div>
 
           <div class="icard-stats">
             <div class="icard-stat">
@@ -692,8 +699,8 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
     /* Grid View */
-    .investments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
-    .investment-card { background: white; border: 1px solid var(--color-border-light, #f1f5f9); border-radius: var(--radius-xl, 16px); padding: 16px; box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)); transition: all 0.2s; animation: fadeInUp 0.4s ease forwards; opacity: 0; }
+    .investments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: stretch; }
+    .investment-card { display: flex; flex-direction: column; background: white; border: 1px solid var(--color-border-light, #eef2f7); border-radius: var(--radius-xl, 14px); padding: 14px 14px 12px; box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)); transition: all 0.2s; animation: fadeInUp 0.4s ease forwards; opacity: 0; }
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
     .investment-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-card-hover, 0 4px 16px rgba(0,0,0,0.1)); }
 
@@ -714,48 +721,53 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .icard-status.closed { background: #fef2f2; color: var(--color-error, #dc2626); }
     .icard-status.completed { background: #f0f9ff; color: var(--color-info, #0284c7); }
 
-    .icard-name { font-size: 16px; font-weight: 700; color: var(--text-primary, #0f172a); margin: 0 0 2px; letter-spacing: -0.2px; }
-    .icard-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 10px; }
-    .icard-meta-item { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted, #64748b); }
-    .icard-meta-item .material-icons { font-size: 14px; }
-    .icard-desc { font-size: 12.5px; color: var(--text-secondary, #475569); margin: 0 0 10px; line-height: 1.5; }
+    .icard-name { font-size: 15px; font-weight: 700; color: var(--text-primary, #0f172a); margin: 0 0 2px; letter-spacing: -0.2px; }
+    .icard-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 8px; }
+    .icard-meta-item { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-muted, #64748b); }
+    .icard-meta-item .material-icons { font-size: 13px; }
+    .icard-desc-wrap { position: relative; margin-bottom: 10px; }
+    .icard-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; color: var(--text-secondary, #475569); margin: 0; line-height: 1.45; }
+    .icard-readmore { display: inline-block; margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--color-accent, #0d9488); cursor: pointer; }
+    .icard-desc-tooltip { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20; background: #0f172a; color: #f1f5f9; padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.5; box-shadow: 0 8px 24px rgba(0,0,0,0.18); white-space: normal; word-break: break-word; }
+    .icard-desc-tooltip::before { content: ''; position: absolute; left: 16px; top: -5px; width: 10px; height: 10px; background: #0f172a; transform: rotate(45deg); }
 
-    .icard-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-    .icard-stat { background: var(--color-background-alt, #f8fafc); border: 1px solid var(--color-border-light, #f1f5f9); border-radius: var(--radius-lg, 12px); padding: 10px 12px; }
-    .icard-stat-label { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted, #64748b); margin-bottom: 3px; }
-    .icard-stat-value { display: block; font-size: 15px; font-weight: 700; color: var(--text-primary, #0f172a); }
+    .icard-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+    .icard-stat { background: var(--color-background-alt, #f8fafc); border: 1px solid var(--color-border-light, #f1f5f9); border-radius: var(--radius-lg, 10px); padding: 7px 8px; min-width: 0; }
+    .icard-stat-label { display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted, #64748b); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .icard-stat-value { display: block; font-size: 13.5px; font-weight: 700; color: var(--text-primary, #0f172a); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .icard-stat-value.pos { color: var(--color-success, #059669); }
     .icard-stat-value.neg { color: var(--color-error, #dc2626); }
-    .icard-stat-sub { display: block; font-style: normal; font-size: 12px; font-weight: 600; opacity: 0.85; }
+    .icard-stat-sub { display: block; font-style: normal; font-size: 11px; font-weight: 600; opacity: 0.85; }
 
     .icard-progress { margin-bottom: 10px; }
-    .icard-progress-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
-    .icard-progress-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted, #64748b); font-weight: 600; }
-    .icard-progress-pct { font-size: 12px; font-weight: 700; color: var(--color-success, #059669); }
-    .icard-progress-bar { height: 6px; background: var(--color-border, #e2e8f0); border-radius: 999px; overflow: hidden; }
+    .icard-progress-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+    .icard-progress-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted, #64748b); font-weight: 600; }
+    .icard-progress-pct { font-size: 11.5px; font-weight: 700; color: var(--color-success, #059669); }
+    .icard-progress-bar { height: 5px; background: var(--color-border, #e2e8f0); border-radius: 999px; overflow: hidden; }
     .icard-progress-fill { height: 100%; background: linear-gradient(90deg, #14b8a6, #0d9488); border-radius: 999px; transition: width 0.5s ease; }
     .icard-progress-fill.neg { background: linear-gradient(90deg, #f87171, #dc2626); }
 
-    .icard-shares { margin-bottom: 12px; padding: 10px 12px; background: var(--color-background-alt, #f8fafc); border: 1px solid var(--color-border-light, #f1f5f9); border-radius: var(--radius-lg, 12px); }
-    .icard-shares-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-    .icard-shares-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted, #64748b); font-weight: 600; }
-    .icard-shares-count { font-size: 12.5px; color: var(--text-muted, #64748b); }
-    .icard-shares-count strong { font-size: 14px; color: var(--color-accent, #0d9488); font-weight: 700; }
-    .icard-shares-bar { height: 6px; background: var(--color-border, #e2e8f0); border-radius: 999px; overflow: hidden; }
+    .icard-shares { margin-bottom: 10px; padding: 8px 10px; min-height: 58px; background: var(--color-background-alt, #f8fafc); border: 1px solid var(--color-border-light, #f1f5f9); border-radius: var(--radius-lg, 10px); }
+    .icard-shares-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+    .icard-shares-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted, #64748b); font-weight: 600; }
+    .icard-shares-count { font-size: 12px; color: var(--text-muted, #64748b); }
+    .icard-shares-count strong { font-size: 13px; color: var(--color-accent, #0d9488); font-weight: 700; }
+    .icard-shares-bar { height: 5px; background: var(--color-border, #e2e8f0); border-radius: 999px; overflow: hidden; }
     .icard-shares-fill { height: 100%; background: linear-gradient(90deg, #14b8a6, #0d9488); border-radius: 999px; transition: width 0.5s ease; }
     .icard-shares-fill.sold-out { background: linear-gradient(90deg, #34d399, #059669); }
-    .icard-shares-foot { display: flex; justify-content: space-between; margin-top: 5px; font-size: 11px; color: var(--text-muted, #64748b); }
+    .icard-shares-foot { display: flex; justify-content: space-between; margin-top: 4px; font-size: 10.5px; color: var(--text-muted, #64748b); }
     .icard-shares-pct { font-weight: 600; color: var(--color-accent, #0d9488); }
 
-    .icard-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px solid var(--color-divider, #f0f0f0); }
+    .icard-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--color-divider, #f0f0f0); }
     .members-preview { display: flex; align-items: center; gap: 8px; }
     .member-avatars { display: flex; }
-    .avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #14b8a6, #0f172a); color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; margin-left: -7px; border: 2px solid white; }
+    .avatar { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #14b8a6, #0f172a); color: white; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; margin-left: -7px; border: 2px solid white; }
     .avatar:first-child { margin-left: 0; }
-    .avatar.more { background: #e2e8f0; color: var(--text-muted, #64748b); font-size: 9px; }
+    .avatar.more { background: #e2e8f0; color: var(--text-muted, #64748b); font-size: 8px; }
     .members-count { font-size: 11px; color: var(--text-muted, #64748b); }
     .card-actions { display: flex; gap: 4px; }
-    .btn-icon { background: white; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); padding: 6px; cursor: pointer; color: var(--text-muted, #64748b); transition: all 0.2s; }
+    .btn-icon { background: white; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); padding: 5px; cursor: pointer; color: var(--text-muted, #64748b); transition: all 0.2s; }
+    .btn-icon .material-icons { font-size: 17px; }
     .btn-icon:hover { background: var(--color-background-alt, #f8fafc); color: var(--color-accent, #0d9488); border-color: var(--color-accent, #0d9488); }
 
     /* Empty State */
@@ -904,6 +916,9 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
   isLoading = false;
   showViewModal = false;
   selectedInvestment: Investment | null = null;
+
+  descMeta: Record<string, boolean> = {};
+  hoveredDescId: string | null = null;
 
   showForm = false;
   editingInvestment: Investment | null = null;
@@ -1237,5 +1252,16 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
   /** Return progress normalised to 0–100 for the card bar. */
   returnProgress(pct: number): number {
     return Math.min(Math.max(((pct + 10) / 20) * 100, 0), 100);
+  }
+
+  /** Mark a description as truncated (scrolls past its clamped box) for the "Read more" affordance. */
+  onDescEnter(id: string, el: HTMLElement): void {
+    const truncated = el.scrollHeight > el.clientHeight + 1;
+    this.descMeta = { ...this.descMeta, [id]: truncated };
+    this.hoveredDescId = truncated ? id : null;
+  }
+
+  onDescLeave(): void {
+    this.hoveredDescId = null;
   }
 }
