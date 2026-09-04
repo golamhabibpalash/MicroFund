@@ -91,19 +91,39 @@ public class SubscriptionService : ISubscriptionService
 
         var now = DateTime.UtcNow;
 
-        var subscription = new ShareSubscription
+        // One consolidated subscription row per investor per project. A repeat purchase
+        // increments the existing row's share count and paid amount instead of inserting
+        // a second row, so an investor is only ever listed once per project.
+        var subscription = await _context.ShareSubscriptions
+            .FirstOrDefaultAsync(
+                s => s.InvestmentId == investmentId
+                  && s.MemberId == memberId
+                  && s.Status == ShareSubscriptionStatus.Active,
+                cancellationToken);
+
+        if (subscription is null)
         {
-            Id = Guid.NewGuid(),
-            InvestmentId = investmentId,
-            MemberId = memberId,
-            SharesPurchased = shares,
-            SharePriceAtPurchase = sharePrice,
-            AmountPaid = amount,
-            Status = ShareSubscriptionStatus.Active,
-            PurchasedAt = now,
-            CreatedBy = createdBy
-        };
-        _context.ShareSubscriptions.Add(subscription);
+            subscription = new ShareSubscription
+            {
+                Id = Guid.NewGuid(),
+                InvestmentId = investmentId,
+                MemberId = memberId,
+                SharesPurchased = shares,
+                SharePriceAtPurchase = sharePrice,
+                AmountPaid = amount,
+                Status = ShareSubscriptionStatus.Active,
+                PurchasedAt = now,
+                CreatedBy = createdBy
+            };
+            _context.ShareSubscriptions.Add(subscription);
+        }
+        else
+        {
+            subscription.SharesPurchased += shares;
+            subscription.AmountPaid += amount;
+            subscription.SharePriceAtPurchase = sharePrice;
+            subscription.PurchasedAt = now;
+        }
 
         _wallet.AddEntry(
             memberId,
@@ -134,10 +154,10 @@ public class SubscriptionService : ISubscriptionService
             InvestmentName = investment.Name,
             MemberId = memberId,
             MemberName = member.Name,
-            SharesPurchased = shares,
-            SharePriceAtPurchase = sharePrice,
-            AmountPaid = amount,
-            OwnershipPercentage = Math.Round((decimal)shares / totalShares * 100m, 6),
+            SharesPurchased = subscription.SharesPurchased,
+            SharePriceAtPurchase = subscription.SharePriceAtPurchase,
+            AmountPaid = subscription.AmountPaid,
+            OwnershipPercentage = Math.Round((decimal)subscription.SharesPurchased / totalShares * 100m, 6),
             Status = subscription.Status.ToString(),
             PurchasedAt = subscription.PurchasedAt
         };
@@ -147,37 +167,58 @@ public class SubscriptionService : ISubscriptionService
         Guid investmentId,
         CancellationToken cancellationToken = default)
     {
-        var totalShares = await _context.Investments
+        var investment = await _context.Investments
+            .AsNoTracking()
             .Where(i => i.Id == investmentId)
-            .Select(i => i.TotalShares)
-            .FirstOrDefaultAsync(cancellationToken) ?? 0;
+            .Select(i => new { i.Name, i.TotalShares })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        var rows = await _context.ShareSubscriptions
+        var totalShares = investment?.TotalShares ?? 0;
+        var investmentName = investment?.Name ?? string.Empty;
+
+        var raw = await _context.ShareSubscriptions
             .AsNoTracking()
             .Where(s => s.InvestmentId == investmentId)
-            .OrderByDescending(s => s.PurchasedAt)
-            .Select(s => new ShareSubscriptionDto
+            .Select(s => new
             {
-                Id = s.Id,
-                InvestmentId = s.InvestmentId,
-                InvestmentName = s.Investment!.Name,
-                MemberId = s.MemberId,
+                s.Id,
+                s.MemberId,
                 MemberName = s.Member!.Name,
-                SharesPurchased = s.SharesPurchased,
-                SharePriceAtPurchase = s.SharePriceAtPurchase,
-                AmountPaid = s.AmountPaid,
-                Status = s.Status.ToString(),
-                PurchasedAt = s.PurchasedAt
+                s.SharesPurchased,
+                s.SharePriceAtPurchase,
+                s.AmountPaid,
+                s.Status,
+                s.PurchasedAt
             })
             .ToListAsync(cancellationToken);
 
-        if (totalShares > 0)
-        {
-            foreach (var r in rows)
+        // Collapse any historical multi-row purchases into one entry per investor
+        // (grouped by status so an active holding is never merged with a settled or
+        // cancelled one).
+        var rows = raw
+            .GroupBy(s => new { s.MemberId, s.MemberName, s.Status })
+            .Select(g =>
             {
-                r.OwnershipPercentage = Math.Round((decimal)r.SharesPurchased / totalShares * 100m, 6);
-            }
-        }
+                var sharesPurchased = g.Sum(x => x.SharesPurchased);
+                return new ShareSubscriptionDto
+                {
+                    Id = g.OrderByDescending(x => x.PurchasedAt).First().Id,
+                    InvestmentId = investmentId,
+                    InvestmentName = investmentName,
+                    MemberId = g.Key.MemberId,
+                    MemberName = g.Key.MemberName,
+                    SharesPurchased = sharesPurchased,
+                    SharePriceAtPurchase = g.OrderBy(x => x.PurchasedAt).First().SharePriceAtPurchase,
+                    AmountPaid = g.Sum(x => x.AmountPaid),
+                    OwnershipPercentage = totalShares > 0
+                        ? Math.Round((decimal)sharesPurchased / totalShares * 100m, 6)
+                        : 0m,
+                    Status = g.Key.Status.ToString(),
+                    PurchasedAt = g.Max(x => x.PurchasedAt)
+                };
+            })
+            .OrderByDescending(r => r.PurchasedAt)
+            .ToList();
 
         return rows;
     }
@@ -186,27 +227,50 @@ public class SubscriptionService : ISubscriptionService
         Guid memberId,
         CancellationToken cancellationToken = default)
     {
-        return await _context.ShareSubscriptions
+        var raw = await _context.ShareSubscriptions
             .AsNoTracking()
             .Where(s => s.MemberId == memberId)
-            .OrderByDescending(s => s.PurchasedAt)
-            .Select(s => new ShareSubscriptionDto
+            .Select(s => new
             {
-                Id = s.Id,
-                InvestmentId = s.InvestmentId,
+                s.Id,
+                s.InvestmentId,
                 InvestmentName = s.Investment!.Name,
-                MemberId = s.MemberId,
+                TotalShares = s.Investment!.TotalShares,
+                s.MemberId,
                 MemberName = s.Member!.Name,
-                SharesPurchased = s.SharesPurchased,
-                SharePriceAtPurchase = s.SharePriceAtPurchase,
-                AmountPaid = s.AmountPaid,
-                OwnershipPercentage = s.Investment!.TotalShares > 0
-                    ? (decimal)s.SharesPurchased / s.Investment.TotalShares.Value * 100m
-                    : 0m,
-                Status = s.Status.ToString(),
-                PurchasedAt = s.PurchasedAt
+                s.SharesPurchased,
+                s.SharePriceAtPurchase,
+                s.AmountPaid,
+                s.Status,
+                s.PurchasedAt
             })
             .ToListAsync(cancellationToken);
+
+        // One consolidated entry per project (per status) for this member.
+        return raw
+            .GroupBy(s => new { s.InvestmentId, s.InvestmentName, s.TotalShares, s.MemberId, s.MemberName, s.Status })
+            .Select(g =>
+            {
+                var sharesPurchased = g.Sum(x => x.SharesPurchased);
+                return new ShareSubscriptionDto
+                {
+                    Id = g.OrderByDescending(x => x.PurchasedAt).First().Id,
+                    InvestmentId = g.Key.InvestmentId,
+                    InvestmentName = g.Key.InvestmentName,
+                    MemberId = g.Key.MemberId,
+                    MemberName = g.Key.MemberName,
+                    SharesPurchased = sharesPurchased,
+                    SharePriceAtPurchase = g.OrderBy(x => x.PurchasedAt).First().SharePriceAtPurchase,
+                    AmountPaid = g.Sum(x => x.AmountPaid),
+                    OwnershipPercentage = g.Key.TotalShares > 0
+                        ? Math.Round((decimal)sharesPurchased / g.Key.TotalShares.Value * 100m, 6)
+                        : 0m,
+                    Status = g.Key.Status.ToString(),
+                    PurchasedAt = g.Max(x => x.PurchasedAt)
+                };
+            })
+            .OrderByDescending(r => r.PurchasedAt)
+            .ToList();
     }
 
     /// <summary>
