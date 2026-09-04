@@ -79,7 +79,7 @@ public class InvestmentsController : ControllerBase
         }
 
         var result = await _subscriptionService.SubscribeAsync(
-            id, memberId, dto.Shares, GetCurrentUserName(), cancellationToken);
+            id, memberId, dto.Shares, dto.AgreementAccepted, GetCurrentUserName(), cancellationToken);
 
         return Ok(result);
     }

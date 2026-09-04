@@ -176,6 +176,27 @@ public class Investment
     [MaxLength(100)]
     public string? ReferenceNumber { get; set; }
 
+    // --- Mandatory participants (nullable in the schema so pre-existing projects
+    // migrate cleanly; required by the create DTO and service validation). ---
+
+    /// <summary>The fund member on whose behalf the project is run. From the member list.</summary>
+    public Guid? InvestorMemberId { get; set; }
+
+    [ForeignKey(nameof(InvestorMemberId))]
+    public virtual Member? InvestorMember { get; set; }
+
+    /// <summary>Witness for the investor. A different fund member from the investor.</summary>
+    public Guid? WitnessMemberId { get; set; }
+
+    [ForeignKey(nameof(WitnessMemberId))]
+    public virtual Member? WitnessMember { get; set; }
+
+    /// <summary>Guarantor for the project. A fund member, different from investor and witness.</summary>
+    public Guid? GuarantorMemberId { get; set; }
+
+    [ForeignKey(nameof(GuarantorMemberId))]
+    public virtual Member? GuarantorMember { get; set; }
+
     [MaxLength(100)]
     public string? CreatedBy { get; set; }
 

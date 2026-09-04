@@ -55,6 +55,8 @@ public class InvestmentPartner
     [MaxLength(250)]
     public string? PermanentAddress { get; set; }
 
+    // Legacy inline nominee columns. Superseded by the InvestmentNominee table; kept so
+    // existing rows are not lost. New reads/writes go through Nominee.
     [MaxLength(100)]
     public string? NomineeName { get; set; }
 
@@ -63,6 +65,9 @@ public class InvestmentPartner
 
     [MaxLength(20)]
     public string? NomineeContact { get; set; }
+
+    /// <summary>The one nominee nominated on behalf of this partner.</summary>
+    public virtual InvestmentNominee? Nominee { get; set; }
 
     public DateTime CreatedAt { get; set; }
 }

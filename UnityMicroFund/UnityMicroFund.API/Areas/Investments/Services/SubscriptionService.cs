@@ -24,9 +24,18 @@ public class SubscriptionService : ISubscriptionService
         Guid investmentId,
         Guid memberId,
         int shares,
+        bool agreementAccepted,
         string? createdBy,
         CancellationToken cancellationToken = default)
     {
+        // Enforced here, not just in the UI, so the rule cannot be bypassed by calling
+        // the API directly.
+        if (!agreementAccepted)
+        {
+            throw new ValidationException(
+                "You must read and accept the investment agreement / caution before purchasing shares.");
+        }
+
         if (shares <= 0)
         {
             throw new ValidationException("Number of shares must be greater than zero.");
@@ -113,6 +122,7 @@ public class SubscriptionService : ISubscriptionService
                 AmountPaid = amount,
                 Status = ShareSubscriptionStatus.Active,
                 PurchasedAt = now,
+                AgreementAcceptedAt = now,
                 CreatedBy = createdBy
             };
             _context.ShareSubscriptions.Add(subscription);
@@ -123,6 +133,7 @@ public class SubscriptionService : ISubscriptionService
             subscription.AmountPaid += amount;
             subscription.SharePriceAtPurchase = sharePrice;
             subscription.PurchasedAt = now;
+            subscription.AgreementAcceptedAt = now;
         }
 
         _wallet.AddEntry(

@@ -38,7 +38,11 @@ public class InvestmentService : IInvestmentService
         var investments = await query
             .Include(i => i.MemberInvestments)
                 .ThenInclude(mi => mi.Member)
+            .Include(i => i.InvestorMember)
+            .Include(i => i.WitnessMember)
+            .Include(i => i.GuarantorMember)
             .Include(i => i.Partners)
+                .ThenInclude(p => p.Nominee)
             .Include(i => i.Documents)
             .Include(i => i.Subscriptions)
             .Include(i => i.InterimProfits)
@@ -64,7 +68,11 @@ public class InvestmentService : IInvestmentService
         var investments = await query
             .Include(i => i.MemberInvestments)
                 .ThenInclude(mi => mi.Member)
+            .Include(i => i.InvestorMember)
+            .Include(i => i.WitnessMember)
+            .Include(i => i.GuarantorMember)
             .Include(i => i.Partners)
+                .ThenInclude(p => p.Nominee)
             .Include(i => i.Documents)
             .Include(i => i.Subscriptions)
             .Include(i => i.InterimProfits)
@@ -83,7 +91,11 @@ public class InvestmentService : IInvestmentService
             .AsNoTracking()
             .Include(i => i.MemberInvestments)
                 .ThenInclude(mi => mi.Member)
+            .Include(i => i.InvestorMember)
+            .Include(i => i.WitnessMember)
+            .Include(i => i.GuarantorMember)
             .Include(i => i.Partners)
+                .ThenInclude(p => p.Nominee)
             .Include(i => i.Documents)
             .Include(i => i.Subscriptions)
             .Include(i => i.InterimProfits)
@@ -101,6 +113,9 @@ public class InvestmentService : IInvestmentService
         ValidateDates(dto.DateInvested, dto.MaturityDate);
         await ValidateUniqueNumbersAsync(dto.CertificateNumber, dto.ReferenceNumber, null, cancellationToken);
         ValidateShareLimits(dto.MinimumSharesPerMember, dto.MaximumSharesPerMember, dto.TotalShares);
+        await ValidateParticipantsAsync(
+            dto.InvestorMemberId, dto.WitnessMemberId, dto.GuarantorMemberId,
+            dto.Partners, requireAll: true, cancellationToken);
 
         var now = DateTime.UtcNow;
         // Per-project maintenance percentage. When the caller does not supply one for
@@ -136,6 +151,9 @@ public class InvestmentService : IInvestmentService
             Status = ParseEnum<InvestmentStatus>(dto.Status, "investment status"),
             CertificateNumber = NullIfBlank(dto.CertificateNumber),
             ReferenceNumber = NullIfBlank(dto.ReferenceNumber),
+            InvestorMemberId = dto.InvestorMemberId,
+            WitnessMemberId = dto.WitnessMemberId,
+            GuarantorMemberId = dto.GuarantorMemberId,
             CreatedBy = createdBy,
             LastModifiedBy = createdBy,
             CreatedAt = now,
@@ -183,6 +201,7 @@ public class InvestmentService : IInvestmentService
     {
         var investment = await _context.Investments
             .Include(i => i.Partners)
+                .ThenInclude(p => p.Nominee)
             .FirstOrDefaultAsync(i => i.Id == id, cancellationToken);
 
         if (investment == null) return null;
@@ -225,6 +244,15 @@ public class InvestmentService : IInvestmentService
         if (dto.ReferenceNumber != null)
             investment.ReferenceNumber = NullIfBlank(dto.ReferenceNumber);
 
+        // Participants: only overwrite the ones the caller actually supplied, so an edit
+        // that touches nothing else keeps a legacy project working.
+        if (dto.InvestorMemberId.HasValue)
+            investment.InvestorMemberId = dto.InvestorMemberId.Value;
+        if (dto.WitnessMemberId.HasValue)
+            investment.WitnessMemberId = dto.WitnessMemberId.Value;
+        if (dto.GuarantorMemberId.HasValue)
+            investment.GuarantorMemberId = dto.GuarantorMemberId.Value;
+
         // Re-derive rather than validate: value or share count may have just changed,
         // and the price must always follow from them (section 3).
         investment.SharePrice = DeriveSharePrice(investment.PrincipalAmount, investment.TotalShares);
@@ -236,6 +264,11 @@ public class InvestmentService : IInvestmentService
         ValidateShareLimits(investment.MinimumSharesPerMember, investment.MaximumSharesPerMember, investment.TotalShares);
         await GuardShareLimitChangeAsync(investment, cancellationToken);
         await ValidateUniqueNumbersAsync(investment.CertificateNumber, investment.ReferenceNumber, id, cancellationToken);
+        // Lenient: only enforces rules for participants that are actually present
+        // (existing nulls on a pre-participants project are left alone).
+        await ValidateParticipantsAsync(
+            investment.InvestorMemberId, investment.WitnessMemberId, investment.GuarantorMemberId,
+            dto.Partners, requireAll: false, cancellationToken);
 
         investment.DurationMonths = ResolveDuration(
             dto.DurationMonths ?? investment.DurationMonths,
@@ -436,6 +469,83 @@ public class InvestmentService : IInvestmentService
         }
     }
 
+    private static string DigitsOnly(string? value) =>
+        new(( value ?? string.Empty).Where(char.IsDigit).ToArray());
+
+    /// <summary>
+    /// Enforces the participant business rules (spec sections 1-5, 7, 9):
+    ///   - Investor, Witness and Guarantor must each be an ACTIVE fund member.
+    ///   - Those three must be three different members.
+    ///   - When a partner list is supplied it must contain exactly one partner, that
+    ///     partner must carry a nominee, and the partner and nominee NID must differ.
+    /// <paramref name="requireAll"/> is true on create (every participant mandatory) and
+    /// false on update (only validate what is present, so legacy projects still edit).
+    /// </summary>
+    private async Task ValidateParticipantsAsync(
+        Guid? investorMemberId,
+        Guid? witnessMemberId,
+        Guid? guarantorMemberId,
+        IReadOnlyList<InvestmentPartnerDto>? partners,
+        bool requireAll,
+        CancellationToken cancellationToken)
+    {
+        if (requireAll)
+        {
+            if (investorMemberId is null) throw new ValidationException("An investor is required.");
+            if (witnessMemberId is null) throw new ValidationException("An investor witness is required.");
+            if (guarantorMemberId is null) throw new ValidationException("A guarantor is required.");
+            if (partners is null || partners.Count == 0)
+                throw new ValidationException("An investment project must have exactly one partner.");
+        }
+
+        // Distinctness among whichever of the three are set.
+        if (investorMemberId is not null && investorMemberId == witnessMemberId)
+            throw new ValidationException("The investor and the witness must be different members.");
+        if (investorMemberId is not null && investorMemberId == guarantorMemberId)
+            throw new ValidationException("The investor and the guarantor must be different members.");
+        if (witnessMemberId is not null && witnessMemberId == guarantorMemberId)
+            throw new ValidationException("The witness and the guarantor must be different members.");
+
+        // Each supplied participant must resolve to an active member.
+        var ids = new[] { investorMemberId, witnessMemberId, guarantorMemberId }
+            .Where(x => x.HasValue).Select(x => x!.Value).Distinct().ToList();
+        if (ids.Count > 0)
+        {
+            var activeIds = await _context.Members
+                .AsNoTracking()
+                .Where(m => ids.Contains(m.Id) && m.IsActive)
+                .Select(m => m.Id)
+                .ToListAsync(cancellationToken);
+
+            if (investorMemberId is not null && !activeIds.Contains(investorMemberId.Value))
+                throw new ValidationException("The selected investor is not an active fund member.");
+            if (witnessMemberId is not null && !activeIds.Contains(witnessMemberId.Value))
+                throw new ValidationException("The selected witness is not an active fund member.");
+            if (guarantorMemberId is not null && !activeIds.Contains(guarantorMemberId.Value))
+                throw new ValidationException("The selected guarantor is not an active fund member.");
+        }
+
+        if (partners is null) return;
+
+        if (partners.Count != 1)
+            throw new ValidationException("An investment project must have exactly one partner.");
+
+        var partner = partners[0];
+        var nominee = partner.Nominee;
+        if (nominee is null || string.IsNullOrWhiteSpace(nominee.Name)
+            || string.IsNullOrWhiteSpace(nominee.Phone) || string.IsNullOrWhiteSpace(nominee.Nid))
+        {
+            throw new ValidationException("Partner nominee information (name, phone and NID) is required.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(partner.Nid)
+            && DigitsOnly(partner.Nid) == DigitsOnly(nominee.Nid))
+        {
+            throw new ValidationException(
+                "The partner and nominee must be two different people - their NID numbers cannot be the same.");
+        }
+    }
+
     private async Task ValidateUniqueNumbersAsync(
         string? certificateNumber,
         string? referenceNumber,
@@ -483,23 +593,40 @@ public class InvestmentService : IInvestmentService
     private static string? NullIfBlank(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static InvestmentPartner ToEntity(InvestmentPartnerDto dto, Guid investmentId, DateTime now) => new()
+    private static InvestmentPartner ToEntity(InvestmentPartnerDto dto, Guid investmentId, DateTime now)
     {
-        Id = Guid.NewGuid(),
-        InvestmentId = investmentId,
-        MemberId = dto.MemberId,
-        PartnerName = dto.PartnerName,
-        Nid = NullIfBlank(dto.Nid),
-        Phone1 = dto.Phone1,
-        Phone2 = NullIfBlank(dto.Phone2),
-        Email = NullIfBlank(dto.Email),
-        PresentAddress = NullIfBlank(dto.PresentAddress),
-        PermanentAddress = NullIfBlank(dto.PermanentAddress),
-        NomineeName = NullIfBlank(dto.NomineeName),
-        NomineeRelationship = NullIfBlank(dto.NomineeRelationship),
-        NomineeContact = NullIfBlank(dto.NomineeContact),
-        CreatedAt = now
-    };
+        var partner = new InvestmentPartner
+        {
+            Id = Guid.NewGuid(),
+            InvestmentId = investmentId,
+            MemberId = dto.MemberId,
+            PartnerName = dto.PartnerName,
+            Nid = NullIfBlank(dto.Nid),
+            Phone1 = dto.Phone1,
+            Phone2 = NullIfBlank(dto.Phone2),
+            Email = NullIfBlank(dto.Email),
+            PresentAddress = NullIfBlank(dto.PresentAddress),
+            PermanentAddress = NullIfBlank(dto.PermanentAddress),
+            CreatedAt = now
+        };
+
+        var nominee = dto.Nominee;
+        if (nominee != null && !string.IsNullOrWhiteSpace(nominee.Name))
+        {
+            partner.Nominee = new InvestmentNominee
+            {
+                Id = Guid.NewGuid(),
+                InvestmentPartnerId = partner.Id,
+                Name = nominee.Name.Trim(),
+                Phone = nominee.Phone.Trim(),
+                Nid = nominee.Nid.Trim(),
+                Relation = NullIfBlank(nominee.Relation),
+                CreatedAt = now
+            };
+        }
+
+        return partner;
+    }
 
     private static InvestmentPartnerDto ToDto(InvestmentPartner p) => new()
     {
@@ -512,9 +639,15 @@ public class InvestmentService : IInvestmentService
         Email = p.Email,
         PresentAddress = p.PresentAddress,
         PermanentAddress = p.PermanentAddress,
-        NomineeName = p.NomineeName,
-        NomineeRelationship = p.NomineeRelationship,
-        NomineeContact = p.NomineeContact
+        Nominee = p.Nominee == null
+            ? new InvestmentNomineeDto()
+            : new InvestmentNomineeDto
+            {
+                Name = p.Nominee.Name,
+                Phone = p.Nominee.Phone,
+                Nid = p.Nominee.Nid,
+                Relation = p.Nominee.Relation
+            }
     };
 
     private static InvestmentDocumentDto ToDto(InvestmentDocument d) => new()
@@ -621,6 +754,12 @@ public class InvestmentService : IInvestmentService
             Status = investment.Status.ToString(),
             CertificateNumber = investment.CertificateNumber,
             ReferenceNumber = investment.ReferenceNumber,
+            InvestorMemberId = investment.InvestorMemberId,
+            InvestorName = investment.InvestorMember?.Name,
+            WitnessMemberId = investment.WitnessMemberId,
+            WitnessName = investment.WitnessMember?.Name,
+            GuarantorMemberId = investment.GuarantorMemberId,
+            GuarantorName = investment.GuarantorMember?.Name,
             CreatedBy = investment.CreatedBy,
             CreatedAt = investment.CreatedAt,
             LastModifiedBy = investment.LastModifiedBy,

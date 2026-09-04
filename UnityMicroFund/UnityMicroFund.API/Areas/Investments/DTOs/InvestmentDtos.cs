@@ -16,6 +16,27 @@ internal static class InvestmentValidation
     public const string NidMessage = "NID must be 10, 13 or 17 digits.";
 }
 
+/// <summary>Nominee nominated on behalf of the partner. All fields but Relation are mandatory.</summary>
+public class InvestmentNomineeDto
+{
+    [Required(ErrorMessage = "Nominee name is required.")]
+    [MaxLength(100)]
+    public string Name { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Nominee phone number is required.")]
+    [MaxLength(20)]
+    [RegularExpression(InvestmentValidation.PhonePattern, ErrorMessage = InvestmentValidation.PhoneMessage)]
+    public string Phone { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Nominee NID is required.")]
+    [MaxLength(50)]
+    [RegularExpression(InvestmentValidation.NidPattern, ErrorMessage = InvestmentValidation.NidMessage)]
+    public string Nid { get; set; } = string.Empty;
+
+    [MaxLength(50)]
+    public string? Relation { get; set; }
+}
+
 public class InvestmentPartnerDto
 {
     public Guid? Id { get; set; }
@@ -27,11 +48,12 @@ public class InvestmentPartnerDto
     [MaxLength(100)]
     public string PartnerName { get; set; } = string.Empty;
 
+    [Required(ErrorMessage = "Partner NID is required.")]
     [MaxLength(50)]
     [RegularExpression(InvestmentValidation.NidPattern, ErrorMessage = InvestmentValidation.NidMessage)]
     public string? Nid { get; set; }
 
-    [Required(ErrorMessage = "Partner phone number is required.")]
+    [Required(ErrorMessage = "Partner contact number is required.")]
     [MaxLength(20)]
     [RegularExpression(InvestmentValidation.PhonePattern, ErrorMessage = InvestmentValidation.PhoneMessage)]
     public string Phone1 { get; set; } = string.Empty;
@@ -44,12 +66,18 @@ public class InvestmentPartnerDto
     [EmailAddress(ErrorMessage = "Enter a valid email address.")]
     public string? Email { get; set; }
 
+    [Required(ErrorMessage = "Partner address is required.")]
     [MaxLength(250)]
     public string? PresentAddress { get; set; }
 
     [MaxLength(250)]
     public string? PermanentAddress { get; set; }
 
+    /// <summary>The partner's single nominee. Mandatory.</summary>
+    [Required(ErrorMessage = "Partner nominee information is required.")]
+    public InvestmentNomineeDto Nominee { get; set; } = new();
+
+    // Legacy inline nominee fields, still accepted from older clients but superseded by Nominee.
     [MaxLength(100)]
     public string? NomineeName { get; set; }
 
@@ -145,6 +173,20 @@ public class CreateInvestmentDto
     [MaxLength(100)]
     public string? ReferenceNumber { get; set; }
 
+    /// <summary>Fund member the project is run for. Mandatory; must be an active member.</summary>
+    [Required(ErrorMessage = "An investor is required.")]
+    public Guid? InvestorMemberId { get; set; }
+
+    /// <summary>Witness for the investor. Mandatory; a different active member from the investor.</summary>
+    [Required(ErrorMessage = "An investor witness is required.")]
+    public Guid? WitnessMemberId { get; set; }
+
+    /// <summary>Guarantor for the project. Mandatory; a different active member from investor and witness.</summary>
+    [Required(ErrorMessage = "A guarantor is required.")]
+    public Guid? GuarantorMemberId { get; set; }
+
+    [Required(ErrorMessage = "Partner information is required.")]
+    [MinLength(1, ErrorMessage = "An investment project must have exactly one partner.")]
     public List<InvestmentPartnerDto>? Partners { get; set; }
 
     /// <summary>
@@ -210,6 +252,15 @@ public class UpdateInvestmentDto
 
     [MaxLength(100)]
     public string? ReferenceNumber { get; set; }
+
+    /// <summary>Null leaves the current investor untouched (lenient edit for legacy projects).</summary>
+    public Guid? InvestorMemberId { get; set; }
+
+    /// <summary>Null leaves the current witness untouched.</summary>
+    public Guid? WitnessMemberId { get; set; }
+
+    /// <summary>Null leaves the current guarantor untouched.</summary>
+    public Guid? GuarantorMemberId { get; set; }
 
     /// <summary>
     /// When supplied, replaces the partner list wholesale. When null, partners are
@@ -277,6 +328,14 @@ public class InvestmentResponseDto
     public string Status { get; set; } = string.Empty;
     public string? CertificateNumber { get; set; }
     public string? ReferenceNumber { get; set; }
+
+    public Guid? InvestorMemberId { get; set; }
+    public string? InvestorName { get; set; }
+    public Guid? WitnessMemberId { get; set; }
+    public string? WitnessName { get; set; }
+    public Guid? GuarantorMemberId { get; set; }
+    public string? GuarantorName { get; set; }
+
     public string? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? LastModifiedBy { get; set; }

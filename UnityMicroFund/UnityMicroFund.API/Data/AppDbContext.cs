@@ -20,7 +20,7 @@ public class AppDbContext : DbContext
     {
         nameof(Member), nameof(Investment), nameof(Contribution), nameof(MemberInvestment),
         nameof(Account), nameof(Transaction), nameof(GroupSetting), nameof(ParamBusConfig),
-        nameof(InvestmentPartner), nameof(InvestmentDocument),
+        nameof(InvestmentPartner), nameof(InvestmentNominee), nameof(InvestmentDocument),
         nameof(WalletEntry), nameof(ShareSubscription), nameof(ProfitDistribution),
         nameof(InvestmentProjectCost), nameof(InvestmentMaintenanceDistribution)
     };
@@ -37,6 +37,7 @@ public class AppDbContext : DbContext
     public DbSet<Contribution> Contributions { get; set; }
     public DbSet<MemberInvestment> MemberInvestments { get; set; }
     public DbSet<InvestmentPartner> InvestmentPartners { get; set; }
+    public DbSet<InvestmentNominee> InvestmentNominees { get; set; }
     public DbSet<InvestmentDocument> InvestmentDocuments { get; set; }
     public DbSet<WalletEntry> WalletEntries { get; set; }
     public DbSet<CashOutRequest> CashOutRequests { get; set; }
@@ -211,10 +212,37 @@ public class AppDbContext : DbContext
                   .HasForeignKey(e => e.MaintenanceAccountId)
                   .OnDelete(DeleteBehavior.SetNull);
 
+            // Mandatory participants. Restrict so a member who is on a project cannot be
+            // deleted out from under it.
+            entity.HasOne(e => e.InvestorMember)
+                  .WithMany()
+                  .HasForeignKey(e => e.InvestorMemberId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.WitnessMember)
+                  .WithMany()
+                  .HasForeignKey(e => e.WitnessMemberId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.GuarantorMember)
+                  .WithMany()
+                  .HasForeignKey(e => e.GuarantorMemberId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
             // MariaDB allows multiple NULLs in a unique index, so these enforce
             // "no duplicates" only for investments that actually carry a number.
             entity.HasIndex(e => e.CertificateNumber).IsUnique();
             entity.HasIndex(e => e.ReferenceNumber).IsUnique();
+        });
+
+        modelBuilder.Entity<InvestmentNominee>(entity =>
+        {
+            entity.HasOne(e => e.Partner)
+                  .WithOne(p => p.Nominee)
+                  .HasForeignKey<InvestmentNominee>(e => e.InvestmentPartnerId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.InvestmentPartnerId).IsUnique();
         });
 
         modelBuilder.Entity<InvestmentPartner>(entity =>
