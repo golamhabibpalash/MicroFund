@@ -2,7 +2,10 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router, NavigationEnd } from '@angular/router';
-import { AccountService, Account, CreateAccountRequest, UpdateAccountRequest } from '../core/services/account';
+import {
+  AccountService, Account, CreateAccountRequest, UpdateAccountRequest,
+  AccountLedgerEntry, AccountLedgerRequest, AccountsSummary, AccountEntryDirection,
+} from '../core/services/account';
 import { ToastService } from '../core/services/toast.service';
 import { UserService } from '../core/services/user';
 import { Subscription } from 'rxjs';
@@ -63,6 +66,20 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
           <div class="stat-info">
             <span class="stat-value">{{ activeAccounts }}</span>
             <span class="stat-label">Active Accounts</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background-color: #0d9488;">
+            <span class="material-icons">savings</span>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ (summary?.availableBalance ?? 0) | bdtCurrency }}</span>
+            <span class="stat-label">Available Balance</span>
+            <span class="stat-breakdown" *ngIf="summary">
+              Pool {{ summary.totalPoolAmount | bdtCurrency }}
+              <span class="pos">+ {{ summary.totalInvestmentNetProfit | bdtCurrency }} invest. profit</span>
+              <span class="hint">expenses −{{ summary.totalExpenses | bdtCurrency }} · other income +{{ summary.totalOtherIncome | bdtCurrency }} (already in balances)</span>
+            </span>
           </div>
         </div>
       </div>
@@ -208,6 +225,135 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
           </div>
         </div>
       </div>
+
+      <!-- Expenses & Income -->
+      <div class="content-section ledger-section">
+        <div class="section-header">
+          <h2>Expenses &amp; Income</h2>
+          <div class="ledger-actions">
+            <select [(ngModel)]="ledgerFilter" (ngModelChange)="loadLedger()" class="ledger-filter">
+              <option value="">All entries</option>
+              <option value="Expense">Expenses only</option>
+              <option value="Income">Income only</option>
+            </select>
+            <button *ngIf="isAdmin" class="btn-expense" (click)="openLedgerModal('Expense')">
+              <span class="material-icons">south_west</span> Add Expense
+            </button>
+            <button *ngIf="isAdmin" class="btn-income" (click)="openLedgerModal('Income')">
+              <span class="material-icons">north_east</span> Add Income
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="accounts-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Account</th>
+                <th>Category</th>
+                <th class="num">Amount</th>
+                <th>Notes</th>
+                <th class="actions-col" *ngIf="isAdmin">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let e of ledgerEntries">
+                <td class="date">{{ e.entryDate | date:'mediumDate' }}</td>
+                <td>
+                  <span class="ledger-badge" [class.expense]="e.direction === 'Expense'" [class.income]="e.direction === 'Income'">
+                    {{ e.direction }}
+                  </span>
+                </td>
+                <td>{{ e.accountName }}</td>
+                <td>{{ e.category }}</td>
+                <td class="num">
+                  <span class="ledger-amt" [class.expense]="e.direction === 'Expense'" [class.income]="e.direction === 'Income'">
+                    {{ e.direction === 'Expense' ? '−' : '+' }} {{ e.amount | bdtCurrency }}
+                  </span>
+                </td>
+                <td class="ledger-notes">{{ e.notes || '—' }}</td>
+                <td class="actions" *ngIf="isAdmin">
+                  <button class="btn-icon" (click)="editLedgerEntry(e)" title="Edit">
+                    <span class="material-icons">edit</span>
+                  </button>
+                  <button class="btn-icon btn-delete" (click)="deleteLedgerEntry(e)" title="Delete">
+                    <span class="material-icons">delete</span>
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="ledgerEntries.length === 0">
+                <td [attr.colspan]="isAdmin ? 7 : 6" class="empty-row">
+                  <span class="material-icons">receipt_long</span>
+                  <span>No expenses or income recorded yet</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ledger entry modal -->
+    <div class="modal-overlay" *ngIf="showLedgerModal" (click)="closeLedgerModal()">
+      <div class="modal-content" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>{{ ledgerEditId ? 'Edit' : 'Add' }} {{ ledgerForm.direction }}</h3>
+          <button class="close-btn" (click)="closeLedgerModal()">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+        <form (ngSubmit)="saveLedgerEntry()">
+          <div class="form-section">
+            <div class="type-toggle">
+              <button type="button" [class.active]="ledgerForm.direction === 'Expense'"
+                      (click)="ledgerForm.direction = 'Expense'">Expense</button>
+              <button type="button" [class.active]="ledgerForm.direction === 'Income'"
+                      (click)="ledgerForm.direction = 'Income'">Income</button>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Account *</label>
+                <select [(ngModel)]="ledgerForm.accountId" name="l-account" required>
+                  <option value="">Select account</option>
+                  <option *ngFor="let a of accounts" [value]="a.id">
+                    {{ a.name }} ({{ a.balance | bdtCurrency }})
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Amount (BDT) *</label>
+                <input type="number" [(ngModel)]="ledgerForm.amount" name="l-amount" step="0.01" min="0.01" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Category *</label>
+                <input type="text" [(ngModel)]="ledgerForm.category" name="l-category" list="ledger-categories"
+                       maxlength="100" placeholder="e.g. Hosting, Bank Interest" required />
+                <datalist id="ledger-categories">
+                  <option *ngFor="let c of categorySuggestions" [value]="c"></option>
+                </datalist>
+              </div>
+              <div class="form-group">
+                <label>Date</label>
+                <input type="date" [(ngModel)]="ledgerForm.entryDate" name="l-date" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Notes</label>
+              <textarea [(ngModel)]="ledgerForm.notes" name="l-notes" rows="2" maxlength="500"></textarea>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" (click)="closeLedgerModal()">Cancel</button>
+            <button type="submit" class="btn-primary" [disabled]="isSubmitting">
+              {{ isSubmitting ? 'Saving...' : (ledgerEditId ? 'Update' : 'Add') }}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <!-- Account Modal -->
@@ -347,12 +493,33 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .btn-secondary:hover { background: #eee; }
     .btn-danger { padding: 12px 24px; background: #e74c3c; color: white; border: none; border-radius: 8px; cursor: pointer; }
     .btn-danger:hover { background: #c0392b; }
-    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; }
-    .stat-card { display: flex; align-items: center; gap: 16px; padding: 20px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; }
-    .stat-info { display: flex; flex-direction: column; }
-    .stat-value { font-size: 24px; font-weight: 600; color: #1a1a2e; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { display: flex; align-items: center; gap: 16px; padding: 18px 20px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; }
+    .stat-info { display: flex; flex-direction: column; min-width: 0; }
+    .stat-value { font-size: 22px; font-weight: 600; color: #1a1a2e; }
     .stat-label { font-size: 14px; color: #666; }
+    .stat-breakdown { display: flex; flex-direction: column; gap: 1px; margin-top: 4px; font-size: 11px; color: #94a3b8; }
+    .stat-breakdown .pos { color: #0d9488; font-weight: 600; }
+    .stat-breakdown .hint { color: #b0b7c3; }
+
+    .ledger-section { margin-top: 24px; }
+    .ledger-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .ledger-filter { padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; font-size: 13px; color: #444; }
+    .btn-expense, .btn-income { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: white; }
+    .btn-expense { background: #e74c3c; } .btn-expense:hover { background: #c0392b; }
+    .btn-income { background: #27ae60; } .btn-income:hover { background: #1e8e4e; }
+    .btn-expense .material-icons, .btn-income .material-icons { font-size: 16px; }
+    .ledger-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
+    .ledger-badge.expense { background: #fdecea; color: #c0392b; }
+    .ledger-badge.income { background: #e8f5e9; color: #1e8e4e; }
+    .ledger-amt { font-weight: 700; white-space: nowrap; }
+    .ledger-amt.expense { color: #c0392b; }
+    .ledger-amt.income { color: #1e8e4e; }
+    .ledger-notes { color: #777; font-size: 13px; max-width: 240px; }
+    .type-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
+    .type-toggle button { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; }
+    .type-toggle button.active { background: #667eea; border-color: #667eea; color: white; }
     .content-section { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
     .section-header h2 { font-size: 18px; font-weight: 600; color: #1a1a2e; margin: 0; }
@@ -452,6 +619,8 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
       .header-actions { width: 100%; justify-content: flex-start; }
       .stats-grid { grid-template-columns: 1fr; }
       .accounts-grid { grid-template-columns: 1fr; }
+      .section-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .ledger-actions { width: 100%; }
     }
     @media (max-width: 768px) {
       .accounts-wrapper { padding: 16px; }
@@ -488,16 +657,26 @@ export class AccountsComponent implements OnInit, OnDestroy {
   formData: any = this.getEmptyForm();
   private subscription?: Subscription;
 
+  isAdmin = false;
+  summary: AccountsSummary | null = null;
+  ledgerEntries: AccountLedgerEntry[] = [];
+  ledgerFilter: '' | AccountEntryDirection = '';
+  showLedgerModal = false;
+  ledgerEditId: string | null = null;
+  ledgerForm: any = this.getEmptyLedgerForm();
+
   constructor(
     private accountService: AccountService,
     private toastService: ToastService,
+    private userService: UserService,
     private router: Router,
     private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
+    this.isAdmin = this.userService.isAdminOrManager();
     this.loadAccounts();
-    
+
     this.subscription = this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe((event: NavigationEnd) => {
@@ -564,7 +743,7 @@ export class AccountsComponent implements OnInit, OnDestroy {
     this.accountService.getAccounts().subscribe({
       next: (accounts) => {
         this.accounts = Array.isArray(accounts) ? accounts : [];
-        this.filteredAccounts = [...this.accounts];
+        this.filterAccounts();
         this.isLoading = false;
         this.cdr.detectChanges();
       },
@@ -574,6 +753,103 @@ export class AccountsComponent implements OnInit, OnDestroy {
         this.isLoading = false;
         this.cdr.detectChanges();
       }
+    });
+    this.loadSummary();
+    this.loadLedger();
+  }
+
+  loadSummary() {
+    this.accountService.getSummary().subscribe({
+      next: (s) => { this.summary = s; this.cdr.detectChanges(); },
+      error: () => { this.summary = null; this.cdr.detectChanges(); },
+    });
+  }
+
+  loadLedger() {
+    this.accountService.getLedger(this.ledgerFilter ? { direction: this.ledgerFilter } : undefined).subscribe({
+      next: (rows) => { this.ledgerEntries = Array.isArray(rows) ? rows : []; this.cdr.detectChanges(); },
+      error: () => { this.ledgerEntries = []; this.cdr.detectChanges(); },
+    });
+  }
+
+  getEmptyLedgerForm(): any {
+    return { direction: 'Expense' as AccountEntryDirection, accountId: '', category: '', amount: null, entryDate: '', notes: '' };
+  }
+
+  get categorySuggestions(): string[] {
+    const common = ['Banking', 'Website', 'Domain', 'Hosting', 'Bank Interest', 'Utilities', 'Office', 'Stationery', 'Legal', 'Other'];
+    const used = this.ledgerEntries.map(e => e.category).filter(Boolean);
+    return Array.from(new Set([...used, ...common]));
+  }
+
+  openLedgerModal(direction: AccountEntryDirection) {
+    this.ledgerEditId = null;
+    this.ledgerForm = this.getEmptyLedgerForm();
+    this.ledgerForm.direction = direction;
+    this.showLedgerModal = true;
+  }
+
+  editLedgerEntry(e: AccountLedgerEntry) {
+    this.ledgerEditId = e.id;
+    this.ledgerForm = {
+      direction: e.direction,
+      accountId: e.accountId,
+      category: e.category,
+      amount: e.amount,
+      entryDate: e.entryDate ? e.entryDate.slice(0, 10) : '',
+      notes: e.notes ?? '',
+    };
+    this.showLedgerModal = true;
+  }
+
+  closeLedgerModal() {
+    this.showLedgerModal = false;
+    this.ledgerEditId = null;
+    this.ledgerForm = this.getEmptyLedgerForm();
+  }
+
+  saveLedgerEntry() {
+    const f = this.ledgerForm;
+    if (!f.accountId || !f.category || !f.amount || f.amount < 0.01) {
+      this.toastService.warning('Account, category and a positive amount are required.');
+      return;
+    }
+    const req: AccountLedgerRequest = {
+      accountId: f.accountId,
+      direction: f.direction,
+      category: (f.category as string).trim(),
+      amount: Number(f.amount),
+      entryDate: f.entryDate ? `${f.entryDate}T00:00:00Z` : null,
+      notes: f.notes ? (f.notes as string).trim() : null,
+    };
+    this.isSubmitting = true;
+    const call = this.ledgerEditId
+      ? this.accountService.updateLedgerEntry(this.ledgerEditId, req)
+      : this.accountService.createLedgerEntry(req);
+    call.subscribe({
+      next: () => {
+        this.isSubmitting = false;
+        this.toastService.success(`${f.direction} ${this.ledgerEditId ? 'updated' : 'recorded'}.`);
+        this.closeLedgerModal();
+        this.loadAccounts();
+      },
+      error: (err) => {
+        this.isSubmitting = false;
+        this.toastService.error(err.error?.message || 'Could not save the entry.');
+      },
+    });
+  }
+
+  deleteLedgerEntry(e: AccountLedgerEntry) {
+    if (!confirm(`Delete this ${e.direction.toLowerCase()} of ${e.amount} in "${e.accountName}"? The account balance will be adjusted back.`)) {
+      return;
+    }
+    this.accountService.deleteLedgerEntry(e.id).subscribe({
+      next: () => {
+        this.toastService.success('Entry deleted.');
+        this.loadAccounts();
+      },
+      error: (err) => this.toastService.error(err.error?.message || 'Could not delete the entry.'),
     });
   }
 
