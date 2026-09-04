@@ -546,11 +546,15 @@ public class InvestmentService : IInvestmentService
         var interimProfitTotal = investment.InterimProfits.Sum(p => p.Amount);
         var totalProjectCost = investment.ProjectCosts.Sum(pc => pc.Amount);
 
-        // Realized funds available: actual gross received + interim profit, net of project costs.
-        // While a project is underway it is common for nothing to be recorded yet, so we floor the
-        // reflected value at principal (investors are never shown a loss before it is realized).
-        var fundsAvailable = (investment.ActualGrossProfit ?? 0m) + interimProfitTotal - totalProjectCost;
-        var effectiveCurrentValue = Math.Max(investment.PrincipalAmount, fundsAvailable);
+        // Total Returns = profit earned to date on top of the principal, so interim/occasional
+        // profits recorded during the project raise the return value and percentage.
+        // Profit already received back above the principal, plus accrued interim profit, net of costs.
+        var receivedProfit = Math.Max(0m, (investment.ActualGrossProfit ?? 0m) - investment.PrincipalAmount);
+        var totalProfit = receivedProfit + interimProfitTotal - totalProjectCost;
+
+        // The principal is recovered at maturity, so the project is worth at least the principal
+        // plus any profit earned so far (never shown below principal before it is realized).
+        var effectiveCurrentValue = investment.PrincipalAmount + Math.Max(0m, totalProfit);
 
         var returnAmount = effectiveCurrentValue - investment.PrincipalAmount;
         var returnPercentage = investment.PrincipalAmount > 0
