@@ -176,7 +176,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
           <div class="icard-progress">
             <div class="icard-progress-head">
               <span class="icard-progress-label">Realized Progress</span>
-              <span class="icard-progress-pct">{{ investmentProgress(investment) }}%</span>
+              <span class="icard-progress-pct">{{ investmentProgress(investment) | number:'1.2-2' }}%</span>
             </div>
             <div class="icard-progress-bar">
               <div class="icard-progress-fill" [class.neg]="investmentProgress(investment) < 0"
