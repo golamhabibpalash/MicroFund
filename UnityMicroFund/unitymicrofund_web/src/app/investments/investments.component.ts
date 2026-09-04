@@ -149,13 +149,10 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
             </span>
           </div>
           <div class="icard-desc-wrap"
-               (mouseenter)="onDescEnter(investment.id, $event.currentTarget)"
+               (mouseenter)="onDescEnter(investment, $event.currentTarget)"
                (mouseleave)="onDescLeave()">
             <p class="icard-desc" *ngIf="investment.description">{{ investment.description }}</p>
-            <span class="icard-readmore" *ngIf="investment.description && descMeta[investment.id] && hoveredDescId !== investment.id">
-              Read more
-            </span>
-            <div class="icard-desc-tooltip" *ngIf="investment.description && hoveredDescId === investment.id">{{ investment.description }}</div>
+            <span class="icard-readmore" *ngIf="isDescTruncated(investment)">Read more</span>
           </div>
 
           <div class="icard-stats">
@@ -352,6 +349,21 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
           </div>
         </div>
       </section>
+
+      <!--
+        Single tooltip shared by every card's description, fixed-positioned outside
+        any card so it never affects a card's own layout (no reflow) and is never
+        clipped by a card's overflow:hidden. Scrolls internally for long text.
+      -->
+      <div class="global-desc-tooltip"
+           *ngIf="hoveredDescText"
+           [style.top]="descTooltipStyle.top"
+           [style.left]="descTooltipStyle.left"
+           [style.width]="descTooltipStyle.width"
+           (mouseenter)="onTooltipEnter()"
+           (mouseleave)="onDescLeave()">
+        {{ hoveredDescText }}
+      </div>
     </div>
 
     <!-- View Investment Modal -->
@@ -767,11 +779,31 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .icard-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 8px; }
     .icard-meta-item { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-muted, #64748b); min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .icard-meta-item .material-icons { font-size: 13px; }
+    /* Its content (desc + "Read more") is now static per card - never toggled by
+       hover - so this box never changes size while hovering and nothing below it shifts. */
     .icard-desc-wrap { position: relative; margin-bottom: 10px; min-height: 35px; }
     .icard-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; color: var(--text-secondary, #475569); margin: 0; line-height: 1.45; }
-    .icard-readmore { display: inline-block; margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--color-accent, #0d9488); cursor: pointer; }
-    .icard-desc-tooltip { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 20; background: #0f172a; color: #f1f5f9; padding: 10px 12px; border-radius: 8px; font-size: 12px; line-height: 1.5; box-shadow: 0 8px 24px rgba(0,0,0,0.18); white-space: normal; word-break: break-word; }
-    .icard-desc-tooltip::before { content: ''; position: absolute; left: 16px; top: -5px; width: 10px; height: 10px; background: #0f172a; transform: rotate(45deg); }
+    /* Static affordance - never toggled on hover, so it can never cause a reflow. */
+    .icard-readmore { display: inline-block; margin-top: 2px; font-size: 11.5px; font-weight: 600; color: var(--color-accent, #0d9488); pointer-events: none; }
+
+    /* Single shared tooltip, fixed to the viewport (see the template comment) so it
+       overlays other cards' content instead of pushing it, and is never clipped by a
+       card's own overflow:hidden. Scrolls internally for long descriptions. */
+    .global-desc-tooltip {
+      position: fixed;
+      z-index: 2000;
+      background: #0f172a;
+      color: #f1f5f9;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.5;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.22);
+      white-space: normal;
+      word-break: break-word;
+      max-height: 220px;
+      overflow-y: auto;
+    }
 
     .icard-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
     .icard-stat { background: var(--color-background-alt, #f8fafc); border: 1px solid var(--color-border-light, #f1f5f9); border-radius: var(--radius-lg, 10px); padding: 7px 8px; min-width: 0; }
@@ -959,8 +991,9 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
   showViewModal = false;
   selectedInvestment: Investment | null = null;
 
-  descMeta: Record<string, boolean> = {};
-  hoveredDescId: string | null = null;
+  /** Text of the description currently shown in the shared, fixed-position tooltip. */
+  hoveredDescText: string | null = null;
+  descTooltipStyle: { top: string; left: string; width: string } = { top: '-9999px', left: '-9999px', width: '280px' };
 
   showForm = false;
   editingInvestment: Investment | null = null;
@@ -1308,15 +1341,34 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
     return Math.min(Math.max((received / target) * 100, 0), 100);
   }
 
-  /** Mark a description as truncated (scrolls past its clamped box) for the "Read more" affordance. */
-  onDescEnter(id: string, el: EventTarget | null): void {
-    const desc = (el as HTMLElement | null)?.querySelector('.icard-desc') as HTMLElement | null;
-    const truncated = !!desc && desc.scrollHeight > desc.clientHeight + 1;
-    this.descMeta = { ...this.descMeta, [id]: truncated };
-    this.hoveredDescId = truncated ? id : null;
+  /**
+   * Cheap, static heuristic for the "Read more" affordance so it never depends on
+   * hover state (toggling it on hover used to change the card's own layout and make
+   * everything below it shift).
+   */
+  isDescTruncated(investment: Investment): boolean {
+    return (investment.description?.length ?? 0) > 100;
+  }
+
+  /** Positions the single shared tooltip over the hovered card's description. */
+  onDescEnter(investment: Investment, el: EventTarget | null): void {
+    if (!investment.description) return;
+    const rect = (el as HTMLElement | null)?.getBoundingClientRect();
+    if (!rect) return;
+
+    const width = Math.min(340, Math.max(240, rect.width));
+    const left = Math.min(rect.left, Math.max(12, window.innerWidth - width - 12));
+
+    this.hoveredDescText = investment.description;
+    this.descTooltipStyle = { top: `${rect.bottom}px`, left: `${left}px`, width: `${width}px` };
+  }
+
+  /** Keeps the tooltip open while the pointer moves into it (e.g. to scroll long text). */
+  onTooltipEnter(): void {
+    // No-op: presence of hoveredDescText alone keeps it rendered.
   }
 
   onDescLeave(): void {
-    this.hoveredDescId = null;
+    this.hoveredDescText = null;
   }
 }
