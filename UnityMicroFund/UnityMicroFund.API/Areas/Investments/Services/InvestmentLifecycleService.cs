@@ -175,34 +175,58 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
         //   profit         = fundsAvailable − principal
         //   maintenance    = profit × maintenance%   (org service share, applied to PROFIT)
         //   investorProfit = profit − maintenance
-        // Loss policy is preserved: on a loss () investors receive principal only and no
-        // maintenance is taken.
+        //
+        // Loss policy: a loss is shared by the investors, proportional to their holding,
+        // instead of being absorbed by the organisation. If the realised value after
+        // costs falls short of the capital collected, no maintenance is taken (there is
+        // no profit to take it from) and each investor's payout is their proportional
+        // share of what actually came back - not their full original principal.
+        // Example: 100 collected, only 90 realised -> every investor is paid ~90% of
+        // what they put in; nobody is topped up to their original 100.
         var grossResult = grossProfit + interimProfitTotal;
         var valueAfterCosts = grossResult - totalProjectCost;
         var principalTotal = holdings.Sum(h => h.AmountInvested);
-        var profitBeforeMaintenance = Math.Max(0m, valueAfterCosts - principalTotal);
+        var isLoss = valueAfterCosts < principalTotal;
 
         var maintenancePercentage = investment.MaintenancePercentage;
-        var maintenance = profitBeforeMaintenance > 0m
-            ? Round2(profitBeforeMaintenance * maintenancePercentage / 100m)
-            : 0m;
-        var investorProfitPool = profitBeforeMaintenance - maintenance;
+        var maintenance = 0m;
+        var investorProfitPool = 0m;
 
-        // Loss policy (confirmed): on a loss the investor receives their principal back
-        // and no profit; the shortfall is absorbed by the organisation - the wallet is
-        // never debited for a negative "profit".
-        var profitAvailable = investorProfitPool;
+        if (!isLoss)
+        {
+            var profitBeforeMaintenance = valueAfterCosts - principalTotal;
+            maintenance = profitBeforeMaintenance > 0m
+                ? Round2(profitBeforeMaintenance * maintenancePercentage / 100m)
+                : 0m;
+            investorProfitPool = profitBeforeMaintenance - maintenance;
+        }
+
+        // The reduced pool actually paid out on a loss; floored at zero so a
+        // catastrophic loss can never ask the pot to pay out negative money.
+        var payablePool = isLoss ? Math.Max(0m, valueAfterCosts) : principalTotal + investorProfitPool;
 
         var now = DateTime.UtcNow;
         var distributions = new List<ProfitDistribution>();
-        var allocatedProfit = 0m;
+        var allocatedPayable = 0m;
 
         foreach (var holding in holdings.OrderByDescending(h => h.SharesOwned).ThenBy(h => h.MemberId))
         {
             // Section 12, computed from integer share counts rather than a stored
             // percentage, and always rounded DOWN so the sum can never exceed the pot.
-            var profit = Floor2(profitAvailable * holding.SharesOwned / totalShares);
-            allocatedProfit += profit;
+            decimal payable;
+            if (isLoss)
+            {
+                // Proportional share of the reduced pool - can be less than the capital
+                // this holding put in.
+                payable = Floor2(payablePool * holding.SharesOwned / totalShares);
+            }
+            else
+            {
+                // Unchanged: full principal back plus this holding's floor-rounded profit share.
+                var profit = Floor2(investorProfitPool * holding.SharesOwned / totalShares);
+                payable = holding.AmountInvested + profit;
+            }
+            allocatedPayable += payable;
 
             var distribution = new ProfitDistribution
             {
@@ -212,8 +236,10 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
                 SharesOwned = holding.SharesOwned,
                 OwnershipPercentage = Math.Round((decimal)holding.SharesOwned / totalShares * 100m, 6),
                 PrincipalAmount = holding.AmountInvested,
-                ProfitAmount = profit,
-                TotalPayable = holding.AmountInvested + profit,
+                // Negative on a loss: this holding's share of the shortfall. Always true
+                // that PrincipalAmount + ProfitAmount == TotalPayable.
+                ProfitAmount = payable - holding.AmountInvested,
+                TotalPayable = payable,
                 DistributedAt = now
             };
 
@@ -226,7 +252,7 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
         }
 
         // Whatever rounding left behind stays with the organisation.
-        var remainder = investorProfitPool - allocatedProfit;
+        var remainder = payablePool - allocatedPayable;
 
         // Disburse the organisation's maintenance share to the chosen account. This is
         // recorded in the ledger (InvestmentMaintenanceDistribution) AND credited to the
@@ -254,7 +280,11 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
         }
 
         investment.MaintenanceAmount = maintenance;
-        investment.NetProfit = Math.Round(investorProfitPool, 2, MidpointRounding.AwayFromZero);
+        // Negative on a loss, so it still reports the true result instead of hiding a
+        // loss behind a floored-at-zero "profit" of 0.
+        investment.NetProfit = isLoss
+            ? Math.Round(valueAfterCosts - principalTotal, 2, MidpointRounding.AwayFromZero)
+            : Math.Round(investorProfitPool, 2, MidpointRounding.AwayFromZero);
         investment.UndistributedRemainder = remainder;
         ApplyStatus(investment, InvestmentStatus.ProfitDistributed, actionedBy);
 
@@ -375,16 +405,29 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
             // Disbursement is the point where the settled funds actually reach the
             // investor: principal and profit are credited to the wallet here, not at
             // distribution time, so the wallet never carries money that has not yet
-            // been paid out.
-            _wallet.AddEntry(
-                row.MemberId, WalletEntryType.PrincipalReturn, row.PrincipalAmount,
-                $"Principal returned from {investment.Name}", actionedBy, investmentId: investmentId);
-
-            if (row.ProfitAmount > 0m)
+            // been paid out. The two entries always sum to TotalPayable.
+            if (row.ProfitAmount >= 0m)
             {
                 _wallet.AddEntry(
-                    row.MemberId, WalletEntryType.ProfitCredit, row.ProfitAmount,
-                    $"Profit from {investment.Name}", actionedBy, investmentId: investmentId);
+                    row.MemberId, WalletEntryType.PrincipalReturn, row.PrincipalAmount,
+                    $"Principal returned from {investment.Name}", actionedBy, investmentId: investmentId);
+
+                if (row.ProfitAmount > 0m)
+                {
+                    _wallet.AddEntry(
+                        row.MemberId, WalletEntryType.ProfitCredit, row.ProfitAmount,
+                        $"Profit from {investment.Name}", actionedBy, investmentId: investmentId);
+                }
+            }
+            else
+            {
+                // Loss: ProfitAmount is negative (this investor's share of the shortfall),
+                // so only the reduced TotalPayable is credited - never the full original
+                // principal. A single entry keeps the ledger honest about what was
+                // actually returned.
+                _wallet.AddEntry(
+                    row.MemberId, WalletEntryType.PrincipalReturn, row.TotalPayable,
+                    $"Principal returned from {investment.Name} (reduced after a loss)", actionedBy, investmentId: investmentId);
             }
 
             row.DisbursedAt = now;

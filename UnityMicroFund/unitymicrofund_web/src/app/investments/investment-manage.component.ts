@@ -265,15 +265,29 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
                 <div *ngIf="investment.interimProfitTotal"><span class="k">Accrued interim profit</span><span class="v">{{ investment.interimProfitTotal | bdtCurrency }}</span></div>
                 <div *ngIf="projectCostTotal"><span class="k">Total project costs</span><span class="v minus">− {{ projectCostTotal | bdtCurrency }}</span></div>
                 <div *ngIf="valueAfterCosts() !== 0"><span class="k">Value after costs</span><span class="v">{{ valueAfterCosts() | bdtCurrency }}</span></div>
-                <div><span class="k">Principal returned</span><span class="v minus">− {{ principalTotal() | bdtCurrency }}</span></div>
-                <div *ngIf="estimatedProfit() > 0"><span class="k">Maintenance ({{ investment.maintenancePercentage || 0 }}% of profit)</span>
-                     <span class="v minus">− {{ estimatedMaintenance() | bdtCurrency }}</span></div>
-                <div class="total"><span class="k">Net to investors</span><span class="v">{{ estimatedNet() | bdtCurrency }}</span></div>
+                <div><span class="k">Principal invested</span><span class="v">{{ principalTotal() | bdtCurrency }}</span></div>
+
+                <ng-container *ngIf="!isLoss()">
+                  <div *ngIf="estimatedProfit() > 0"><span class="k">Maintenance ({{ investment.maintenancePercentage || 0 }}% of profit)</span>
+                       <span class="v minus">− {{ estimatedMaintenance() | bdtCurrency }}</span></div>
+                  <div class="total"><span class="k">Net profit to investors</span><span class="v">{{ estimatedNet() | bdtCurrency }}</span></div>
+                </ng-container>
+                <ng-container *ngIf="isLoss()">
+                  <div><span class="k">Loss shared by investors</span><span class="v minus">− {{ estimatedLoss() | bdtCurrency }}</span></div>
+                </ng-container>
+
+                <div class="total payable"><span class="k">Total payable to investors</span><span class="v">{{ estimatedPayableTotal() | bdtCurrency }}</span></div>
               </div>
               <button class="btn-primary" (click)="distribute()" [disabled]="isWorking">
                 <span class="material-icons">paid</span> Distribute to {{ subscriptions.length }} investor(s)
               </button>
-              <p class="hint">This locks in each investor's principal and profit. Nothing reaches their wallet until you disburse below.</p>
+              <p class="hint" *ngIf="!isLoss()">This locks in each investor's principal and profit. Nothing reaches their wallet until you disburse below.</p>
+              <p class="hint hint-loss" *ngIf="isLoss()">
+                <span class="material-icons">warning</span>
+                This project realised less than was invested. The loss is shared proportionally across
+                investors — nobody is topped up to their original principal. Nothing reaches their wallet
+                until you disburse below.
+              </p>
             </div>
           </section>
 
@@ -288,10 +302,14 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
               <div><span class="k">Gross result</span><span class="v">{{ settlement.grossResult | bdtCurrency }}</span></div>
               <div *ngIf="settlement.totalProjectCost"><span class="k">Total project costs</span><span class="v minus">− {{ settlement.totalProjectCost | bdtCurrency }}</span></div>
               <div *ngIf="settlement.valueAfterCosts"><span class="k">Value after costs</span><span class="v">{{ settlement.valueAfterCosts | bdtCurrency }}</span></div>
-              <div><span class="k">Principal returned</span><span class="v minus">− {{ settlement.totalPrincipalReturned | bdtCurrency }}</span></div>
+              <div><span class="k">Principal invested</span><span class="v">{{ settlement.totalPrincipalReturned | bdtCurrency }}</span></div>
               <div *ngIf="settlement.maintenanceAmount > 0"><span class="k">Maintenance ({{ settlement.maintenancePercentage }}% of profit)</span>
                    <span class="v minus">− {{ settlement.maintenanceAmount | bdtCurrency }}</span></div>
-              <div class="total"><span class="k">Investor profit</span><span class="v">{{ settlement.totalProfitDistributed | bdtCurrency }}</span></div>
+              <div class="total" [class.loss]="settlement.totalProfitDistributed < 0">
+                <span class="k">{{ settlement.totalProfitDistributed < 0 ? 'Loss shared by investors' : 'Investor profit' }}</span>
+                <span class="v" [class.minus]="settlement.totalProfitDistributed < 0">{{ settlement.totalProfitDistributed | bdtCurrency }}</span>
+              </div>
+              <div class="total payable"><span class="k">Total paid to investors</span><span class="v">{{ settlement.totalPayable | bdtCurrency }}</span></div>
               <div class="summary-row">
                 <span class="k">Capital collected</span><span class="v">{{ settlement.totalInvested | bdtCurrency }}</span>
                 <span class="k">Shares sold</span><span class="v">{{ settlement.sharesSold }}</span>
@@ -311,7 +329,9 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
                   <td><strong>{{ d.memberName }}</strong></td>
                   <td>{{ d.sharesOwned }} ({{ d.ownershipPercentage | number: '1.2-2' }}%)</td>
                   <td class="right num">{{ d.principalAmount | bdtCurrency }}</td>
-                  <td class="right num profit">{{ d.profitAmount | bdtCurrency }}</td>
+                  <td class="right num" [class.profit]="d.profitAmount >= 0" [class.loss]="d.profitAmount < 0">
+                    {{ d.profitAmount | bdtCurrency }}
+                  </td>
                   <td class="right num"><strong>{{ d.totalPayable | bdtCurrency }}</strong></td>
                   <td>
                     <span class="pill paid" *ngIf="d.disbursedAt">Disbursed</span>
@@ -364,6 +384,8 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
 
     .actions { display: flex; gap: 10px; flex-wrap: wrap; }
     .hint { font-size: 12px; color: #888; margin: 10px 0 0 0; }
+    .hint-loss { display: flex; align-items: flex-start; gap: 6px; color: #c62828; background: #fdecea; border: 1px solid #f5c6c0; border-radius: 8px; padding: 8px 10px; }
+    .hint-loss .material-icons { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
     .section-title-row { display: flex; justify-content: space-between; align-items: center; }
     .section-title-row h4 { margin-bottom: 12px; }
     .muted { color: #888; font-size: 12px; font-weight: 400; margin-top: 2px; }
@@ -375,6 +397,7 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
     .calc { background: #fbfbfd; border: 1px solid #eee; border-radius: 10px; padding: 14px; margin-bottom: 14px; }
     .calc > div { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
     .calc .total { border-top: 1px solid #ddd; margin-top: 6px; padding-top: 10px; font-weight: 600; }
+    .calc .total.payable { color: #1b5e20; font-size: 15px; }
     .calc .remainder { border-top: 1px dashed #ddd; margin-top: 6px; padding-top: 8px; font-size: 12px; color: #888; }
 
     .data-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 14px; }
@@ -383,6 +406,7 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
     .data-table .right { text-align: right; }
     .num { font-variant-numeric: tabular-nums; }
     .profit { color: #2e7d32; }
+    .loss { color: #c62828; }
 
     .pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: #eceff1; color: #546e7a; }
     .pill.paid { background: #e8f5e9; color: #2e7d32; }
@@ -521,6 +545,23 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
 
   estimatedNet(): number {
     return this.estimatedProfit() - this.estimatedMaintenance();
+  }
+
+  /** True when the realised value fell short of the capital collected. */
+  isLoss(): boolean {
+    return this.valueAfterCosts() < this.principalTotal();
+  }
+
+  /** Magnitude of the shortfall, shared proportionally across investors (never topped up). */
+  estimatedLoss(): number {
+    return Math.max(0, this.principalTotal() - this.valueAfterCosts());
+  }
+
+  /** The actual total that will reach investors: full payout normally, reduced on a loss. */
+  estimatedPayableTotal(): number {
+    return this.isLoss()
+      ? Math.max(0, this.valueAfterCosts())
+      : this.principalTotal() + this.estimatedNet();
   }
 
   hasPending(): boolean {
