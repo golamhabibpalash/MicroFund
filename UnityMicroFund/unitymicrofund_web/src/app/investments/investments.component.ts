@@ -180,12 +180,12 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
 
           <div class="icard-progress">
             <div class="icard-progress-head">
-              <span class="icard-progress-label">Return Progress</span>
-              <span class="icard-progress-pct">{{ investment.returnPercentage >= 0 ? '+' : '' }}{{ investment.returnPercentage.toFixed(1) }}%</span>
+              <span class="icard-progress-label">Realized Progress</span>
+              <span class="icard-progress-pct">{{ investmentProgress(investment) }}%</span>
             </div>
             <div class="icard-progress-bar">
-              <div class="icard-progress-fill" [class.neg]="investment.returnPercentage < 0"
-                   [style.width.%]="returnProgress(investment.returnPercentage)"></div>
+              <div class="icard-progress-fill" [class.neg]="investmentProgress(investment) < 0"
+                   [style.width.%]="Math.min(Math.max(investmentProgress(investment), 0), 100)"></div>
             </div>
           </div>
 
@@ -1250,9 +1250,12 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
     return icons[status] || 'circle';
   }
 
-  /** Return progress normalised to 0–100 for the card bar. */
-  returnProgress(pct: number): number {
-    return Math.min(Math.max(((pct + 10) / 20) * 100, 0), 100);
+  /** Real project progress: money received vs total expected return (principal + target profit). */
+  investmentProgress(investment: Investment): number {
+    const target = investment.principalAmount + (investment.targetGrossProfit ?? 0);
+    const received = investment.grossReceivedAmount ?? 0;
+    if (target <= 0) return 0;
+    return Math.min(Math.max((received / target) * 100, 0), 100);
   }
 
   /** Mark a description as truncated (scrolls past its clamped box) for the "Read more" affordance. */
