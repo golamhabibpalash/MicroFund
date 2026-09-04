@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Areas.Investments.DTOs;
 using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Data;
+using UnityMicroFund.API.Infrastructure.Email;
 using UnityMicroFund.API.Infrastructure.ExceptionHandling;
 using UnityMicroFund.API.Models;
 
@@ -31,13 +32,26 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
     private readonly IWalletService _wallet;
     private readonly IInvestmentService _investments;
     private readonly INotificationService _notifications;
+    private readonly IEmailService _email;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<InvestmentLifecycleService> _logger;
 
-    public InvestmentLifecycleService(AppDbContext context, IWalletService wallet, IInvestmentService investments, INotificationService notifications)
+    public InvestmentLifecycleService(
+        AppDbContext context,
+        IWalletService wallet,
+        IInvestmentService investments,
+        INotificationService notifications,
+        IEmailService email,
+        IConfiguration configuration,
+        ILogger<InvestmentLifecycleService> logger)
     {
         _context = context;
         _wallet = wallet;
         _investments = investments;
         _notifications = notifications;
+        _email = email;
+        _configuration = configuration;
+        _logger = logger;
     }
 
     public async Task<InvestmentResponseDto> ChangeStatusAsync(
@@ -85,6 +99,12 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
         if (target == InvestmentStatus.OpenForSubscription)
         {
             await NotifyMembersOnCirculationAsync(investment, cancellationToken);
+        }
+
+        // Starting the project notifies each investor of their own stake in it.
+        if (target == InvestmentStatus.Active)
+        {
+            await NotifyMembersOnActivationAsync(investment, cancellationToken);
         }
 
         await _context.SaveChangesAsync(cancellationToken);
@@ -485,9 +505,10 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
     // ---- helpers -----------------------------------------------------------
 
     /// <summary>
-    /// Notifies every eligible member's user account when a project is circulated.
+    /// Notifies every eligible member's user account when a project is circulated
+    /// and emails each of them a professional investment-opportunity message.
     /// Members without a linked user account (older records) are skipped - the
-    /// notification is a convenience, not a hard requirement.
+    /// notification and email are a convenience, not a hard requirement.
     /// </summary>
     private async Task NotifyMembersOnCirculationAsync(Investment investment, CancellationToken cancellationToken)
     {
@@ -501,8 +522,15 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
         var targets = await _context.Members
             .AsNoTracking()
             .Where(m => m.IsActive && m.UserId != null)
-            .Select(m => new { UserId = m.UserId!.Value, MemberId = m.Id, m.Name })
+            .Select(m => new { UserId = m.UserId!.Value, MemberId = m.Id, Name = m.Name, Email = m.User!.Email })
             .ToListAsync(cancellationToken);
+
+        // Email sending is best-effort and isolated (SMTP churn, latency or a
+        // per-recipient failure must not block the status change itself).
+        var allowedOrigins = _configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+        var domain = (allowedOrigins is { Length: > 0 })
+            ? new Uri(allowedOrigins[0]).Host
+            : "app.unitymicrofund.com";
 
         foreach (var target in targets)
         {
@@ -514,6 +542,91 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
                 target.UserId,
                 creator,
                 relatedMemberId: target.MemberId);
+
+            if (!string.IsNullOrWhiteSpace(target.Email))
+            {
+                try
+                {
+                    await _email.SendInvestmentCirculatedEmailAsync(
+                        target.Email,
+                        target.Name,
+                        investment.Name,
+                        investment.SharePrice ?? 0m,
+                        investment.MinimumSharesPerMember,
+                        investment.MaximumSharesPerMember,
+                        domain);
+                }
+                catch (Exception ex)
+                {
+                    // A downstream email failure must never roll back the circulation.
+                    _logger.LogWarning(ex, "Failed to email member {MemberId} about circulated investment {InvestmentId}",
+                        target.MemberId, investment.Id);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Notifies every investor holding shares in the project once it goes Active,
+    /// with that investor's own stake (project basics, their share count and the
+    /// amount they invested) rather than a generic broadcast. Members without a
+    /// linked user account are skipped, same as circulation - the notification and
+    /// email are a convenience, not a hard requirement, and a per-recipient failure
+    /// must never roll back the activation itself.
+    /// </summary>
+    private async Task NotifyMembersOnActivationAsync(Investment investment, CancellationToken cancellationToken)
+    {
+        var creator = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.IsActive)
+            .OrderBy(u => u.CreatedAt)
+            .Select(u => u.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var holdings = await _context.MemberInvestments
+            .AsNoTracking()
+            .Include(mi => mi.Member)
+            .Where(mi => mi.InvestmentId == investment.Id && mi.SharesOwned > 0)
+            .ToListAsync(cancellationToken);
+
+        foreach (var holding in holdings)
+        {
+            var member = holding.Member;
+            if (member == null || !member.IsActive || member.UserId is null) continue;
+
+            await _notifications.CreateNotificationAsync(
+                "Investment project activated",
+                $"'{investment.Name}' is now Active. Your holding: {holding.SharesOwned} share(s) " +
+                $"(৳{holding.AmountInvested:N2} invested).",
+                NotificationType.InvestmentUpdate,
+                member.UserId.Value,
+                creator,
+                relatedMemberId: member.Id);
+
+            if (!string.IsNullOrWhiteSpace(member.Email))
+            {
+                try
+                {
+                    var body =
+                        $"<p>Hello {member.Name},</p>" +
+                        $"<p><strong>{investment.Name}</strong> has started - its status is now <strong>Active</strong>, " +
+                        "and buying is closed for this project.</p>" +
+                        "<p>Your holding in this project:</p>" +
+                        "<ul>" +
+                        $"<li>Shares owned: {holding.SharesOwned}</li>" +
+                        $"<li>Amount invested: ৳{holding.AmountInvested:N2}</li>" +
+                        "</ul>" +
+                        "<p>You will be notified again when the project completes and profit is distributed.</p>";
+
+                    await _email.SendEmailAsync(member.Email, $"'{investment.Name}' is now active", body);
+                }
+                catch (Exception ex)
+                {
+                    // A downstream email failure must never roll back the activation.
+                    _logger.LogWarning(ex, "Failed to email member {MemberId} about activated investment {InvestmentId}",
+                        member.Id, investment.Id);
+                }
+            }
         }
     }
 
