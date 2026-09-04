@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import {
@@ -7,6 +8,7 @@ import {
   MemberBalance,
   ShareSubscription,
   WalletEntry,
+  WalletEntryTypeName,
   WalletSummary,
 } from '../core/services/investment.service';
 import { UserService } from '../core/services/user';
@@ -18,7 +20,7 @@ import { MemberWalletDrawerComponent } from './member-wallet-drawer.component';
 @Component({
   selector: 'app-wallet',
   standalone: true,
-  imports: [CommonModule, RouterModule, DatePipe, BdtCurrencyPipe, TimeAgoPipe, MemberWalletDrawerComponent],
+  imports: [CommonModule, FormsModule, RouterModule, DatePipe, BdtCurrencyPipe, TimeAgoPipe, MemberWalletDrawerComponent],
   template: `
     <div class="wallet-wrapper">
       <div class="page-head">
@@ -112,24 +114,105 @@ import { MemberWalletDrawerComponent } from './member-wallet-drawer.component';
         </section>
 
         <section class="panel">
-          <h2>Transaction History</h2>
+          <div class="panel-head">
+            <h2>Transaction History</h2>
+            <span class="history-count" *ngIf="wallet.entries.length > 0">
+              {{ filteredHistory.length }} of {{ wallet.entries.length }}
+            </span>
+          </div>
+
           <p class="empty" *ngIf="wallet.entries.length === 0">No wallet activity yet.</p>
-          <table class="data-table" *ngIf="wallet.entries.length > 0">
+
+          <div class="history-toolbar" *ngIf="wallet.entries.length > 0">
+            <div class="history-search">
+              <span class="material-icons">search</span>
+              <input type="text" [(ngModel)]="historySearch" (ngModelChange)="applyHistoryFilters()"
+                     placeholder="Search description, project or type…" />
+              <button type="button" class="clear-btn" *ngIf="historySearch" (click)="historySearch = ''; applyHistoryFilters()">
+                <span class="material-icons">close</span>
+              </button>
+            </div>
+            <select [(ngModel)]="historyTypeFilter" (ngModelChange)="applyHistoryFilters()">
+              <option value="">All types</option>
+              <option *ngFor="let t of historyTypes" [value]="t">{{ label(t) }}</option>
+            </select>
+            <select [(ngModel)]="historyDirection" (ngModelChange)="applyHistoryFilters()">
+              <option value="">Credit &amp; debit</option>
+              <option value="credit">Credit only</option>
+              <option value="debit">Debit only</option>
+            </select>
+            <button type="button" class="btn-clear-history"
+                    *ngIf="historySearch || historyTypeFilter || historyDirection"
+                    (click)="clearHistoryFilters()">
+              <span class="material-icons">restart_alt</span> Clear
+            </button>
+          </div>
+
+          <p class="empty" *ngIf="wallet.entries.length > 0 && filteredHistory.length === 0">
+            No transactions match your filters.
+          </p>
+
+          <table class="data-table" *ngIf="pagedHistory.length > 0">
             <thead>
-              <tr><th>Type</th><th>Details</th><th class="right">Amount</th><th class="right">Balance</th><th>When</th></tr>
+              <tr>
+                <th class="sortable" (click)="toggleSort('date')">
+                  When
+                  <span class="material-icons sort-icon" *ngIf="historySortColumn === 'date'">
+                    {{ historySortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+                  </span>
+                </th>
+                <th>Type</th>
+                <th>Details</th>
+                <th class="right sortable" (click)="toggleSort('amount')">
+                  Amount
+                  <span class="material-icons sort-icon" *ngIf="historySortColumn === 'amount'">
+                    {{ historySortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+                  </span>
+                </th>
+                <th class="right">Balance</th>
+              </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let e of wallet.entries">
+              <tr *ngFor="let e of pagedHistory">
+                <td [title]="e.createdAt">{{ e.createdAt | timeAgo }}</td>
                 <td><span class="pill" [ngClass]="entryClass(e)">{{ label(e.entryType) }}</span></td>
                 <td class="details">{{ e.description || e.investmentName || '—' }}</td>
                 <td class="num right" [class.credit]="e.amount >= 0" [class.debit]="e.amount < 0">
                   {{ e.amount >= 0 ? '+' : '' }}{{ e.amount | bdtCurrency }}
                 </td>
                 <td class="num right">{{ e.balanceAfter | bdtCurrency }}</td>
-                <td [title]="e.createdAt">{{ e.createdAt | timeAgo }}</td>
               </tr>
             </tbody>
           </table>
+
+          <div class="history-pagination" *ngIf="filteredHistory.length > 0">
+            <div class="page-info">{{ historyRangeLabel() }}</div>
+            <div class="pagination-right">
+              <div class="page-size-select">
+                <label>Rows:</label>
+                <select [(ngModel)]="historyPageSize" (ngModelChange)="onHistoryPageSizeChange()">
+                  <option [value]="10">10</option>
+                  <option [value]="25">25</option>
+                  <option [value]="50">50</option>
+                </select>
+              </div>
+              <div class="page-buttons">
+                <button class="btn-page" (click)="goHistoryPage(1)" [disabled]="historyPage === 1" title="First">
+                  <span class="material-icons">first_page</span>
+                </button>
+                <button class="btn-page" (click)="goHistoryPage(historyPage - 1)" [disabled]="historyPage === 1" title="Previous">
+                  <span class="material-icons">chevron_left</span>
+                </button>
+                <span class="page-current">{{ historyPage }} / {{ totalHistoryPages }}</span>
+                <button class="btn-page" (click)="goHistoryPage(historyPage + 1)" [disabled]="historyPage === totalHistoryPages" title="Next">
+                  <span class="material-icons">chevron_right</span>
+                </button>
+                <button class="btn-page" (click)="goHistoryPage(totalHistoryPages)" [disabled]="historyPage === totalHistoryPages" title="Last">
+                  <span class="material-icons">last_page</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </section>
       </ng-container>
 
@@ -208,6 +291,38 @@ import { MemberWalletDrawerComponent } from './member-wallet-drawer.component';
     .data-table tr.selected { background: #f5f3ff; }
     .btn-link { background: none; border: none; color: #667eea; cursor: pointer; font-size: 13px; font-weight: 500; padding: 0; }
     .data-table tr:hover { background: #fafaff; }
+
+    /* Transaction History: toolbar, sorting, pagination */
+    .history-count { font-size: 12.5px; color: #888; }
+    .history-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; padding: 10px; background: #f9f9fc; border: 1px solid #eee; border-radius: 10px; }
+    .history-search { display: flex; align-items: center; gap: 6px; padding: 0 10px; background: white; border: 1px solid #ddd; border-radius: 8px; min-height: 36px; flex: 1 1 220px; max-width: 320px; }
+    .history-search:focus-within { border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,0.15); }
+    .history-search .material-icons { font-size: 18px; color: #999; }
+    .history-search input { border: none; background: transparent; outline: none; font-size: 13.5px; width: 100%; }
+    .history-search .clear-btn { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; border: none; border-radius: 50%; background: #eee; color: #777; cursor: pointer; flex-shrink: 0; }
+    .history-search .clear-btn .material-icons { font-size: 12px; color: inherit; }
+    .history-toolbar select { min-height: 36px; padding: 0 10px; border: 1px solid #ddd; border-radius: 8px; background: white; font-size: 13px; color: #444; cursor: pointer; }
+    .history-toolbar select:focus { outline: none; border-color: #667eea; }
+    .btn-clear-history { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 10px; background: transparent; border: 1px solid transparent; border-radius: 8px; color: #c62828; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .btn-clear-history:hover { background: #fdecea; border-color: #f5c6c0; }
+    .btn-clear-history .material-icons { font-size: 15px; }
+
+    .data-table th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    .data-table th.sortable:hover { color: #667eea; }
+    .sort-icon { font-size: 13px !important; vertical-align: middle; margin-left: 2px; }
+
+    .history-pagination { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #f0f0f0; }
+    .history-pagination .page-info { font-size: 12.5px; color: #888; }
+    .pagination-right { display: flex; align-items: center; gap: 16px; }
+    .page-size-select { display: flex; align-items: center; gap: 6px; }
+    .page-size-select label { font-size: 12.5px; color: #888; }
+    .page-size-select select { padding: 3px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 12.5px; color: #444; }
+    .page-buttons { display: flex; align-items: center; gap: 4px; }
+    .page-current { font-size: 13px; color: #444; padding: 0 6px; font-variant-numeric: tabular-nums; }
+    .btn-page { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: transparent; border: 1px solid transparent; border-radius: 6px; color: #555; cursor: pointer; }
+    .btn-page:hover:not(:disabled) { background: #f0f0f5; border-color: #ddd; }
+    .btn-page:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-page .material-icons { font-size: 17px; }
     .notice { display: flex; gap: 14px; background: #fffdf5; border: 1px solid #f0e0b0; border-radius: 12px; padding: 18px; }
     .notice .material-icons { color: #f9a825; }
     .notice strong { display: block; color: #1a1a2e; margin-bottom: 4px; font-size: 14px; }
@@ -237,6 +352,19 @@ export class WalletComponent implements OnInit, OnDestroy {
 
   isLoading = false;
   errorMessage = '';
+
+  // Transaction History: search / filter / sort / pagination (all client-side —
+  // the full entry list is already loaded, so every change applies instantly).
+  historySearch = '';
+  historyTypeFilter: WalletEntryTypeName | '' = '';
+  historyDirection: '' | 'credit' | 'debit' = '';
+  historySortColumn: 'date' | 'amount' = 'date';
+  historySortDirection: 'asc' | 'desc' = 'desc';
+  historyPage = 1;
+  historyPageSize = 10;
+  filteredHistory: WalletEntry[] = [];
+  pagedHistory: WalletEntry[] = [];
+  totalHistoryPages = 1;
 
   private destroy$ = new Subject<void>();
 
@@ -312,12 +440,14 @@ export class WalletComponent implements OnInit, OnDestroy {
         next: w => {
           this.wallet = w;
           this.isLoading = false;
+          this.applyHistoryFilters();
           this.cdr.detectChanges();
         },
         error: err => {
           this.wallet = null;
           this.errorMessage = err?.error?.message ?? '';
           this.isLoading = false;
+          this.applyHistoryFilters();
           this.cdr.detectChanges();
         },
       });
@@ -341,5 +471,89 @@ export class WalletComponent implements OnInit, OnDestroy {
 
   label(type: string): string {
     return type.replace(/([a-z])([A-Z])/g, '$1 $2');
+  }
+
+  /** Every entry type that actually occurs in this wallet's history, for the filter dropdown. */
+  get historyTypes(): WalletEntryTypeName[] {
+    const types = new Set((this.wallet?.entries ?? []).map(e => e.entryType));
+    return Array.from(types).sort();
+  }
+
+  toggleSort(column: 'date' | 'amount'): void {
+    if (this.historySortColumn === column) {
+      this.historySortDirection = this.historySortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.historySortColumn = column;
+      this.historySortDirection = column === 'date' ? 'desc' : 'desc';
+    }
+    this.applyHistoryFilters();
+  }
+
+  clearHistoryFilters(): void {
+    this.historySearch = '';
+    this.historyTypeFilter = '';
+    this.historyDirection = '';
+    this.applyHistoryFilters();
+  }
+
+  onHistoryPageSizeChange(): void {
+    this.historyPage = 1;
+    this.updatePagedHistory();
+  }
+
+  goHistoryPage(page: number): void {
+    if (page < 1 || page > this.totalHistoryPages) return;
+    this.historyPage = page;
+    this.updatePagedHistory();
+  }
+
+  historyRangeLabel(): string {
+    if (this.filteredHistory.length === 0) return 'No transactions';
+    const start = (this.historyPage - 1) * this.historyPageSize + 1;
+    const end = Math.min(this.historyPage * this.historyPageSize, this.filteredHistory.length);
+    return `Showing ${start}–${end} of ${this.filteredHistory.length}`;
+  }
+
+  /** Live search + filter + sort — recomputed on every keystroke/selection, then re-paginated. */
+  applyHistoryFilters(): void {
+    let result = [...(this.wallet?.entries ?? [])];
+
+    if (this.historySearch.trim()) {
+      const term = this.historySearch.trim().toLowerCase();
+      result = result.filter(e =>
+        (e.description && e.description.toLowerCase().includes(term)) ||
+        (e.investmentName && e.investmentName.toLowerCase().includes(term)) ||
+        this.label(e.entryType).toLowerCase().includes(term)
+      );
+    }
+
+    if (this.historyTypeFilter) {
+      result = result.filter(e => e.entryType === this.historyTypeFilter);
+    }
+
+    if (this.historyDirection === 'credit') {
+      result = result.filter(e => e.amount >= 0);
+    } else if (this.historyDirection === 'debit') {
+      result = result.filter(e => e.amount < 0);
+    }
+
+    result.sort((a, b) => {
+      const dir = this.historySortDirection === 'asc' ? 1 : -1;
+      if (this.historySortColumn === 'amount') {
+        return (a.amount - b.amount) * dir;
+      }
+      return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir;
+    });
+
+    this.filteredHistory = result;
+    this.historyPage = 1;
+    this.updatePagedHistory();
+  }
+
+  private updatePagedHistory(): void {
+    this.totalHistoryPages = Math.max(1, Math.ceil(this.filteredHistory.length / this.historyPageSize));
+    if (this.historyPage > this.totalHistoryPages) this.historyPage = this.totalHistoryPages;
+    const start = (this.historyPage - 1) * this.historyPageSize;
+    this.pagedHistory = this.filteredHistory.slice(start, start + this.historyPageSize);
   }
 }
