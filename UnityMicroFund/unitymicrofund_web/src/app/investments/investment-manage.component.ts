@@ -77,10 +77,16 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
                 <span class="k">Cost</span>
                 <span class="v">{{ (sharesToBuy || 0) * (investment.sharePrice || 0) | bdtCurrency }}</span>
               </div>
-              <button class="btn-primary" (click)="buy()" [disabled]="isWorking || !sharesToBuy || sharesToBuy < 1">
+              <button class="btn-primary" (click)="buy()"
+                      [disabled]="isWorking || !sharesToBuy || sharesToBuy < 1 || !agreementAccepted">
                 <span class="material-icons">shopping_cart</span> Buy
               </button>
             </div>
+            <label class="agreement-check">
+              <input type="checkbox" [(ngModel)]="agreementAccepted" name="buy-agreement" />
+              <span>I have read and understood the investment agreement/caution and agree to the
+                terms before purchasing shares.</span>
+            </label>
           </section>
 
           <!-- Investors -->
@@ -349,6 +355,8 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
     .progress-label { font-size: 12px; color: #666; margin-top: 6px; display: inline-block; }
 
     .buy-row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 12px; }
+    .agreement-check { display: flex; gap: 10px; align-items: flex-start; margin-top: 4px; font-size: 12.5px; line-height: 1.5; color: #555; cursor: pointer; }
+    .agreement-check input { margin-top: 2px; width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
     .field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 150px; }
     .field label { font-size: 13px; font-weight: 500; color: #333; }
     .field input, .field select, .field textarea { padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; box-sizing: border-box; width: 100%; }
@@ -414,6 +422,7 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
 
   sharesToBuy: number | null = null;
   onBehalfOfMemberId: string | null = null;
+  agreementAccepted = false;
   actualGrossProfit: number | null = null;
   completionDate = '';
   closingNotes = '';
@@ -520,6 +529,10 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
 
   buy(): void {
     if (!this.sharesToBuy || this.sharesToBuy < 1) return;
+    if (!this.agreementAccepted) {
+      this.toast.error('Please accept the investment agreement / caution before buying shares.');
+      return;
+    }
     const sharesToBuy = this.sharesToBuy;
 
     this.confirmation
@@ -536,12 +549,13 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
   private doBuy(sharesToBuy: number): void {
     this.isWorking = true;
     this.service
-      .subscribe(this.investment.id, sharesToBuy, this.onBehalfOfMemberId ?? undefined)
+      .subscribe(this.investment.id, sharesToBuy, this.agreementAccepted, this.onBehalfOfMemberId ?? undefined)
       .pipe(takeUntil(this.destroy$), finalize(() => this.tick()))
       .subscribe({
         next: () => {
           this.toast.success(`${sharesToBuy} share(s) purchased.`);
           this.sharesToBuy = null;
+          this.agreementAccepted = false;
           this.isWorking = false;
           this.refresh();
         },

@@ -176,6 +176,13 @@ export interface ProfitSettlement {
   distributions: ProfitDistributionLine[];
 }
 
+export interface InvestmentNominee {
+  name: string;
+  phone: string;
+  nid: string;
+  relation?: string | null;
+}
+
 export interface InvestmentPartner {
   id?: string;
   /** Set when the partner is an existing fund member; null for external partners. */
@@ -187,6 +194,8 @@ export interface InvestmentPartner {
   email?: string | null;
   presentAddress?: string | null;
   permanentAddress?: string | null;
+  /** The partner's single nominee (mandatory on create). */
+  nominee?: InvestmentNominee;
   nomineeName?: string | null;
   nomineeRelationship?: string | null;
   nomineeContact?: string | null;
@@ -241,6 +250,12 @@ export interface Investment {
   status: InvestmentStatusName;
   certificateNumber?: string | null;
   referenceNumber?: string | null;
+  investorMemberId?: string | null;
+  investorName?: string | null;
+  witnessMemberId?: string | null;
+  witnessName?: string | null;
+  guarantorMemberId?: string | null;
+  guarantorName?: string | null;
   createdBy?: string;
   createdAt: string;
   lastModifiedBy?: string;
@@ -294,6 +309,9 @@ export interface CreateInvestmentRequest {
   status: InvestmentStatusName;
   certificateNumber?: string | null;
   referenceNumber?: string | null;
+  investorMemberId?: string | null;
+  witnessMemberId?: string | null;
+  guarantorMemberId?: string | null;
   partners?: InvestmentPartner[];
   memberIds?: string[];
 }
@@ -425,10 +443,16 @@ export class InvestmentService {
 
   // ---- subscription ------------------------------------------------------
 
-  /** memberId is admin-only; omit it to buy for yourself. */
-  subscribe(investmentId: string, shares: number, memberId?: string): Observable<ShareSubscription> {
+  /** memberId is admin-only; omit it to buy for yourself. agreementAccepted must be true. */
+  subscribe(
+    investmentId: string,
+    shares: number,
+    agreementAccepted: boolean,
+    memberId?: string,
+  ): Observable<ShareSubscription> {
     return this.http.post<ShareSubscription>(`${this.apiUrl}/${investmentId}/subscribe`, {
       shares,
+      agreementAccepted,
       memberId: memberId ?? null,
     });
   }

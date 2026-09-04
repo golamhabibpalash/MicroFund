@@ -51,6 +51,29 @@ function maturityAfterStartValidator(group: AbstractControl): ValidationErrors |
   return new Date(maturity) > new Date(start) ? null : { maturityBeforeStart: true };
 }
 
+/** Investor, Witness and Guarantor must be three different members. */
+function participantsDistinctValidator(group: AbstractControl): ValidationErrors | null {
+  const investor = group.get('investorMemberId')?.value;
+  const witness = group.get('witnessMemberId')?.value;
+  const guarantor = group.get('guarantorMemberId')?.value;
+
+  const errors: ValidationErrors = {};
+  if (investor && witness && investor === witness) errors['investorEqualsWitness'] = true;
+  if (investor && guarantor && investor === guarantor) errors['investorEqualsGuarantor'] = true;
+  if (witness && guarantor && witness === guarantor) errors['witnessEqualsGuarantor'] = true;
+  return Object.keys(errors).length ? errors : null;
+}
+
+const digitsOnly = (v: unknown): string => String(v ?? '').replace(/\D/g, '');
+
+/** Partner NID and Nominee NID must differ (they are two different people). */
+function partnerNomineeNidValidator(group: AbstractControl): ValidationErrors | null {
+  const partnerNid = digitsOnly(group.get('nid')?.value);
+  const nomineeNid = digitsOnly(group.get('nominee')?.get('nid')?.value);
+  if (!partnerNid || !nomineeNid) return null;
+  return partnerNid === nomineeNid ? { partnerNomineeSameNid: true } : null;
+}
+
 @Component({
   selector: 'app-investment-form',
   standalone: true,
@@ -188,111 +211,133 @@ function maturityAfterStartValidator(group: AbstractControl): ValidationErrors |
             </div>
           </div>
 
-          <!-- ============ Partner Information ============ -->
+          <!-- ============ Investor Information ============ -->
           <div class="form-section">
-            <div class="section-title-row">
-              <h4>Partner Information</h4>
-              <button type="button" class="btn-link" (click)="addPartner()">
-                <span class="material-icons">add</span> Add partner
-              </button>
-            </div>
-
-            <div class="partner-block" *ngFor="let partner of partners.controls; let i = index" [formGroup]="asGroup(partner)">
-              <div class="partner-head">
-                <span class="partner-index">Partner {{ i + 1 }}</span>
-                <button
-                  type="button"
-                  class="btn-icon-danger"
-                  *ngIf="partners.length > 1"
-                  (click)="removePartner(i)"
-                  title="Remove partner">
-                  <span class="material-icons">delete</span>
-                </button>
-              </div>
-
+            <h4>Investor Information</h4>
+            <div class="form-row">
               <div class="form-group">
-                <label>Link to existing member</label>
-                <select (change)="onMemberSelected(i, $event)" [value]="partner.get('memberId')?.value || ''">
-                  <option value="">External partner (not a member)</option>
-                  <option *ngFor="let m of members" [value]="m.id">{{ m.name }}</option>
+                <label>Investor (fund member) *</label>
+                <select formControlName="investorMemberId">
+                  <option [ngValue]="null">— Select a member —</option>
+                  <option *ngFor="let m of members" [ngValue]="m.id">{{ m.name }}</option>
                 </select>
-                <span class="field-hint">
-                  Selecting a member fills the fields below. The details are stored on the
-                  investment, so later profile edits will not alter this record.
-                </span>
+                <span class="field-error" *ngIf="showError('investorMemberId')">An investor is required.</span>
               </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Partner Name *</label>
-                  <input type="text" formControlName="partnerName" maxlength="100" />
-                  <span class="field-error" *ngIf="showPartnerError(i, 'partnerName')">
-                    Partner name is required.
-                  </span>
-                </div>
-                <div class="form-group">
-                  <label>National ID (NID)</label>
-                  <input type="text" formControlName="nid" maxlength="50" />
-                  <span class="field-error" *ngIf="showPartnerError(i, 'nid')">
-                    NID must be 10, 13 or 17 digits.
-                  </span>
-                </div>
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label>Phone Number 1 *</label>
-                  <input type="tel" formControlName="phone1" maxlength="20" placeholder="01712345678" />
-                  <span class="field-error" *ngIf="showPartnerError(i, 'phone1')">
-                    Enter a valid mobile number, e.g. 01712345678.
-                  </span>
-                </div>
-                <div class="form-group">
-                  <label>Phone Number 2</label>
-                  <input type="tel" formControlName="phone2" maxlength="20" />
-                  <span class="field-error" *ngIf="showPartnerError(i, 'phone2')">
-                    Enter a valid mobile number.
-                  </span>
-                </div>
-              </div>
-
               <div class="form-group">
-                <label>Email Address</label>
-                <input type="email" formControlName="email" maxlength="100" />
-                <span class="field-error" *ngIf="showPartnerError(i, 'email')">
-                  Enter a valid email address.
+                <label>Investor Witness (fund member) *</label>
+                <select formControlName="witnessMemberId">
+                  <option [ngValue]="null">— Select a member —</option>
+                  <option *ngFor="let m of members" [ngValue]="m.id">{{ m.name }}</option>
+                </select>
+                <span class="field-error" *ngIf="showError('witnessMemberId')">A witness is required.</span>
+              </div>
+            </div>
+            <span class="field-error block" *ngIf="form.errors?.['investorEqualsWitness'] && form.touched">
+              The investor and the witness must be two different members.
+            </span>
+          </div>
+
+          <!-- ============ Partner Information ============ -->
+          <div class="form-section" [formGroup]="asGroup(partners.at(0))">
+            <h4>Partner Information</h4>
+            <span class="field-hint">The partner is an external person and does not need to be a fund member.</span>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Partner Name *</label>
+                <input type="text" formControlName="partnerName" maxlength="100" />
+                <span class="field-error" *ngIf="showPartnerError(0, 'partnerName')">Partner name is required.</span>
+              </div>
+              <div class="form-group">
+                <label>Contact Number *</label>
+                <input type="tel" formControlName="phone1" maxlength="20" placeholder="01712345678" />
+                <span class="field-error" *ngIf="showPartnerError(0, 'phone1')">
+                  Enter a valid mobile number, e.g. 01712345678.
                 </span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Email</label>
+                <input type="email" formControlName="email" maxlength="100" />
+                <span class="field-error" *ngIf="showPartnerError(0, 'email')">Enter a valid email address.</span>
+              </div>
+              <div class="form-group">
+                <label>NID *</label>
+                <input type="text" formControlName="nid" maxlength="50" />
+                <span class="field-error" *ngIf="showPartnerError(0, 'nid')">
+                  Partner NID is required and must be 10, 13 or 17 digits.
+                </span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Address *</label>
+              <textarea formControlName="presentAddress" rows="2" maxlength="250"></textarea>
+              <span class="field-error" *ngIf="showPartnerError(0, 'presentAddress')">Partner address is required.</span>
+            </div>
+          </div>
+
+          <!-- ============ Nominee Information ============ -->
+          <div class="form-section" [formGroup]="asGroup(partners.at(0))">
+            <div formGroupName="nominee">
+              <h4>Nominee Information</h4>
+              <span class="field-hint">Nominated on behalf of the partner — must be a different person from the partner.</span>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Nominee Name *</label>
+                  <input type="text" formControlName="name" maxlength="100" />
+                  <span class="field-error" *ngIf="showPartnerError(0, 'nominee.name')">Nominee name is required.</span>
+                </div>
+                <div class="form-group">
+                  <label>Phone Number *</label>
+                  <input type="tel" formControlName="phone" maxlength="20" placeholder="01712345678" />
+                  <span class="field-error" *ngIf="showPartnerError(0, 'nominee.phone')">
+                    Enter a valid mobile number.
+                  </span>
+                </div>
               </div>
 
               <div class="form-row">
                 <div class="form-group">
-                  <label>Present Address</label>
-                  <textarea formControlName="presentAddress" rows="2" maxlength="250"></textarea>
-                </div>
-                <div class="form-group">
-                  <label>Permanent Address</label>
-                  <textarea formControlName="permanentAddress" rows="2" maxlength="250"></textarea>
-                </div>
-              </div>
-
-              <div class="form-row three">
-                <div class="form-group">
-                  <label>Nominee Name</label>
-                  <input type="text" formControlName="nomineeName" maxlength="100" />
-                </div>
-                <div class="form-group">
-                  <label>Nominee Relationship</label>
-                  <input type="text" formControlName="nomineeRelationship" maxlength="50" />
-                </div>
-                <div class="form-group">
-                  <label>Nominee Contact</label>
-                  <input type="tel" formControlName="nomineeContact" maxlength="20" />
-                  <span class="field-error" *ngIf="showPartnerError(i, 'nomineeContact')">
-                    Enter a valid mobile number.
+                  <label>NID *</label>
+                  <input type="text" formControlName="nid" maxlength="50" />
+                  <span class="field-error" *ngIf="showPartnerError(0, 'nominee.nid')">
+                    Nominee NID is required and must be 10, 13 or 17 digits.
                   </span>
+                </div>
+                <div class="form-group">
+                  <label>Relation with Partner</label>
+                  <input type="text" formControlName="relation" maxlength="50" />
                 </div>
               </div>
             </div>
+            <span class="field-error block" *ngIf="asGroup(partners.at(0)).errors?.['partnerNomineeSameNid']">
+              The partner and nominee must be two different people — their NID numbers cannot be the same.
+            </span>
+          </div>
+
+          <!-- ============ Guarantor Information ============ -->
+          <div class="form-section">
+            <h4>Guarantor Information</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Guarantor (fund member) *</label>
+                <select formControlName="guarantorMemberId">
+                  <option [ngValue]="null">— Select a member —</option>
+                  <option *ngFor="let m of members" [ngValue]="m.id">{{ m.name }}</option>
+                </select>
+                <span class="field-error" *ngIf="showError('guarantorMemberId')">A guarantor is required.</span>
+              </div>
+            </div>
+            <span class="field-error block" *ngIf="form.errors?.['investorEqualsGuarantor'] && form.touched">
+              The investor and the guarantor must be two different members.
+            </span>
+            <span class="field-error block" *ngIf="form.errors?.['witnessEqualsGuarantor'] && form.touched">
+              The witness and the guarantor must be two different members.
+            </span>
           </div>
 
           <!-- ============ Additional Information ============ -->
@@ -520,39 +565,6 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
     return !!control && control.invalid && control.touched;
   }
 
-  addPartner(): void {
-    this.partners.push(this.createPartnerGroup());
-  }
-
-  removePartner(index: number): void {
-    this.partners.removeAt(index);
-  }
-
-  onMemberSelected(index: number, event: Event): void {
-    const memberId = (event.target as HTMLSelectElement).value;
-    const group = this.partners.at(index);
-
-    if (!memberId) {
-      group.patchValue({ memberId: null });
-      return;
-    }
-
-    const member = this.members.find(m => m.id === memberId);
-    if (!member) return;
-
-    // Copy rather than reference: the investment keeps the details as they were.
-    group.patchValue({
-      memberId: member.id,
-      partnerName: member.name ?? '',
-      phone1: member.phone ?? '',
-      phone2: member.alternatePhone ?? '',
-      email: member.email ?? '',
-      presentAddress: member.address ?? '',
-      nomineeName: member.nomineeName ?? '',
-      nomineeRelationship: member.nomineeRelation ?? '',
-      nomineeContact: member.nomineePhone ?? '',
-    });
-  }
 
   onFilesSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -650,27 +662,36 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
         description: ['', Validators.maxLength(1000)],
         certificateNumber: ['', Validators.maxLength(100)],
         referenceNumber: ['', Validators.maxLength(100)],
+        investorMemberId: [null as string | null, Validators.required],
+        witnessMemberId: [null as string | null, Validators.required],
+        guarantorMemberId: [null as string | null, Validators.required],
         partners: this.fb.array([this.createPartnerGroup()]),
       },
-      { validators: [maturityAfterStartValidator] },
+      { validators: [maturityAfterStartValidator, participantsDistinctValidator] },
     );
   }
 
   private createPartnerGroup(): FormGroup {
-    return this.fb.group({
-      id: [null as string | null],
-      memberId: [null as string | null],
-      partnerName: ['', [Validators.required, Validators.maxLength(100)]],
-      nid: ['', Validators.pattern(NID_PATTERN)],
-      phone1: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
-      phone2: ['', Validators.pattern(PHONE_PATTERN)],
-      email: ['', Validators.email],
-      presentAddress: ['', Validators.maxLength(250)],
-      permanentAddress: ['', Validators.maxLength(250)],
-      nomineeName: ['', Validators.maxLength(100)],
-      nomineeRelationship: ['', Validators.maxLength(50)],
-      nomineeContact: ['', Validators.pattern(PHONE_PATTERN)],
-    });
+    return this.fb.group(
+      {
+        id: [null as string | null],
+        memberId: [null as string | null],
+        partnerName: ['', [Validators.required, Validators.maxLength(100)]],
+        nid: ['', [Validators.required, Validators.pattern(NID_PATTERN)]],
+        phone1: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
+        phone2: ['', Validators.pattern(PHONE_PATTERN)],
+        email: ['', Validators.email],
+        presentAddress: ['', [Validators.required, Validators.maxLength(250)]],
+        permanentAddress: ['', Validators.maxLength(250)],
+        nominee: this.fb.group({
+          name: ['', [Validators.required, Validators.maxLength(100)]],
+          phone: ['', [Validators.required, Validators.pattern(PHONE_PATTERN)]],
+          nid: ['', [Validators.required, Validators.pattern(NID_PATTERN)]],
+          relation: ['', Validators.maxLength(50)],
+        }),
+      },
+      { validators: [partnerNomineeNidValidator] },
+    );
   }
 
   private patchFromInvestment(investment: Investment): void {
@@ -692,31 +713,34 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
       description: investment.description ?? '',
       certificateNumber: investment.certificateNumber ?? '',
       referenceNumber: investment.referenceNumber ?? '',
+      investorMemberId: investment.investorMemberId ?? null,
+      witnessMemberId: investment.witnessMemberId ?? null,
+      guarantorMemberId: investment.guarantorMemberId ?? null,
     });
 
     this.partners.clear();
-    if (investment.partners.length === 0) {
-      this.partners.push(this.createPartnerGroup());
-    } else {
-      for (const partner of investment.partners) {
-        const group = this.createPartnerGroup();
-        group.patchValue({
-          id: partner.id ?? null,
-          memberId: partner.memberId ?? null,
-          partnerName: partner.partnerName,
-          nid: partner.nid ?? '',
-          phone1: partner.phone1,
-          phone2: partner.phone2 ?? '',
-          email: partner.email ?? '',
-          presentAddress: partner.presentAddress ?? '',
-          permanentAddress: partner.permanentAddress ?? '',
-          nomineeName: partner.nomineeName ?? '',
-          nomineeRelationship: partner.nomineeRelationship ?? '',
-          nomineeContact: partner.nomineeContact ?? '',
-        });
-        this.partners.push(group);
-      }
+    const firstPartner = investment.partners[0];
+    const group = this.createPartnerGroup();
+    if (firstPartner) {
+      group.patchValue({
+        id: firstPartner.id ?? null,
+        memberId: firstPartner.memberId ?? null,
+        partnerName: firstPartner.partnerName,
+        nid: firstPartner.nid ?? '',
+        phone1: firstPartner.phone1,
+        phone2: firstPartner.phone2 ?? '',
+        email: firstPartner.email ?? '',
+        presentAddress: firstPartner.presentAddress ?? '',
+        permanentAddress: firstPartner.permanentAddress ?? '',
+        nominee: {
+          name: firstPartner.nominee?.name ?? firstPartner.nomineeName ?? '',
+          phone: firstPartner.nominee?.phone ?? firstPartner.nomineeContact ?? '',
+          nid: firstPartner.nominee?.nid ?? '',
+          relation: firstPartner.nominee?.relation ?? firstPartner.nomineeRelationship ?? '',
+        },
+      });
     }
+    this.partners.push(group);
 
     this.existingDocuments = [...investment.documents];
   }
@@ -744,6 +768,9 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
       status: v.status,
       certificateNumber: this.blankToNull(v.certificateNumber),
       referenceNumber: this.blankToNull(v.referenceNumber),
+      investorMemberId: v.investorMemberId ?? null,
+      witnessMemberId: v.witnessMemberId ?? null,
+      guarantorMemberId: v.guarantorMemberId ?? null,
       partners: (v.partners as any[]).map(p => ({
         id: p.id ?? undefined,
         memberId: this.blankToNull(p.memberId),
@@ -754,9 +781,12 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
         email: this.blankToNull(p.email),
         presentAddress: this.blankToNull(p.presentAddress),
         permanentAddress: this.blankToNull(p.permanentAddress),
-        nomineeName: this.blankToNull(p.nomineeName),
-        nomineeRelationship: this.blankToNull(p.nomineeRelationship),
-        nomineeContact: this.blankToNull(p.nomineeContact),
+        nominee: {
+          name: (p.nominee?.name ?? '').trim(),
+          phone: (p.nominee?.phone ?? '').trim(),
+          nid: (p.nominee?.nid ?? '').trim(),
+          relation: this.blankToNull(p.nominee?.relation),
+        },
       })),
     };
   }

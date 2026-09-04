@@ -464,6 +464,25 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
             </dl>
           </div>
 
+          <div class="vmodal-section"
+               *ngIf="selectedInvestment.investorName || selectedInvestment.witnessName || selectedInvestment.guarantorName">
+            <h4 class="vmodal-section-title"><span class="material-icons">groups</span> Participants</h4>
+            <dl class="vmodal-defs">
+              <div class="def" *ngIf="selectedInvestment.investorName">
+                <dt>Investor</dt>
+                <dd>{{ selectedInvestment.investorName }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.witnessName">
+                <dt>Investor Witness</dt>
+                <dd>{{ selectedInvestment.witnessName }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.guarantorName">
+                <dt>Guarantor</dt>
+                <dd>{{ selectedInvestment.guarantorName }}</dd>
+              </div>
+            </dl>
+          </div>
+
           <div class="vmodal-section" *ngIf="selectedInvestment.description">
             <h4 class="vmodal-section-title"><span class="material-icons">notes</span> Description</h4>
             <p class="vmodal-desc">{{ selectedInvestment.description }}</p>
@@ -471,8 +490,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
 
           <div class="vmodal-section" *ngIf="selectedInvestment.partners?.length">
             <div class="vmodal-section-head">
-              <h4 class="vmodal-section-title"><span class="material-icons">handshake</span> Partners</h4>
-              <span class="vmodal-count">{{ selectedInvestment.partners.length }}</span>
+              <h4 class="vmodal-section-title"><span class="material-icons">handshake</span> Partner &amp; Nominee</h4>
             </div>
             <div class="vmodal-rows">
               <div class="vrow partner" *ngFor="let p of selectedInvestment.partners">
@@ -480,7 +498,12 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
                 <div class="vrow-main">
                   <span class="vrow-name">{{ p.partnerName }}</span>
                   <span class="vrow-meta">{{ p.phone1 }}<ng-container *ngIf="p.email"> &middot; {{ p.email }}</ng-container></span>
-                  <span class="vrow-meta" *ngIf="p.nomineeName">Nominee: {{ p.nomineeName }}<ng-container *ngIf="p.nomineeRelationship"> ({{ p.nomineeRelationship }})</ng-container></span>
+                  <span class="vrow-meta" *ngIf="p.nid">NID: {{ p.nid }}</span>
+                  <span class="vrow-meta" *ngIf="p.presentAddress">{{ p.presentAddress }}</span>
+                  <span class="vrow-meta" *ngIf="p.nominee?.name">
+                    Nominee: {{ p.nominee?.name }} &middot; {{ p.nominee?.phone }} &middot; NID {{ p.nominee?.nid }}<ng-container *ngIf="p.nominee?.relation"> ({{ p.nominee?.relation }})</ng-container>
+                  </span>
+                  <span class="vrow-meta" *ngIf="!p.nominee?.name && p.nomineeName">Nominee: {{ p.nomineeName }}<ng-container *ngIf="p.nomineeRelationship"> ({{ p.nomineeRelationship }})</ng-container></span>
                 </div>
                 <span class="vrow-tag" *ngIf="p.memberId">Member</span>
               </div>
@@ -587,6 +610,12 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
             <span class="k">Total cost</span>
             <span class="v">{{ formatCurrency((investShares || 0) * (inv.sharePrice || 0)) }}</span>
           </div>
+
+          <label class="agreement-check">
+            <input type="checkbox" [(ngModel)]="investAgreementAccepted" name="invest-agreement" />
+            <span>I have read and understood the investment agreement/caution and agree to the
+              terms before purchasing shares.</span>
+          </label>
         </div>
         <div class="form-actions">
           <button class="btn-secondary" (click)="cancelInvest()">Cancel</button>
@@ -693,6 +722,8 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .cost-box .v { font-size: 20px; font-weight: 700; color: #1b5e20; }
     .btn-invest-confirm { display: inline-flex; align-items: center; gap: 6px; padding: 11px 20px; background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
     .btn-invest-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+    .agreement-check { display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; font-size: 13px; line-height: 1.5; color: #444; cursor: pointer; }
+    .agreement-check input { margin-top: 2px; width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
 
     /* Loading */
     .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; }
@@ -931,6 +962,7 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
   investShares: number | null = null;
   investForMemberId: string | null = null;
   investBalances: { memberId: string; memberName: string }[] = [];
+  investAgreementAccepted = false;
   isInvesting = false;
 
   showDeleteModal = false;
@@ -1084,6 +1116,7 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
     this.investingInvestment = investment;
     this.investShares = investment.minimumSharesPerMember ?? 1;
     this.investForMemberId = null;
+    this.investAgreementAccepted = false;
     if (this.isAdmin && this.investBalances.length === 0) {
       this.loadInvestBalances();
     }
@@ -1103,6 +1136,7 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
     this.investingInvestment = null;
     this.investShares = null;
     this.investForMemberId = null;
+    this.investAgreementAccepted = false;
     this.isInvesting = false;
   }
 
@@ -1112,6 +1146,7 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
     if (this.investShares > inv.remainingShares) return false;
     if (inv.minimumSharesPerMember && this.investShares < inv.minimumSharesPerMember) return false;
     if (inv.maximumSharesPerMember && this.investShares > inv.maximumSharesPerMember) return false;
+    if (!this.investAgreementAccepted) return false;
     return true;
   }
 
@@ -1123,7 +1158,12 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
 
     this.isInvesting = true;
     this.investmentService
-      .subscribe(this.investingInvestment.id, this.investShares!, this.investForMemberId ?? undefined)
+      .subscribe(
+        this.investingInvestment.id,
+        this.investShares!,
+        this.investAgreementAccepted,
+        this.investForMemberId ?? undefined,
+      )
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
