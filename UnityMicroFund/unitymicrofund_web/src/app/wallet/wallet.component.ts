@@ -123,29 +123,61 @@ import { MemberWalletDrawerComponent } from './member-wallet-drawer.component';
 
           <p class="empty" *ngIf="wallet.entries.length === 0">No wallet activity yet.</p>
 
-          <div class="history-toolbar" *ngIf="wallet.entries.length > 0">
-            <div class="history-search">
-              <span class="material-icons">search</span>
-              <input type="text" [(ngModel)]="historySearch" (ngModelChange)="applyHistoryFilters()"
-                     placeholder="Search description, project or type…" />
-              <button type="button" class="clear-btn" *ngIf="historySearch" (click)="historySearch = ''; applyHistoryFilters()">
+          <div class="history-filters" *ngIf="wallet.entries.length > 0">
+            <div class="hf-main">
+              <div class="history-search">
+                <span class="material-icons">search</span>
+                <input type="text" [(ngModel)]="historySearch" (ngModelChange)="applyHistoryFilters()"
+                       placeholder="Search description, project or type…" />
+                <button type="button" class="clear-btn" *ngIf="historySearch" (click)="historySearch = ''; applyHistoryFilters()"
+                        title="Clear search" aria-label="Clear search">
+                  <span class="material-icons">close</span>
+                </button>
+              </div>
+
+              <div class="hf-fields">
+                <label class="hf-field">
+                  <span class="hf-label">Type</span>
+                  <select [(ngModel)]="historyTypeFilter" (ngModelChange)="applyHistoryFilters()">
+                    <option value="">All types</option>
+                    <option *ngFor="let t of historyTypes" [value]="t">{{ label(t) }}</option>
+                  </select>
+                </label>
+                <label class="hf-field">
+                  <span class="hf-label">Direction</span>
+                  <select [(ngModel)]="historyDirection" (ngModelChange)="applyHistoryFilters()">
+                    <option value="">All</option>
+                    <option value="credit">Credit</option>
+                    <option value="debit">Debit</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="hf-active" *ngIf="historySearch || historyTypeFilter || historyDirection">
+              <span class="hf-active-label">Filters</span>
+              <button type="button" class="hf-chip" *ngIf="historySearch"
+                      (click)="historySearch = ''; applyHistoryFilters()" title="Remove search filter">
+                <span class="chip-key">Search</span>
+                <span class="chip-val">{{ historySearch }}</span>
                 <span class="material-icons">close</span>
               </button>
+              <button type="button" class="hf-chip" *ngIf="historyTypeFilter"
+                      (click)="historyTypeFilter = ''; applyHistoryFilters()" title="Remove type filter">
+                <span class="chip-key">Type</span>
+                <span class="chip-val">{{ label(historyTypeFilter) }}</span>
+                <span class="material-icons">close</span>
+              </button>
+              <button type="button" class="hf-chip" *ngIf="historyDirection"
+                      (click)="historyDirection = ''; applyHistoryFilters()" title="Remove direction filter">
+                <span class="chip-key">Direction</span>
+                <span class="chip-val">{{ historyDirection === 'credit' ? 'Credit' : 'Debit' }}</span>
+                <span class="material-icons">close</span>
+              </button>
+              <button type="button" class="hf-clear-all" (click)="clearHistoryFilters()">
+                <span class="material-icons">restart_alt</span> Clear all
+              </button>
             </div>
-            <select [(ngModel)]="historyTypeFilter" (ngModelChange)="applyHistoryFilters()">
-              <option value="">All types</option>
-              <option *ngFor="let t of historyTypes" [value]="t">{{ label(t) }}</option>
-            </select>
-            <select [(ngModel)]="historyDirection" (ngModelChange)="applyHistoryFilters()">
-              <option value="">Credit &amp; debit</option>
-              <option value="credit">Credit only</option>
-              <option value="debit">Debit only</option>
-            </select>
-            <button type="button" class="btn-clear-history"
-                    *ngIf="historySearch || historyTypeFilter || historyDirection"
-                    (click)="clearHistoryFilters()">
-              <span class="material-icons">restart_alt</span> Clear
-            </button>
           </div>
 
           <p class="empty" *ngIf="wallet.entries.length > 0 && filteredHistory.length === 0">
@@ -292,20 +324,45 @@ import { MemberWalletDrawerComponent } from './member-wallet-drawer.component';
     .btn-link { background: none; border: none; color: #667eea; cursor: pointer; font-size: 13px; font-weight: 500; padding: 0; }
     .data-table tr:hover { background: #fafaff; }
 
-    /* Transaction History: toolbar, sorting, pagination */
+    /* Transaction History: filters, sorting, pagination */
     .history-count { font-size: 12.5px; color: #888; }
-    .history-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; padding: 10px; background: #f9f9fc; border: 1px solid #eee; border-radius: 10px; }
-    .history-search { display: flex; align-items: center; gap: 6px; padding: 0 10px; background: white; border: 1px solid #ddd; border-radius: 8px; min-height: 36px; flex: 1 1 220px; max-width: 320px; }
-    .history-search:focus-within { border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,0.15); }
-    .history-search .material-icons { font-size: 18px; color: #999; }
-    .history-search input { border: none; background: transparent; outline: none; font-size: 13.5px; width: 100%; }
-    .history-search .clear-btn { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; border: none; border-radius: 50%; background: #eee; color: #777; cursor: pointer; flex-shrink: 0; }
-    .history-search .clear-btn .material-icons { font-size: 12px; color: inherit; }
-    .history-toolbar select { min-height: 36px; padding: 0 10px; border: 1px solid #ddd; border-radius: 8px; background: white; font-size: 13px; color: #444; cursor: pointer; }
-    .history-toolbar select:focus { outline: none; border-color: #667eea; }
-    .btn-clear-history { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 10px; background: transparent; border: 1px solid transparent; border-radius: 8px; color: #c62828; font-size: 13px; font-weight: 500; cursor: pointer; }
-    .btn-clear-history:hover { background: #fdecea; border-color: #f5c6c0; }
-    .btn-clear-history .material-icons { font-size: 15px; }
+
+    .history-filters { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; padding: 14px; background: #f9f9fc; border: 1px solid #eee; border-radius: 12px; }
+    .hf-main { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+
+    .history-search { display: flex; align-items: center; gap: 8px; padding: 0 12px; background: white; border: 1px solid #ddd; border-radius: 8px; height: 38px; flex: 1 1 240px; max-width: 340px; transition: border-color .15s, box-shadow .15s; }
+    .history-search:focus-within { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.14); }
+    .history-search > .material-icons { font-size: 18px; color: #999; flex-shrink: 0; }
+    .history-search input { border: none; background: transparent; outline: none; font-size: 13.5px; width: 100%; color: #333; }
+    .history-search input::placeholder { color: #aaa; }
+    .history-search .clear-btn { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 0; border: none; border-radius: 50%; background: #eee; color: #888; cursor: pointer; flex-shrink: 0; transition: background .15s, color .15s; }
+    .history-search .clear-btn:hover { background: #fdecea; color: #c62828; }
+    .history-search .clear-btn .material-icons { font-size: 13px; }
+
+    .hf-fields { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; flex: 1 1 auto; }
+    .hf-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .hf-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: #999; padding-left: 2px; }
+    .hf-field select {
+      height: 38px; padding: 0 30px 0 12px; border: 1px solid #ddd; border-radius: 8px;
+      background-color: white; font-size: 13px; color: #333; cursor: pointer; outline: none; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center;
+      min-width: 150px; transition: border-color .15s, box-shadow .15s;
+    }
+    .hf-field select:hover { border-color: #667eea; }
+    .hf-field select:focus { border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.14); }
+
+    .hf-active { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 10px; border-top: 1px dashed #e0e0e8; }
+    .hf-active-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: #999; margin-right: 2px; }
+    .hf-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 10px; background: white; border: 1px solid #ddd; border-radius: 999px; font-size: 12px; color: #444; cursor: pointer; transition: border-color .15s, background .15s; }
+    .hf-chip:hover { border-color: #c62828; background: #fdecea; }
+    .hf-chip .chip-key { font-weight: 700; color: #999; text-transform: uppercase; font-size: 10px; letter-spacing: 0.3px; }
+    .hf-chip .chip-val { font-weight: 500; color: #333; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .hf-chip .material-icons { font-size: 13px; color: #aaa; }
+    .hf-chip:hover .material-icons { color: #c62828; }
+    .hf-clear-all { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding: 4px 10px; background: transparent; border: 1px solid transparent; border-radius: 8px; color: #c62828; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .hf-clear-all:hover { background: #fdecea; border-color: #f5c6c0; }
+    .hf-clear-all .material-icons { font-size: 14px; }
 
     .data-table th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
     .data-table th.sortable:hover { color: #667eea; }
@@ -334,6 +391,14 @@ import { MemberWalletDrawerComponent } from './member-wallet-drawer.component';
     @keyframes spin { to { transform: rotate(360deg); } }
 
     @media (max-width: 900px) { .stat-row { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) {
+      .hf-main { flex-direction: column; align-items: stretch; }
+      .history-search { max-width: none; }
+      .hf-fields { width: 100%; }
+      .hf-field { flex: 1; }
+      .hf-field select { width: 100%; min-width: 0; }
+      .hf-clear-all { margin-left: 0; }
+    }
     @media (max-width: 600px) { .stat-row { grid-template-columns: 1fr; } .hero-value { font-size: 30px; } }
   `]
 })
