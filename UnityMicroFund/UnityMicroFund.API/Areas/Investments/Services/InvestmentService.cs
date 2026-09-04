@@ -654,7 +654,11 @@ public class InvestmentService : IInvestmentService
     {
         Id = d.Id,
         FileName = d.FileName,
-        FileUrl = d.FileUrl,
+        // Routed through the API (guaranteed to be reachable wherever this app is
+        // hosted) rather than the raw /assets/investment/* static path, which only
+        // resolves if the deployment's web server also proxies that prefix to the
+        // API - see InvestmentsController.DownloadDocument.
+        FileUrl = $"/api/investments/{d.InvestmentId}/documents/{d.Id}/file",
         ContentType = d.ContentType,
         FileSizeBytes = d.FileSizeBytes,
         UploadedBy = d.UploadedBy,

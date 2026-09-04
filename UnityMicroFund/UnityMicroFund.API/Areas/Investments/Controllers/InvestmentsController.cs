@@ -320,6 +320,48 @@ public class InvestmentsController : ControllerBase
         return Ok(document);
     }
 
+    /// <summary>
+    /// Streams a document's bytes through the API rather than a raw static-file URL.
+    /// The /assets/investment/* path only resolves if whatever serves the built
+    /// Angular app also proxies that prefix to the API - true for the dev proxy, but
+    /// easy to miss on a new deployment, where the SPA's wildcard route then swallows
+    /// the request and the "attachment" click just lands on the dashboard instead of
+    /// the file. Routing this through /api (already required to work for the whole
+    /// app to function) avoids depending on that extra hosting configuration.
+    ///
+    /// Anonymous like the static path it replaces: a plain [href] anchor click is a
+    /// full browser navigation, which cannot carry the app's Authorization header, so
+    /// requiring auth here would 401 the moment a user actually clicks the link.
+    /// </summary>
+    [HttpGet("{id}/documents/{documentId}/file")]
+    [AllowAnonymous]
+    public async Task<IActionResult> DownloadDocument(Guid id, Guid documentId, CancellationToken cancellationToken)
+    {
+        var document = await _context.InvestmentDocuments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.InvestmentId == id, cancellationToken);
+
+        if (document == null)
+        {
+            return NotFound(new { message = "Document not found" });
+        }
+
+        var fileName = Path.GetFileName(document.FileUrl);
+        var filePath = Path.GetFullPath(Path.Combine(GetDocumentsPath(), fileName));
+
+        if (string.IsNullOrWhiteSpace(fileName) || !System.IO.File.Exists(filePath))
+        {
+            return NotFound(new { message = "File not found on disk" });
+        }
+
+        // Inline, not "attachment": the user wants to view the PDF/image in the
+        // browser tab it opens in, not have it forced into a download.
+        Response.Headers.ContentDisposition =
+            new System.Net.Mime.ContentDisposition { FileName = document.FileName, Inline = true }.ToString();
+
+        return PhysicalFile(filePath, document.ContentType ?? "application/octet-stream");
+    }
+
     [HttpDelete("{id}/documents/{documentId}")]
     [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> DeleteDocument(Guid id, Guid documentId, CancellationToken cancellationToken)
