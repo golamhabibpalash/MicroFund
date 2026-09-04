@@ -270,8 +270,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
             <tbody>
               <tr *ngFor="let inv of filteredInvestments">
                 <td class="name-cell">
-                  <strong>{{ inv.name }}</strong>
-                  <span *ngIf="inv.description" class="desc">{{ inv.description }}</span>
+                  <strong [title]="inv.name">{{ inv.name }}</strong>
                 </td>
                 <td>
                   <span class="type-badge" [ngClass]="inv.type.toLowerCase()">{{ inv.type }}</span>
@@ -825,8 +824,8 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .investments-table th { text-align: left; padding: 14px 16px; background: #f8f9fa; color: #666; font-weight: 600; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #e0e0e0; }
     .investments-table td { padding: 16px; border-bottom: 1px solid #eee; }
     .investments-table tbody tr:hover { background: #f8f9fa; }
-    .name-cell strong { color: #1a1a2e; display: block; }
-    .name-cell .desc { font-size: 12px; color: #999; }
+    .name-cell { max-width: 260px; }
+    .name-cell strong { color: #1a1a2e; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .type-badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
     .type-badge.stock { background: #e3f2fd; color: #1976d2; }
     .type-badge.bond { background: #f3e5f5; color: #7b1fa2; }
