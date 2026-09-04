@@ -120,6 +120,73 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
               No further status changes are available from {{ statusLabel(investment.status) }}.
             </p>
 
+            <!-- Project expenses -->
+            <div class="sub-block" *ngIf="canEditCosts || projectCosts.length > 0">
+              <h5>Project Expenses</h5>
+
+              <div class="buy-row" *ngIf="canEditCosts">
+                <div class="field">
+                  <label>Expense type *</label>
+                  <input type="text" maxlength="150" list="expense-type-options"
+                         [(ngModel)]="costTitle" name="costtitle"
+                         placeholder="e.g. Convenience, Deed Cost, Food, Legal" />
+                  <datalist id="expense-type-options">
+                    <option *ngFor="let t of expenseTypeSuggestions" [value]="t"></option>
+                  </datalist>
+                </div>
+                <div class="field">
+                  <label>Amount *</label>
+                  <input type="number" step="0.01" min="0.01" [(ngModel)]="costAmount" name="costamt" />
+                </div>
+                <div class="field">
+                  <label>Date</label>
+                  <input type="date" [(ngModel)]="costDate" name="costdate" />
+                </div>
+                <button class="btn-primary" (click)="saveCost()"
+                        [disabled]="isWorking || !costTitle || !costAmount || costAmount < 0.01">
+                  <span class="material-icons">{{ editingCost ? 'save' : 'add' }}</span>
+                  {{ editingCost ? 'Update' : 'Add' }}
+                </button>
+                <button class="btn-link" type="button" *ngIf="editingCost" [disabled]="isWorking" (click)="cancelEditCost()">
+                  Cancel
+                </button>
+              </div>
+              <div class="field" *ngIf="canEditCosts">
+                <label>Notes</label>
+                <input type="text" maxlength="500" [(ngModel)]="costRemarks" name="costrem" placeholder="Optional note" />
+              </div>
+              <p class="hint" *ngIf="canEditCosts">
+                Add as many expenses as you need while the project is open or running. Every add, edit or
+                delete updates the project summary immediately.
+              </p>
+
+              <table class="data-table" *ngIf="projectCosts.length > 0">
+                <thead>
+                  <tr>
+                    <th>Type</th><th>Date</th><th class="right">Amount</th><th>Notes</th>
+                    <th *ngIf="canEditCosts"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let c of projectCosts">
+                    <td><strong>{{ c.title }}</strong></td>
+                    <td>{{ c.costDate | date: 'mediumDate' }}</td>
+                    <td class="right cost-amt">− {{ c.amount | bdtCurrency }}</td>
+                    <td>{{ c.remarks || '—' }}</td>
+                    <td class="right" *ngIf="canEditCosts">
+                      <button class="btn-link" [disabled]="isWorking" (click)="startEditCost(c)">Edit</button>
+                      <button class="btn-link danger" [disabled]="isWorking" (click)="removeCost(c)">Remove</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="calc">
+                <div><span class="k">Recorded expenses</span><span class="v">{{ projectCosts.length }}</span></div>
+                <div class="total"><span class="k">Total project cost</span><span class="v minus">{{ projectCostTotal | bdtCurrency }}</span></div>
+              </div>
+            </div>
+
             <!-- Interim / occasional profit -->
             <div class="sub-block" *ngIf="investment.status === 'OpenForSubscription' || investment.status === 'Active'">
               <h5>Interim / Occasional Profit</h5>
@@ -293,6 +360,7 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
     .section-title-row h4 { margin-bottom: 12px; }
     .muted { color: #888; font-size: 12px; font-weight: 400; margin-top: 2px; }
     .cost-form { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 12px; align-items: end; margin-top: 14px; padding: 14px; background: #fbfbfd; border: 1px solid #eee; border-radius: 10px; }
+    .data-table .cost-amt { text-align: right; color: #c62828; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .cost-form .actions { align-self: center; }
     .btn-link.danger { color: #c62828; margin-left: 12px; }
 
@@ -550,6 +618,16 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
     );
   }
 
+  /** Free-text type field; these are just autocomplete hints, not a fixed list. */
+  get expenseTypeSuggestions(): string[] {
+    const common = [
+      'Convenience', 'Deed Cost', 'Food', 'Phone', 'Legal',
+      'Transport', 'Labour', 'Materials', 'Utilities', 'Rent', 'Commission',
+    ];
+    const used = this.projectCosts.map(c => c.title).filter(Boolean);
+    return Array.from(new Set([...used, ...common]));
+  }
+
   startEditCost(cost: InvestmentProjectCost): void {
     this.editingCost = cost;
     this.costTitle = cost.title;
@@ -622,6 +700,7 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
           this.projectCosts = this.projectCosts.filter(c => c.id !== cost.id);
           this.isWorking = false;
           this.toast.success('Project cost removed.');
+          this.refresh();
         },
         error: err => {
           this.isWorking = false;
