@@ -828,8 +828,8 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .modal-body { padding: 24px; }
 
     /* ==== Investment detail (view) modal ==== */
-    .vmodal { max-width: 760px; border-radius: var(--radius-xl, 16px); overflow: hidden; box-shadow: var(--shadow-xl, 0 8px 32px rgba(0,0,0,0.18)); }
-    .vmodal-hero { padding: 24px 28px 20px; color: #fff; background: linear-gradient(135deg, var(--color-navy, #0f172a) 0%, #134e4a 100%); }
+    .vmodal { max-width: 760px; max-height: 90vh; display: flex; flex-direction: column; border-radius: var(--radius-xl, 16px); overflow: hidden; box-shadow: var(--shadow-xl, 0 8px 32px rgba(0,0,0,0.18)); }
+    .vmodal-hero { flex-shrink: 0; padding: 24px 28px 20px; color: #fff; background: linear-gradient(135deg, var(--color-navy, #0f172a) 0%, #134e4a 100%); }
     .vmodal-hero-top { display: flex; align-items: center; gap: 10px; }
     .vmodal-type { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; background: rgba(255,255,255,0.14); color: #fff; }
     .vmodal-type .material-icons { font-size: 15px; }
@@ -847,7 +847,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .kpi-sub { display: block; font-style: normal; font-size: 12px; font-weight: 600; opacity: .85; margin-top: 1px; }
     .kpi-progress { display: block; height: 5px; background: rgba(255,255,255,0.18); border-radius: 999px; margin-top: 7px; overflow: hidden; }
     .kpi-progress i { display: block; height: 100%; background: linear-gradient(90deg, #2dd4bf, #14b8a6); border-radius: 999px; }
-    .vmodal-body { padding: 12px 28px 28px; }
+    .vmodal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 28px 28px; }
     .vmodal-section { padding: 20px 0; border-bottom: 1px solid var(--color-divider, #f0f0f0); }
     .vmodal-section:last-child { border-bottom: none; }
     .vmodal-section-head { display: flex; align-items: center; justify-content: space-between; }
