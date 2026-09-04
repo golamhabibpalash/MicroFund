@@ -123,6 +123,11 @@ public class AccountService : IAccountService
             throw new InvalidOperationException("Cannot delete account with existing transactions");
         }
 
+        if (await _context.AccountLedgerEntries.AnyAsync(e => e.AccountId == id))
+        {
+            throw new InvalidOperationException("Cannot delete account with recorded expenses or income");
+        }
+
         _context.Accounts.Remove(account);
         await _context.SaveChangesAsync();
         return true;

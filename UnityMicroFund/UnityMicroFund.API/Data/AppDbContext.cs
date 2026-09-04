@@ -19,7 +19,7 @@ public class AppDbContext : DbContext
     private static readonly HashSet<string> AuditedEntities = new()
     {
         nameof(Member), nameof(Investment), nameof(Contribution), nameof(MemberInvestment),
-        nameof(Account), nameof(Transaction), nameof(GroupSetting), nameof(ParamBusConfig),
+        nameof(Account), nameof(AccountLedgerEntry), nameof(Transaction), nameof(GroupSetting), nameof(ParamBusConfig),
         nameof(InvestmentPartner), nameof(InvestmentNominee), nameof(InvestmentDocument),
         nameof(WalletEntry), nameof(ShareSubscription), nameof(ProfitDistribution),
         nameof(InvestmentProjectCost), nameof(InvestmentMaintenanceDistribution)
@@ -51,6 +51,7 @@ public class AppDbContext : DbContext
     public DbSet<RoleClaim> RoleClaims { get; set; }
     public DbSet<UserClaim> UserClaims { get; set; }
     public DbSet<Account> Accounts { get; set; }
+    public DbSet<AccountLedgerEntry> AccountLedgerEntries { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<RegistrationRequest> RegistrationRequests { get; set; }
@@ -409,6 +410,18 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Balance).HasPrecision(18, 2);
             entity.Property(e => e.AccountType).HasConversion<string>();
             entity.HasIndex(e => e.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<AccountLedgerEntry>(entity =>
+        {
+            entity.Property(e => e.Amount).HasPrecision(18, 2);
+            entity.Property(e => e.Direction).HasConversion<string>().HasMaxLength(20);
+            entity.HasOne(e => e.Account)
+                  .WithMany()
+                  .HasForeignKey(e => e.AccountId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.AccountId);
+            entity.HasIndex(e => e.EntryDate);
         });
 
         modelBuilder.Entity<Transaction>(entity =>

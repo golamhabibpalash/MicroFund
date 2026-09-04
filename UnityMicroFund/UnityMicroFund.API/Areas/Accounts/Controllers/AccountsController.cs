@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UnityMicroFund.API.Areas.Accounts.DTOs;
 using UnityMicroFund.API.Areas.Accounts.Services;
+using UnityMicroFund.API.Models;
 
 namespace UnityMicroFund.API.Areas.Accounts.Controllers;
 
@@ -11,10 +12,12 @@ namespace UnityMicroFund.API.Areas.Accounts.Controllers;
 public class AccountsController : ControllerBase
 {
     private readonly IAccountService _accountService;
+    private readonly IAccountLedgerService _ledgerService;
 
-    public AccountsController(IAccountService accountService)
+    public AccountsController(IAccountService accountService, IAccountLedgerService ledgerService)
     {
         _accountService = accountService;
+        _ledgerService = ledgerService;
     }
 
     [HttpGet]
@@ -91,6 +94,43 @@ public class AccountsController : ControllerBase
             return BadRequest(new { message = $"Failed to update account: {ex.Message}" });
         }
     }
+
+    // ---- Accounts summary + expense/income ledger -----------------------
+
+    [HttpGet("summary")]
+    public async Task<IActionResult> GetSummary(CancellationToken cancellationToken)
+        => Ok(await _ledgerService.GetSummaryAsync(cancellationToken));
+
+    [HttpGet("ledger")]
+    public async Task<IActionResult> GetLedger(
+        [FromQuery] AccountEntryDirection? direction,
+        [FromQuery] Guid? accountId,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        CancellationToken cancellationToken)
+        => Ok(await _ledgerService.GetAsync(direction, accountId, from, to, cancellationToken));
+
+    [HttpPost("ledger")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> CreateLedgerEntry(
+        [FromBody] CreateAccountLedgerEntryDto dto, CancellationToken cancellationToken)
+        => Ok(await _ledgerService.CreateAsync(dto, User.Identity?.Name ?? "system", cancellationToken));
+
+    [HttpPut("ledger/{entryId}")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> UpdateLedgerEntry(
+        Guid entryId, [FromBody] UpdateAccountLedgerEntryDto dto, CancellationToken cancellationToken)
+    {
+        var updated = await _ledgerService.UpdateAsync(entryId, dto, cancellationToken);
+        return updated == null ? NotFound(new { message = "Ledger entry not found" }) : Ok(updated);
+    }
+
+    [HttpDelete("ledger/{entryId}")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> DeleteLedgerEntry(Guid entryId, CancellationToken cancellationToken)
+        => await _ledgerService.DeleteAsync(entryId, cancellationToken)
+            ? NoContent()
+            : NotFound(new { message = "Ledger entry not found" });
 
     [HttpDelete("{id}")]
     [Authorize]

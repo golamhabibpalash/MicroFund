@@ -80,6 +80,81 @@ public class UpdateAccountDto
     public string? Iban { get; set; }
 }
 
+public class CreateAccountLedgerEntryDto
+{
+    [Required(ErrorMessage = "An account is required.")]
+    public Guid AccountId { get; set; }
+
+    /// <summary>"Expense" or "Income".</summary>
+    [Required(ErrorMessage = "Entry type is required.")]
+    public string Direction { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "A category is required.")]
+    [MaxLength(100)]
+    public string Category { get; set; } = string.Empty;
+
+    [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than zero.")]
+    public decimal Amount { get; set; }
+
+    public DateTime? EntryDate { get; set; }
+
+    [MaxLength(500)]
+    public string? Notes { get; set; }
+}
+
+public class UpdateAccountLedgerEntryDto
+{
+    [Required(ErrorMessage = "An account is required.")]
+    public Guid AccountId { get; set; }
+
+    [Required(ErrorMessage = "Entry type is required.")]
+    public string Direction { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "A category is required.")]
+    [MaxLength(100)]
+    public string Category { get; set; } = string.Empty;
+
+    [Range(0.01, double.MaxValue, ErrorMessage = "Amount must be greater than zero.")]
+    public decimal Amount { get; set; }
+
+    public DateTime? EntryDate { get; set; }
+
+    [MaxLength(500)]
+    public string? Notes { get; set; }
+}
+
+public class AccountLedgerEntryDto
+{
+    public Guid Id { get; set; }
+    public Guid AccountId { get; set; }
+    public string AccountName { get; set; } = string.Empty;
+    public string Direction { get; set; } = string.Empty;
+    public string Category { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public DateTime EntryDate { get; set; }
+    public string? Notes { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Roll-up for the accounts page stat cards. availableBalance = totalPoolAmount +
+/// totalInvestmentNetProfit; totalExpenses/totalOtherIncome are informational only
+/// (they are already reflected in the account balances that feed the pool).
+/// </summary>
+public class AccountsSummaryDto
+{
+    public int TotalAccounts { get; set; }
+    public int ActiveAccounts { get; set; }
+    public decimal TotalBalance { get; set; }
+    public decimal TotalPoolAmount { get; set; }
+    public decimal TotalInvestmentNetProfit { get; set; }
+    public decimal TotalExpenses { get; set; }
+    public decimal TotalOtherIncome { get; set; }
+    public decimal AvailableBalance { get; set; }
+}
+
 public class AccountResponseDto
 {
     public Guid Id { get; set; }
