@@ -126,16 +126,14 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
 
       <!-- Grid View -->
       <section class="investments-grid" *ngIf="!isLoading && viewMode === 'grid'">
-        <div class="investment-card" *ngFor="let investment of filteredInvestments; let i = index" [style.animation-delay]="i * 50 + 'ms'">
+        <div class="investment-card" [ngClass]="'card-' + investment.status.toLowerCase()"
+             *ngFor="let investment of filteredInvestments; let i = index" [style.animation-delay]="i * 50 + 'ms'">
           <div class="icard-top">
             <span class="icard-type" [ngClass]="investment.type.toLowerCase()">
               <span class="material-icons">{{ getTypeIcon(investment.type) }}</span>
               {{ investment.type }}
             </span>
-            <span class="icard-status" [class.active]="investment.status === 'Active'"
-                  [class.circulated]="investment.status === 'OpenForSubscription'"
-                  [class.closed]="investment.status === 'Closed' || investment.status === 'Cancelled'"
-                  [class.completed]="investment.status === 'Completed' || investment.status === 'ProfitDistributed'">
+            <span class="icard-status" [ngClass]="statusClass(investment.status)">
               <span class="material-icons">{{ statusIcon(investment.status) }}</span>
               {{ statusLabel(investment.status) }}
             </span>
@@ -677,10 +675,17 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .investment-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
     .meta-chip { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 500; background: #f1f3f9; color: #555; }
     .status-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
-    .status-active { background: #e8f5e9; color: #2e7d32; }
-    .status-matured { background: #e3f2fd; color: #1565c0; }
-    .status-closed { background: #eceff1; color: #546e7a; }
-    .status-suspended { background: #fff3e0; color: #ef6c00; }
+
+    /* Status colours — one palette shared by the grid card pill, the table pill
+       and the detail hero. Each project lifecycle state has its own hue. */
+    .status-draft, .icard-status.status-draft { background: #eef1f4; color: #5b6470; }
+    .status-openforsubscription, .icard-status.status-openforsubscription { background: #e7f6ec; color: #1e7e34; }
+    .status-fullysubscribed, .icard-status.status-fullysubscribed { background: #e4f0fb; color: #1565c0; }
+    .status-active, .icard-status.status-active { background: #ede7f6; color: #5e35b1; }
+    .status-completed, .icard-status.status-completed { background: #fff6e0; color: #b7791f; }
+    .status-profitdistributed, .icard-status.status-profitdistributed { background: #e0f2f1; color: #00695c; }
+    .status-closed, .icard-status.status-closed { background: #eef1f4; color: #5b6470; }
+    .status-cancelled, .icard-status.status-cancelled { background: #fdecea; color: #c62828; }
 
     .investments-wrapper { max-width: 1600px; margin: 0 auto; padding: 20px 24px; box-sizing: border-box; }
 
@@ -732,7 +737,17 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
 
     /* Grid View */
     .investments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: stretch; }
-    .investment-card { display: flex; flex-direction: column; background: white; border: 1px solid var(--color-border-light, #eef2f7); border-radius: var(--radius-xl, 14px); padding: 14px 14px 12px; box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)); transition: transform 0.25s ease, box-shadow 0.25s ease; overflow: hidden; min-width: 0; will-change: transform; }
+    .investment-card { display: flex; flex-direction: column; background: white; border: 1px solid var(--color-border-light, #eef2f7); border-left: 4px solid var(--color-border, #cbd5e1); border-radius: var(--radius-xl, 14px); padding: 14px 14px 12px; box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)); transition: transform 0.25s ease, box-shadow 0.25s ease; overflow: hidden; min-width: 0; will-change: transform; }
+
+    /* Status-wise colour indicator: a coloured spine down the left edge of every card. */
+    .investment-card.card-draft { border-left-color: #94a3b8; }
+    .investment-card.card-openforsubscription { border-left-color: #22a559; }
+    .investment-card.card-fullysubscribed { border-left-color: #1565c0; }
+    .investment-card.card-active { border-left-color: #7e57c2; }
+    .investment-card.card-completed { border-left-color: #d69e2e; }
+    .investment-card.card-profitdistributed { border-left-color: #00897b; }
+    .investment-card.card-closed { border-left-color: #94a3b8; }
+    .investment-card.card-cancelled { border-left-color: #e53935; }
     @keyframes fadeInUp { from { transform: translateY(8px); } to { transform: translateY(0); } }
     .investment-card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(0,0,0,0.16), 0 6px 16px rgba(0,0,0,0.10); }
 
@@ -748,10 +763,6 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .icard-type.other { background: #eceff1; color: #546e7a; }
     .icard-status { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--color-background-alt, #f8fafc); color: var(--text-muted, #64748b); max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .icard-status .material-icons { font-size: 13px; }
-    .icard-status.active { background: #ecfdf5; color: var(--color-success, #059669); }
-    .icard-status.circulated { background: #ecfdf5; color: var(--color-success, #059669); }
-    .icard-status.closed { background: #fef2f2; color: var(--color-error, #dc2626); }
-    .icard-status.completed { background: #f0f9ff; color: var(--color-info, #0284c7); }
 
     .icard-name { font-size: 15px; font-weight: 700; color: var(--text-primary, #0f172a); margin: 0 0 2px; letter-spacing: -0.2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .icard-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 8px; }
