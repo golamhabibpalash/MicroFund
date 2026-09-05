@@ -16,6 +16,27 @@ internal static class InvestmentValidation
     public const string NidMessage = "NID must be 10, 13 or 17 digits.";
 }
 
+/// <summary>Nominee nominated on behalf of the partner. All fields but Relation are mandatory.</summary>
+public class InvestmentNomineeDto
+{
+    [Required(ErrorMessage = "Nominee name is required.")]
+    [MaxLength(100)]
+    public string Name { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Nominee phone number is required.")]
+    [MaxLength(20)]
+    [RegularExpression(InvestmentValidation.PhonePattern, ErrorMessage = InvestmentValidation.PhoneMessage)]
+    public string Phone { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Nominee NID is required.")]
+    [MaxLength(50)]
+    [RegularExpression(InvestmentValidation.NidPattern, ErrorMessage = InvestmentValidation.NidMessage)]
+    public string Nid { get; set; } = string.Empty;
+
+    [MaxLength(50)]
+    public string? Relation { get; set; }
+}
+
 public class InvestmentPartnerDto
 {
     public Guid? Id { get; set; }
@@ -27,11 +48,12 @@ public class InvestmentPartnerDto
     [MaxLength(100)]
     public string PartnerName { get; set; } = string.Empty;
 
+    [Required(ErrorMessage = "Partner NID is required.")]
     [MaxLength(50)]
     [RegularExpression(InvestmentValidation.NidPattern, ErrorMessage = InvestmentValidation.NidMessage)]
     public string? Nid { get; set; }
 
-    [Required(ErrorMessage = "Partner phone number is required.")]
+    [Required(ErrorMessage = "Partner contact number is required.")]
     [MaxLength(20)]
     [RegularExpression(InvestmentValidation.PhonePattern, ErrorMessage = InvestmentValidation.PhoneMessage)]
     public string Phone1 { get; set; } = string.Empty;
@@ -44,12 +66,18 @@ public class InvestmentPartnerDto
     [EmailAddress(ErrorMessage = "Enter a valid email address.")]
     public string? Email { get; set; }
 
+    [Required(ErrorMessage = "Partner address is required.")]
     [MaxLength(250)]
     public string? PresentAddress { get; set; }
 
     [MaxLength(250)]
     public string? PermanentAddress { get; set; }
 
+    /// <summary>The partner's single nominee. Mandatory.</summary>
+    [Required(ErrorMessage = "Partner nominee information is required.")]
+    public InvestmentNomineeDto Nominee { get; set; } = new();
+
+    // Legacy inline nominee fields, still accepted from older clients but superseded by Nominee.
     [MaxLength(100)]
     public string? NomineeName { get; set; }
 
@@ -109,6 +137,18 @@ public class CreateInvestmentDto
     /// </summary>
     public decimal? SharePrice { get; set; }
 
+    [Range(1, int.MaxValue, ErrorMessage = "Minimum shares per member must be at least 1.")]
+    public int? MinimumSharesPerMember { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "Maximum shares per member must be at least 1.")]
+    public int? MaximumSharesPerMember { get; set; }
+
+    [Range(0, 100, ErrorMessage = "Maintenance percentage must be between 0 and 100.")]
+    public decimal? MaintenancePercentage { get; set; }
+
+    /// <summary>The organisation account that receives this project's maintenance amount.</summary>
+    public Guid? MaintenanceAccountId { get; set; }
+
     [Range(0, double.MaxValue, ErrorMessage = "Target gross profit cannot be negative.")]
     public decimal? TargetGrossProfit { get; set; }
 
@@ -133,6 +173,20 @@ public class CreateInvestmentDto
     [MaxLength(100)]
     public string? ReferenceNumber { get; set; }
 
+    /// <summary>Fund member the project is run for. Mandatory; must be an active member.</summary>
+    [Required(ErrorMessage = "An investor is required.")]
+    public Guid? InvestorMemberId { get; set; }
+
+    /// <summary>Witness for the investor. Mandatory; a different active member from the investor.</summary>
+    [Required(ErrorMessage = "An investor witness is required.")]
+    public Guid? WitnessMemberId { get; set; }
+
+    /// <summary>Guarantor for the project. Mandatory; a different active member from investor and witness.</summary>
+    [Required(ErrorMessage = "A guarantor is required.")]
+    public Guid? GuarantorMemberId { get; set; }
+
+    [Required(ErrorMessage = "Partner information is required.")]
+    [MinLength(1, ErrorMessage = "An investment project must have exactly one partner.")]
     public List<InvestmentPartnerDto>? Partners { get; set; }
 
     /// <summary>
@@ -168,6 +222,18 @@ public class UpdateInvestmentDto
     /// <summary>Ignored on input; re-derived from value / shares (section 3).</summary>
     public decimal? SharePrice { get; set; }
 
+    [Range(1, int.MaxValue, ErrorMessage = "Minimum shares per member must be at least 1.")]
+    public int? MinimumSharesPerMember { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "Maximum shares per member must be at least 1.")]
+    public int? MaximumSharesPerMember { get; set; }
+
+    [Range(0, 100, ErrorMessage = "Maintenance percentage must be between 0 and 100.")]
+    public decimal? MaintenancePercentage { get; set; }
+
+    /// <summary>The organisation account that receives this project's maintenance amount.</summary>
+    public Guid? MaintenanceAccountId { get; set; }
+
     [Range(0, double.MaxValue, ErrorMessage = "Target gross profit cannot be negative.")]
     public decimal? TargetGrossProfit { get; set; }
 
@@ -186,6 +252,15 @@ public class UpdateInvestmentDto
 
     [MaxLength(100)]
     public string? ReferenceNumber { get; set; }
+
+    /// <summary>Null leaves the current investor untouched (lenient edit for legacy projects).</summary>
+    public Guid? InvestorMemberId { get; set; }
+
+    /// <summary>Null leaves the current witness untouched.</summary>
+    public Guid? WitnessMemberId { get; set; }
+
+    /// <summary>Null leaves the current guarantor untouched.</summary>
+    public Guid? GuarantorMemberId { get; set; }
 
     /// <summary>
     /// When supplied, replaces the partner list wholesale. When null, partners are
@@ -207,6 +282,8 @@ public class InvestmentResponseDto
     public decimal ReturnPercentage { get; set; }
     public int? TotalShares { get; set; }
     public decimal? SharePrice { get; set; }
+    public int? MinimumSharesPerMember { get; set; }
+    public int? MaximumSharesPerMember { get; set; }
 
     // Section 8 - real-time share availability.
     public int SoldShares { get; set; }
@@ -215,10 +292,33 @@ public class InvestmentResponseDto
 
     public decimal? TargetGrossProfit { get; set; }
     public decimal? ActualGrossProfit { get; set; }
-    public decimal OperationalExpensePercentage { get; set; }
-    public decimal? OperationalExpenseAmount { get; set; }
+    public decimal MaintenancePercentage { get; set; }
+    public decimal? MaintenanceAmount { get; set; }
+    public Guid? MaintenanceAccountId { get; set; }
     public decimal? NetProfit { get; set; }
     public decimal? UndistributedRemainder { get; set; }
+
+    /// <summary>Alias of ActualGrossProfit - the gross amount received from the project.</summary>
+    public decimal? GrossReceivedAmount { get; set; }
+
+    /// <summary>Total capital collected from investors for this project.</summary>
+    public decimal TotalInvested { get; set; }
+
+    /// <summary>Shares currently sold (active subscriptions).</summary>
+    public int TotalSharesSold { get; set; }
+
+    /// <summary>Sum of all accrued interim profit entries.</summary>
+    public decimal InterimProfitTotal { get; set; }
+
+    /// <summary>Sum of all project cost entries.</summary>
+    public decimal TotalProjectCost { get; set; }
+
+    /// <summary>Gross received + interim profits − project costs; the basis for profit.</summary>
+    public decimal ValueAfterCosts { get; set; }
+
+    /// <summary>Individual project cost records (feed, labour, transport, etc.).</summary>
+    public List<InvestmentProjectCostDto> ProjectCosts { get; set; } = new();
+
     public DateTime? CompletionDate { get; set; }
     public string? ClosingNotes { get; set; }
 
@@ -228,6 +328,14 @@ public class InvestmentResponseDto
     public string Status { get; set; } = string.Empty;
     public string? CertificateNumber { get; set; }
     public string? ReferenceNumber { get; set; }
+
+    public Guid? InvestorMemberId { get; set; }
+    public string? InvestorName { get; set; }
+    public Guid? WitnessMemberId { get; set; }
+    public string? WitnessName { get; set; }
+    public Guid? GuarantorMemberId { get; set; }
+    public string? GuarantorName { get; set; }
+
     public string? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? LastModifiedBy { get; set; }
@@ -235,6 +343,18 @@ public class InvestmentResponseDto
     public List<MemberInvestmentDto> Members { get; set; } = new();
     public List<InvestmentPartnerDto> Partners { get; set; } = new();
     public List<InvestmentDocumentDto> Documents { get; set; } = new();
+    public List<InterimProfitDto> InterimProfits { get; set; } = new();
+}
+
+public class InterimProfitDto
+{
+    public Guid Id { get; set; }
+    public Guid InvestmentId { get; set; }
+    public decimal Amount { get; set; }
+    public DateTime ProfitDate { get; set; }
+    public string? Remarks { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public class MemberInvestmentDto
@@ -243,4 +363,47 @@ public class MemberInvestmentDto
     public string MemberName { get; set; } = string.Empty;
     public decimal SharePercentage { get; set; }
     public decimal ShareValue { get; set; }
+}
+
+public class InvestmentProjectCostDto
+{
+    public Guid Id { get; set; }
+    public Guid InvestmentId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string? Remarks { get; set; }
+    public DateTime CostDate { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
+public class CreateProjectCostDto
+{
+    [Required(ErrorMessage = "Cost title is required.")]
+    [MaxLength(150)]
+    public string Title { get; set; } = string.Empty;
+
+    [Range(0.01, double.MaxValue, ErrorMessage = "Cost amount must be greater than zero.")]
+    public decimal Amount { get; set; }
+
+    [MaxLength(500)]
+    public string? Remarks { get; set; }
+
+    public DateTime? CostDate { get; set; }
+}
+
+public class UpdateProjectCostDto
+{
+    [Required(ErrorMessage = "Cost title is required.")]
+    [MaxLength(150)]
+    public string Title { get; set; } = string.Empty;
+
+    [Range(0.01, double.MaxValue, ErrorMessage = "Cost amount must be greater than zero.")]
+    public decimal Amount { get; set; }
+
+    [MaxLength(500)]
+    public string? Remarks { get; set; }
+
+    public DateTime? CostDate { get; set; }
 }

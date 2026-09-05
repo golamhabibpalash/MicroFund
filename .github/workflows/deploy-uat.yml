@@ -1,0 +1,40 @@
+name: Deploy to UAT
+
+on:
+  push:
+    branches: [uat]
+
+jobs:
+  deploy:
+    name: Deploy UAT
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout UAT branch
+        uses: actions/checkout@v4
+        with:
+          ref: uat
+
+      - name: Upload UAT source to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          source: "./*"
+          target: /var/www/unitymicrofund-uat/repo
+          strip_components: 0
+          rm: false
+
+      - name: Build & deploy UAT via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          command_timeout: 18m
+          script: |
+            sudo bash /var/www/unitymicrofund-uat/repo/update-uat.sh

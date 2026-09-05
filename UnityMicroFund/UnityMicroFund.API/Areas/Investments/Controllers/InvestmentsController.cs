@@ -25,6 +25,8 @@ public class InvestmentsController : ControllerBase
     private readonly IInvestmentService _investmentService;
     private readonly ISubscriptionService _subscriptionService;
     private readonly IInvestmentLifecycleService _lifecycleService;
+    private readonly IInterimProfitService _interimProfitService;
+    private readonly IProjectCostService _projectCostService;
     private readonly UnityMicroFund.API.Data.AppDbContext _context;
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _environment;
@@ -33,6 +35,8 @@ public class InvestmentsController : ControllerBase
         IInvestmentService investmentService,
         ISubscriptionService subscriptionService,
         IInvestmentLifecycleService lifecycleService,
+        IInterimProfitService interimProfitService,
+        IProjectCostService projectCostService,
         UnityMicroFund.API.Data.AppDbContext context,
         IConfiguration configuration,
         IWebHostEnvironment environment)
@@ -40,6 +44,8 @@ public class InvestmentsController : ControllerBase
         _investmentService = investmentService;
         _subscriptionService = subscriptionService;
         _lifecycleService = lifecycleService;
+        _interimProfitService = interimProfitService;
+        _projectCostService = projectCostService;
         _context = context;
         _configuration = configuration;
         _environment = environment;
@@ -73,7 +79,7 @@ public class InvestmentsController : ControllerBase
         }
 
         var result = await _subscriptionService.SubscribeAsync(
-            id, memberId, dto.Shares, GetCurrentUserName(), cancellationToken);
+            id, memberId, dto.Shares, dto.AgreementAccepted, GetCurrentUserName(), cancellationToken);
 
         return Ok(result);
     }
@@ -102,6 +108,51 @@ public class InvestmentsController : ControllerBase
     [HttpGet("{id}/settlement")]
     public async Task<IActionResult> GetSettlement(Guid id, CancellationToken cancellationToken)
         => Ok(await _lifecycleService.GetSettlementAsync(id, cancellationToken));
+
+    [HttpGet("{id}/interim-profits")]
+    public async Task<IActionResult> GetInterimProfits(Guid id, CancellationToken cancellationToken)
+        => Ok(await _interimProfitService.GetForInvestmentAsync(id, cancellationToken));
+
+    [HttpPost("{id}/interim-profits")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateInterimProfit(
+        Guid id, [FromBody] CreateInterimProfitDto dto, CancellationToken cancellationToken)
+        => Ok(await _interimProfitService.CreateAsync(id, dto, GetCurrentUserName(), cancellationToken));
+
+    [HttpDelete("{id}/interim-profits/{profitId}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteInterimProfit(Guid id, Guid profitId, CancellationToken cancellationToken)
+        => await _interimProfitService.DeleteAsync(id, profitId, cancellationToken)
+            ? NoContent()
+            : NotFound(new { message = "Interim profit record not found" });
+
+    [HttpGet("{id}/project-costs")]
+    public async Task<IActionResult> GetProjectCosts(Guid id, CancellationToken cancellationToken)
+        => Ok(await _projectCostService.GetForInvestmentAsync(id, cancellationToken));
+
+    [HttpPost("{id}/project-costs")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> CreateProjectCost(
+        Guid id, [FromBody] CreateProjectCostDto dto, CancellationToken cancellationToken)
+        => Ok(await _projectCostService.CreateAsync(id, dto, GetCurrentUserName(), cancellationToken));
+
+    [HttpPut("{id}/project-costs/{costId}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateProjectCost(
+        Guid id, Guid costId, [FromBody] UpdateProjectCostDto dto, CancellationToken cancellationToken)
+    {
+        var updated = await _projectCostService.UpdateAsync(id, costId, dto, GetCurrentUserName(), cancellationToken);
+        return updated == null
+            ? NotFound(new { message = "Project cost not found" })
+            : Ok(updated);
+    }
+
+    [HttpDelete("{id}/project-costs/{costId}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteProjectCost(Guid id, Guid costId, CancellationToken cancellationToken)
+        => await _projectCostService.DeleteAsync(id, costId, cancellationToken)
+            ? NoContent()
+            : NotFound(new { message = "Project cost not found" });
 
     [HttpPost("{id}/disburse")]
     [Authorize(Roles = "Admin")]
@@ -145,6 +196,19 @@ public class InvestmentsController : ControllerBase
         return Ok(investments);
     }
 
+    /// <summary>
+    /// Published investment feed for members - only circulated projects are shown.
+    /// Draft/Cancelled projects are never exposed to the investing membership.
+    /// </summary>
+    [HttpGet("published")]
+    public async Task<IActionResult> GetPublishedInvestments(
+        [FromQuery] InvestmentType? type = null,
+        CancellationToken cancellationToken = default)
+    {
+        var investments = await _investmentService.GetPublishedInvestmentsAsync(type, cancellationToken);
+        return Ok(investments);
+    }
+
     [HttpGet("{id}")]
     public async Task<IActionResult> GetInvestment(Guid id, CancellationToken cancellationToken)
     {
@@ -157,7 +221,7 @@ public class InvestmentsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateInvestment(
         [FromBody] CreateInvestmentDto dto,
         CancellationToken cancellationToken)
@@ -167,7 +231,7 @@ public class InvestmentsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = "Admin,Manager")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateInvestment(
         Guid id,
         [FromBody] UpdateInvestmentDto dto,
@@ -254,6 +318,48 @@ public class InvestmentsController : ControllerBase
         }
 
         return Ok(document);
+    }
+
+    /// <summary>
+    /// Streams a document's bytes through the API rather than a raw static-file URL.
+    /// The /assets/investment/* path only resolves if whatever serves the built
+    /// Angular app also proxies that prefix to the API - true for the dev proxy, but
+    /// easy to miss on a new deployment, where the SPA's wildcard route then swallows
+    /// the request and the "attachment" click just lands on the dashboard instead of
+    /// the file. Routing this through /api (already required to work for the whole
+    /// app to function) avoids depending on that extra hosting configuration.
+    ///
+    /// Anonymous like the static path it replaces: a plain [href] anchor click is a
+    /// full browser navigation, which cannot carry the app's Authorization header, so
+    /// requiring auth here would 401 the moment a user actually clicks the link.
+    /// </summary>
+    [HttpGet("{id}/documents/{documentId}/file")]
+    [AllowAnonymous]
+    public async Task<IActionResult> DownloadDocument(Guid id, Guid documentId, CancellationToken cancellationToken)
+    {
+        var document = await _context.InvestmentDocuments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Id == documentId && d.InvestmentId == id, cancellationToken);
+
+        if (document == null)
+        {
+            return NotFound(new { message = "Document not found" });
+        }
+
+        var fileName = Path.GetFileName(document.FileUrl);
+        var filePath = Path.GetFullPath(Path.Combine(GetDocumentsPath(), fileName));
+
+        if (string.IsNullOrWhiteSpace(fileName) || !System.IO.File.Exists(filePath))
+        {
+            return NotFound(new { message = "File not found on disk" });
+        }
+
+        // Inline, not "attachment": the user wants to view the PDF/image in the
+        // browser tab it opens in, not have it forced into a download.
+        Response.Headers.ContentDisposition =
+            new System.Net.Mime.ContentDisposition { FileName = document.FileName, Inline = true }.ToString();
+
+        return PhysicalFile(filePath, document.ContentType ?? "application/octet-stream");
     }
 
     [HttpDelete("{id}/documents/{documentId}")]

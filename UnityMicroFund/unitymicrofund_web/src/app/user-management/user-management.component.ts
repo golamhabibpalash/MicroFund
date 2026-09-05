@@ -7,6 +7,8 @@ import { RoleManagementService } from '../core/services/role-management.service'
 import { User, UserDetail, CreateUser, AssignRole, UserClaim } from '../core/models/user.model';
 import { Role, RoleClaim, PERMISSION_CATEGORIES, PERMISSION_DESCRIPTIONS, ALL_PERMISSIONS, ROLE_DESCRIPTIONS } from '../core/models/role.model';
 import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
+import { filter } from 'rxjs/operators';
+import { ConfirmationService } from '../shared/confirmation/confirmation.service';
 
 type TabType = 'users' | 'roles' | 'permissions';
 
@@ -711,6 +713,7 @@ export class UserManagementComponent implements OnInit {
   constructor(
     private userService: UserManagementService,
     private roleService: RoleManagementService,
+    private confirmation: ConfirmationService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -875,6 +878,31 @@ export class UserManagementComponent implements OnInit {
       return;
     }
 
+    if (originalUser.isActive === this.editUserStatus && originalUser.isApproved === this.editUserApproved) {
+      this.showEditUserModal = false;
+      return;
+    }
+
+    this.confirmation
+      .confirm({
+        title: 'Update User Access',
+        message: `Change status and approval for "${this.selectedUser.name}"?`,
+        detail: `Active: ${originalUser.isActive ? 'Yes' : 'No'} → ${this.editUserStatus ? 'Yes' : 'No'} · Approved: ${originalUser.isApproved ? 'Yes' : 'No'} → ${this.editUserApproved ? 'Yes' : 'No'}`,
+        confirmText: 'Update',
+      })
+      .pipe(filter(Boolean))
+      .subscribe(() => this.doUpdateUserStatusAndApproval());
+  }
+
+  private doUpdateUserStatusAndApproval() {
+    if (!this.selectedUser) return;
+
+    const originalUser = this.users.find(u => u.id === this.selectedUser!.id);
+    if (!originalUser) {
+      this.showEditUserModal = false;
+      return;
+    }
+
     const prevActive = originalUser.isActive;
     const prevApproved = originalUser.isApproved;
     const newActive = this.editUserStatus;
@@ -960,22 +988,44 @@ export class UserManagementComponent implements OnInit {
   updateUserRole() {
     if (!this.selectedUser) return;
 
-    this.userService.updateUserRole(this.selectedUser.id, this.selectedRole).subscribe({
-      next: () => {
-        this.showEditRoleModal = false;
-        this.loadUsers();
-      },
-      error: (err) => alert(err.error?.message || 'Error updating role'),
-    });
+    this.confirmation
+      .confirm({
+        title: 'Overwrite User Role',
+        message: `Assign "${this.selectedRole}" to ${this.selectedUser.name}?`,
+        detail: `This overwrites the user's current role and its permissions.`,
+        confirmText: 'Assign',
+        danger: true,
+        icon: 'manage_accounts',
+      })
+      .pipe(filter(Boolean))
+      .subscribe(() => {
+        this.userService.updateUserRole(this.selectedUser!.id, this.selectedRole).subscribe({
+          next: () => {
+            this.showEditRoleModal = false;
+            this.loadUsers();
+          },
+          error: (err) => alert(err.error?.message || 'Error updating role'),
+        });
+      });
   }
 
   deleteUser(user: User) {
-    if (!confirm(`Are you sure you want to deactivate user "${user.name}"?`)) return;
-
-    this.userService.updateUserStatus(user.id, false).subscribe({
-      next: () => this.loadUsers(),
-      error: (err) => alert(err.error?.message || 'Error updating user status'),
-    });
+    this.confirmation
+      .confirm({
+        title: 'Deactivate User',
+        message: `Deactivate user "${user.name}"?`,
+        detail: 'The user will lose access to the platform.',
+        confirmText: 'Deactivate',
+        danger: true,
+        icon: 'delete',
+      })
+      .pipe(filter(Boolean))
+      .subscribe(() => {
+        this.userService.updateUserStatus(user.id, false).subscribe({
+          next: () => this.loadUsers(),
+          error: (err) => alert(err.error?.message || 'Error updating user status'),
+        });
+      });
   }
 
 viewUserClaims(user: User) {

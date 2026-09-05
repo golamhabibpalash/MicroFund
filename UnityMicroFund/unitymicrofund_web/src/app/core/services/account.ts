@@ -55,6 +55,42 @@ export interface UpdateAccountRequest {
   iban?: string;
 }
 
+export type AccountEntryDirection = 'Expense' | 'Income';
+
+export interface AccountLedgerEntry {
+  id: string;
+  accountId: string;
+  accountName: string;
+  direction: AccountEntryDirection;
+  category: string;
+  amount: number;
+  entryDate: string;
+  notes?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface AccountLedgerRequest {
+  accountId: string;
+  direction: AccountEntryDirection;
+  category: string;
+  amount: number;
+  entryDate?: string | null;
+  notes?: string | null;
+}
+
+export interface AccountsSummary {
+  totalAccounts: number;
+  activeAccounts: number;
+  totalBalance: number;
+  totalPoolAmount: number;
+  totalInvestmentNetProfit: number;
+  totalExpenses: number;
+  totalOtherIncome: number;
+  availableBalance: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -81,5 +117,28 @@ export class AccountService {
 
   deleteAccount(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+
+  getSummary(): Observable<AccountsSummary> {
+    return this.http.get<AccountsSummary>(`${this.apiUrl}/summary`);
+  }
+
+  getLedger(filters?: { direction?: AccountEntryDirection; accountId?: string }): Observable<AccountLedgerEntry[]> {
+    let params = '';
+    if (filters?.direction) params += `${params ? '&' : '?'}direction=${filters.direction}`;
+    if (filters?.accountId) params += `${params ? '&' : '?'}accountId=${filters.accountId}`;
+    return this.http.get<AccountLedgerEntry[]>(`${this.apiUrl}/ledger${params}`);
+  }
+
+  createLedgerEntry(req: AccountLedgerRequest): Observable<AccountLedgerEntry> {
+    return this.http.post<AccountLedgerEntry>(`${this.apiUrl}/ledger`, req);
+  }
+
+  updateLedgerEntry(id: string, req: AccountLedgerRequest): Observable<AccountLedgerEntry> {
+    return this.http.put<AccountLedgerEntry>(`${this.apiUrl}/ledger/${id}`, req);
+  }
+
+  deleteLedgerEntry(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/ledger/${id}`);
   }
 }

@@ -19,9 +19,10 @@ public class AppDbContext : DbContext
     private static readonly HashSet<string> AuditedEntities = new()
     {
         nameof(Member), nameof(Investment), nameof(Contribution), nameof(MemberInvestment),
-        nameof(Account), nameof(Transaction), nameof(GroupSetting), nameof(ParamBusConfig),
-        nameof(InvestmentPartner), nameof(InvestmentDocument),
-        nameof(WalletEntry), nameof(ShareSubscription), nameof(ProfitDistribution)
+        nameof(Account), nameof(AccountLedgerEntry), nameof(Transaction), nameof(GroupSetting), nameof(ParamBusConfig),
+        nameof(InvestmentPartner), nameof(InvestmentNominee), nameof(InvestmentDocument),
+        nameof(WalletEntry), nameof(ShareSubscription), nameof(ProfitDistribution),
+        nameof(InvestmentProjectCost), nameof(InvestmentMaintenanceDistribution)
     };
 
     // httpContextAccessor is optional so design-time tooling (dotnet ef) can still construct the context.
@@ -36,8 +37,10 @@ public class AppDbContext : DbContext
     public DbSet<Contribution> Contributions { get; set; }
     public DbSet<MemberInvestment> MemberInvestments { get; set; }
     public DbSet<InvestmentPartner> InvestmentPartners { get; set; }
+    public DbSet<InvestmentNominee> InvestmentNominees { get; set; }
     public DbSet<InvestmentDocument> InvestmentDocuments { get; set; }
     public DbSet<WalletEntry> WalletEntries { get; set; }
+    public DbSet<CashOutRequest> CashOutRequests { get; set; }
     public DbSet<ShareSubscription> ShareSubscriptions { get; set; }
     public DbSet<ProfitDistribution> ProfitDistributions { get; set; }
     public DbSet<MemberTransactionMap> MemberTransactionMaps { get; set; }
@@ -48,6 +51,7 @@ public class AppDbContext : DbContext
     public DbSet<RoleClaim> RoleClaims { get; set; }
     public DbSet<UserClaim> UserClaims { get; set; }
     public DbSet<Account> Accounts { get; set; }
+    public DbSet<AccountLedgerEntry> AccountLedgerEntries { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<RegistrationRequest> RegistrationRequests { get; set; }
@@ -57,6 +61,9 @@ public class AppDbContext : DbContext
     public DbSet<ParamBusConfig> ParamBusConfigs { get; set; }
     public DbSet<LogEntry> LogEntries { get; set; }
     public DbSet<PasswordResetCode> PasswordResetCodes { get; set; }
+    public DbSet<InvestmentInterimProfit> InvestmentInterimProfits { get; set; }
+    public DbSet<InvestmentProjectCost> InvestmentProjectCosts { get; set; }
+    public DbSet<InvestmentMaintenanceDistribution> InvestmentMaintenanceDistributions { get; set; }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -194,17 +201,49 @@ public class AppDbContext : DbContext
             entity.Property(e => e.SharePrice).HasPrecision(18, 2);
             entity.Property(e => e.TargetGrossProfit).HasPrecision(18, 2);
             entity.Property(e => e.ActualGrossProfit).HasPrecision(18, 2);
-            entity.Property(e => e.OperationalExpensePercentage).HasPrecision(5, 2);
-            entity.Property(e => e.OperationalExpenseAmount).HasPrecision(18, 2);
+            entity.Property(e => e.MaintenancePercentage).HasPrecision(5, 2);
+            entity.Property(e => e.MaintenanceAmount).HasPrecision(18, 2);
             entity.Property(e => e.NetProfit).HasPrecision(18, 2);
             entity.Property(e => e.UndistributedRemainder).HasPrecision(18, 2);
             entity.Property(e => e.Type).HasConversion<string>();
             entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
 
+            entity.HasOne(e => e.MaintenanceAccount)
+                  .WithMany()
+                  .HasForeignKey(e => e.MaintenanceAccountId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            // Mandatory participants. Restrict so a member who is on a project cannot be
+            // deleted out from under it.
+            entity.HasOne(e => e.InvestorMember)
+                  .WithMany()
+                  .HasForeignKey(e => e.InvestorMemberId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.WitnessMember)
+                  .WithMany()
+                  .HasForeignKey(e => e.WitnessMemberId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.GuarantorMember)
+                  .WithMany()
+                  .HasForeignKey(e => e.GuarantorMemberId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
             // MariaDB allows multiple NULLs in a unique index, so these enforce
             // "no duplicates" only for investments that actually carry a number.
             entity.HasIndex(e => e.CertificateNumber).IsUnique();
             entity.HasIndex(e => e.ReferenceNumber).IsUnique();
+        });
+
+        modelBuilder.Entity<InvestmentNominee>(entity =>
+        {
+            entity.HasOne(e => e.Partner)
+                  .WithOne(p => p.Nominee)
+                  .HasForeignKey<InvestmentNominee>(e => e.InvestmentPartnerId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.InvestmentPartnerId).IsUnique();
         });
 
         modelBuilder.Entity<InvestmentPartner>(entity =>
@@ -240,6 +279,17 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => new { e.MemberId, e.Month, e.Year }).IsUnique();
         });
 
+        modelBuilder.Entity<InvestmentInterimProfit>(entity =>
+        {
+            entity.Property(e => e.Amount).HasPrecision(18, 2);
+            entity.HasOne(e => e.Investment)
+                  .WithMany(i => i.InterimProfits)
+                  .HasForeignKey(e => e.InvestmentId)
+                  .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.InvestmentId);
+            entity.HasIndex(e => new { e.InvestmentId, e.ProfitDate });
+        });
+
         modelBuilder.Entity<MemberInvestment>(entity =>
         {
             entity.Property(e => e.SharePercentage).HasPrecision(9, 6);
@@ -272,6 +322,20 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.InvestmentId)
                   .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<CashOutRequest>(entity =>
+        {
+            entity.Property(e => e.Amount).HasPrecision(18, 2);
+            entity.Property(e => e.WalletBalanceAtRequest).HasPrecision(18, 2);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+            entity.HasIndex(e => new { e.MemberId, e.Status });
+            entity.HasIndex(e => e.Status);
+
+            entity.HasOne(e => e.Member)
+                  .WithMany()
+                  .HasForeignKey(e => e.MemberId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<ShareSubscription>(entity =>
@@ -346,6 +410,18 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Balance).HasPrecision(18, 2);
             entity.Property(e => e.AccountType).HasConversion<string>();
             entity.HasIndex(e => e.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<AccountLedgerEntry>(entity =>
+        {
+            entity.Property(e => e.Amount).HasPrecision(18, 2);
+            entity.Property(e => e.Direction).HasConversion<string>().HasMaxLength(20);
+            entity.HasOne(e => e.Account)
+                  .WithMany()
+                  .HasForeignKey(e => e.AccountId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.AccountId);
+            entity.HasIndex(e => e.EntryDate);
         });
 
         modelBuilder.Entity<Transaction>(entity =>

@@ -11,7 +11,7 @@ namespace UnityMicroFund.API.Areas.Investments.Services;
 public interface IInvestmentSettings
 {
     Task<decimal> GetMinimumDepositAsync(CancellationToken cancellationToken = default);
-    Task<decimal> GetOperationalExpensePercentageAsync(CancellationToken cancellationToken = default);
+    Task<decimal> GetMaintenancePercentageAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Null means unlimited.</summary>
     Task<int?> GetMaxSharesPerInvestorAsync(CancellationToken cancellationToken = default);
@@ -23,12 +23,11 @@ public interface IInvestmentSettings
 public class InvestmentSettings : IInvestmentSettings
 {
     public const string MinimumDepositKey = "MinimumDepositAmount";
-    public const string OperationalExpenseKey = "OperationalExpensePercentage";
-    public const string MaxSharesPerInvestorKey = "MaxSharesPerInvestor";
+    public const string MaintenancePercentageKey = "MaintenancePercentage";    public const string MaxSharesPerInvestorKey = "MaxSharesPerInvestor";
     public const string MaxOwnershipPercentageKey = "MaxOwnershipPercentage";
 
     private const decimal DefaultMinimumDeposit = 5000m;
-    private const decimal DefaultOperationalExpense = 10m;
+    private const decimal DefaultMaintenance = 10m;
 
     private readonly AppDbContext _context;
 
@@ -40,9 +39,9 @@ public class InvestmentSettings : IInvestmentSettings
     public async Task<decimal> GetMinimumDepositAsync(CancellationToken cancellationToken = default)
         => await ReadDecimalAsync(MinimumDepositKey, cancellationToken) ?? DefaultMinimumDeposit;
 
-    public async Task<decimal> GetOperationalExpensePercentageAsync(CancellationToken cancellationToken = default)
+    public async Task<decimal> GetMaintenancePercentageAsync(CancellationToken cancellationToken = default)
     {
-        var value = await ReadDecimalAsync(OperationalExpenseKey, cancellationToken) ?? DefaultOperationalExpense;
+        var value = await ReadDecimalAsync(MaintenancePercentageKey, cancellationToken) ?? DefaultMaintenance;
         return Math.Clamp(value, 0m, 100m);
     }
 

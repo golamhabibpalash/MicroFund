@@ -26,7 +26,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
         <button actions class="btn-refresh" (click)="loadInvestments()">
           <span class="material-icons">refresh</span>
         </button>
-        <button actions class="btn-primary" (click)="openCreateModal()">
+        <button actions class="btn-primary" *ngIf="isAdmin" (click)="openCreateModal()">
           <span class="material-icons">add</span>
           New Investment
         </button>
@@ -126,55 +126,89 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
 
       <!-- Grid View -->
       <section class="investments-grid" *ngIf="!isLoading && viewMode === 'grid'">
-        <div class="investment-card" *ngFor="let investment of filteredInvestments; let i = index" [style.animation-delay]="i * 50 + 'ms'">
-          <div class="card-header">
-            <div class="investment-type" [ngClass]="investment.type.toLowerCase()">
+        <div class="investment-card" [ngClass]="'card-' + investment.status.toLowerCase()"
+             *ngFor="let investment of filteredInvestments; let i = index" [style.animation-delay]="i * 50 + 'ms'">
+          <div class="icard-top">
+            <span class="icard-type" [ngClass]="investment.type.toLowerCase()">
               <span class="material-icons">{{ getTypeIcon(investment.type) }}</span>
               {{ investment.type }}
-            </div>
-            <span class="return-badge" [class.positive]="investment.returnPercentage >= 0" [class.negative]="investment.returnPercentage < 0">
-              {{ investment.returnPercentage >= 0 ? '+' : '' }}{{ investment.returnPercentage.toFixed(1) }}%
+            </span>
+            <span class="icard-status" [ngClass]="statusClass(investment.status)">
+              <span class="material-icons">{{ statusIcon(investment.status) }}</span>
+              {{ statusLabel(investment.status) }}
             </span>
           </div>
-          <h3 class="investment-name">{{ investment.name }}</h3>
-          <div class="investment-meta">
-            <span class="status-pill" [ngClass]="statusClass(investment.status)">{{ investment.status }}</span>
-            <span class="meta-chip" *ngIf="investment.category">{{ investment.category }}</span>
-            <span class="meta-chip" *ngIf="investment.maturityDate">
-              Matures {{ investment.maturityDate | date:'mediumDate' }}
-            </span>
-          </div>
-          <p class="investment-desc" *ngIf="investment.description">{{ investment.description }}</p>
 
-          <div class="investment-value">
-            <div class="value-row">
-              <span class="label">Principal</span>
-              <span class="amount">{{ formatCurrency(investment.principalAmount) }}</span>
+          <h3 class="icard-name">{{ investment.name }}</h3>
+          <div class="icard-meta">
+            <span *ngIf="investment.category" class="icard-meta-item">
+              <span class="material-icons">label</span> {{ investment.category }}
+            </span>
+            <span *ngIf="investment.maturityDate" class="icard-meta-item">
+              <span class="material-icons">event</span> Matures {{ investment.maturityDate | date:'mediumDate' }}
+            </span>
+          </div>
+          <div class="icard-desc-wrap">
+            <p class="icard-desc" *ngIf="investment.description">{{ investment.description }}</p>
+            <button type="button" class="icard-readmore" *ngIf="isDescTruncated(investment)"
+                    (click)="$event.stopPropagation(); viewInvestment(investment)">
+              Read more
+            </button>
+          </div>
+
+          <div class="icard-stats">
+            <div class="icard-stat">
+              <span class="icard-stat-label">Principal</span>
+              <span class="icard-stat-value">{{ formatCurrency(investment.principalAmount) }}</span>
             </div>
-            <div class="value-row">
-              <span class="label">Current</span>
-              <span class="amount current">{{ formatCurrency(investment.currentValue) }}</span>
+            <div class="icard-stat">
+              <span class="icard-stat-label">Current Value</span>
+              <span class="icard-stat-value">{{ formatCurrency(investment.currentValue) }}</span>
             </div>
-            <div class="value-row return">
-              <span class="label">Returns</span>
-              <span class="amount" [class.positive]="investment.returnAmount >= 0" [class.negative]="investment.returnAmount < 0">
+            <div class="icard-stat">
+              <span class="icard-stat-label">Returns</span>
+              <span class="icard-stat-value" [class.pos]="investment.returnAmount >= 0" [class.neg]="investment.returnAmount < 0">
                 {{ investment.returnAmount >= 0 ? '+' : '' }}{{ formatCurrency(investment.returnAmount) }}
+                <em class="icard-stat-sub">{{ investment.returnPercentage >= 0 ? '+' : '' }}{{ investment.returnPercentage.toFixed(1) }}%</em>
               </span>
             </div>
           </div>
 
-          <div class="progress-section">
-            <div class="progress-header">
-              <span>Return Progress</span>
-              <span>{{ ((investment.returnPercentage + 10) / 20 * 100).toFixed(0) }}%</span>
+          <div class="icard-progress">
+            <div class="icard-progress-head">
+              <span class="icard-progress-label">Realized Progress</span>
+              <span class="icard-progress-pct">{{ investmentProgress(investment) | number:'1.2-2' }}%</span>
             </div>
-            <div class="progress-bar">
-              <div class="progress-fill" [style.width.%]="Math.min(((investment.returnPercentage + 10) / 20 * 100), 100)"></div>
+            <div class="icard-progress-bar">
+              <div class="icard-progress-fill" [class.neg]="investmentProgress(investment) < 0"
+                   [style.width.%]="Math.min(Math.max(investmentProgress(investment), 0), 100)"></div>
             </div>
           </div>
 
-          <div class="card-footer">
-            <div class="members-preview" *ngIf="investment.members.length > 0">
+          <div class="icard-shares" *ngIf="investment.totalShares">
+            <div class="icard-shares-head">
+              <span class="icard-shares-label">Share Subscription</span>
+              <span class="icard-shares-count"><strong>{{ investment.remainingShares }}</strong> / {{ investment.totalShares }} available</span>
+            </div>
+            <div class="icard-shares-bar">
+              <div class="icard-shares-fill" [class.sold-out]="investment.subscriptionPercentage >= 100"
+                   [style.width.%]="Math.min(investment.subscriptionPercentage, 100)"></div>
+            </div>
+            <div class="icard-shares-foot">
+              <span>{{ investment.soldShares | number }} sold</span>
+              <span class="icard-shares-pct">{{ investment.subscriptionPercentage.toFixed(0) }}% subscribed</span>
+            </div>
+          </div>
+
+          <div class="icard-footer">
+            <button
+              class="btn-invest"
+              *ngIf="investment.status === 'OpenForSubscription'"
+              (click)="openInvest(investment)">
+              <span class="material-icons">payments</span>
+              Invest / Buy Shares
+            </button>
+            <div class="members-preview" *ngIf="investment.members.length > 0 && investment.status !== 'OpenForSubscription'">
               <div class="member-avatars">
                 <div class="avatar" *ngFor="let m of investment.members.slice(0, 3)" [title]="m.memberName">
                   {{ getInitials(m.memberName) }}
@@ -186,16 +220,16 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
               <span class="members-count">{{ investment.members.length }} members</span>
             </div>
             <div class="card-actions">
-              <button class="btn-icon" (click)="viewInvestment(investment)" title="View">
+              <button class="btn-icon" (click)="viewInvestment(investment)" title="View details">
                 <span class="material-icons">visibility</span>
               </button>
-              <button class="btn-icon" (click)="editInvestment(investment)" title="Edit">
+              <button class="btn-icon" *ngIf="isAdmin" (click)="editInvestment(investment)" title="Edit">
                 <span class="material-icons">edit</span>
               </button>
-              <button class="btn-icon" (click)="manageInvestment(investment)" title="Shares & lifecycle">
+              <button class="btn-icon" *ngIf="isAdmin" (click)="manageInvestment(investment)" title="Shares & lifecycle">
                 <span class="material-icons">tune</span>
               </button>
-              <button class="btn-icon danger" (click)="confirmDelete(investment)" title="Delete">
+              <button class="btn-icon danger" *ngIf="isAdmin" (click)="confirmDelete(investment)" title="Delete">
                 <span class="material-icons">delete</span>
               </button>
             </div>
@@ -205,8 +239,8 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
         <div class="empty-state" *ngIf="filteredInvestments.length === 0">
           <span class="material-icons">trending_up</span>
           <h3>No Investments Found</h3>
-          <p>Start by creating your first investment</p>
-          <button class="btn-primary" (click)="openCreateModal()">
+          <p>{{ isAdmin ? 'Start by creating your first investment' : 'No circulated investments are available yet' }}</p>
+          <button class="btn-primary" *ngIf="isAdmin" (click)="openCreateModal()">
             <span class="material-icons">add</span>
             Create Investment
           </button>
@@ -234,8 +268,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
             <tbody>
               <tr *ngFor="let inv of filteredInvestments">
                 <td class="name-cell">
-                  <strong>{{ inv.name }}</strong>
-                  <span *ngIf="inv.description" class="desc">{{ inv.description }}</span>
+                  <strong [title]="inv.name">{{ inv.name }}</strong>
                 </td>
                 <td>
                   <span class="type-badge" [ngClass]="inv.type.toLowerCase()">{{ inv.type }}</span>
@@ -256,16 +289,22 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
                 <td>{{ inv.members.length }}</td>
                 <td class="date">{{ inv.dateInvested | date:'mediumDate' }}</td>
                 <td class="actions">
-                  <button class="btn-icon" (click)="viewInvestment(inv)">
+                  <button class="btn-icon" (click)="viewInvestment(inv)" title="View">
                     <span class="material-icons">visibility</span>
                   </button>
-                  <button class="btn-icon" (click)="editInvestment(inv)">
+                  <button
+                    class="btn-invest-table"
+                    *ngIf="inv.status === 'OpenForSubscription'"
+                    (click)="openInvest(inv)">
+                    <span class="material-icons">payments</span> Invest
+                  </button>
+                  <button class="btn-icon" *ngIf="isAdmin" (click)="editInvestment(inv)" title="Edit">
                     <span class="material-icons">edit</span>
                   </button>
-                  <button class="btn-icon" (click)="manageInvestment(inv)" title="Shares & lifecycle">
+                  <button class="btn-icon" *ngIf="isAdmin" (click)="manageInvestment(inv)" title="Shares & lifecycle">
                     <span class="material-icons">tune</span>
                   </button>
-                  <button class="btn-icon danger" (click)="confirmDelete(inv)">
+                  <button class="btn-icon danger" *ngIf="isAdmin" (click)="confirmDelete(inv)" title="Delete">
                     <span class="material-icons">delete</span>
                   </button>
                 </td>
@@ -315,128 +354,188 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
 
     <!-- View Investment Modal -->
     <div class="modal-overlay" *ngIf="showViewModal" (click)="closeViewModal()">
-      <div class="modal-content modal-large" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <h3>{{ selectedInvestment?.name }}</h3>
-          <button class="close-btn" (click)="closeViewModal()">
-            <span class="material-icons">close</span>
-          </button>
-        </div>
-        <div class="modal-body" *ngIf="selectedInvestment">
-          <div class="detail-grid">
-            <div class="detail-card">
-              <span class="detail-label">Investment Type</span>
-              <span class="detail-value type-badge" [ngClass]="selectedInvestment.type.toLowerCase()">{{ selectedInvestment.type }}</span>
+      <div class="modal-content vmodal" (click)="$event.stopPropagation()">
+        <div class="vmodal-hero" *ngIf="selectedInvestment">
+          <div class="vmodal-hero-top">
+            <span class="vmodal-type" [ngClass]="selectedInvestment.type.toLowerCase()">
+              <span class="material-icons">{{ getTypeIcon(selectedInvestment.type) }}</span>
+              {{ selectedInvestment.type }}
+            </span>
+            <span class="vmodal-status" [ngClass]="statusClass(selectedInvestment.status)">
+              {{ selectedInvestment.status }}
+            </span>
+            <button class="vmodal-close" (click)="closeViewModal()" title="Close">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+          <h2 class="vmodal-title">{{ selectedInvestment.name }}</h2>
+          <p class="vmodal-subtitle" *ngIf="selectedInvestment.category || selectedInvestment.durationMonths">
+            {{ selectedInvestment.category }}<span *ngIf="selectedInvestment.category && selectedInvestment.durationMonths">&nbsp;&middot;&nbsp;</span>
+            <ng-container *ngIf="selectedInvestment.durationMonths">{{ selectedInvestment.durationMonths }} months</ng-container>
+          </p>
+
+          <div class="vmodal-kpis">
+            <div class="kpi">
+              <span class="kpi-label">Principal</span>
+              <span class="kpi-value">{{ formatCurrency(selectedInvestment.principalAmount) }}</span>
             </div>
-            <div class="detail-card">
-              <span class="detail-label">Date Invested</span>
-              <span class="detail-value">{{ selectedInvestment.dateInvested | date:'longDate' }}</span>
+            <div class="kpi">
+              <span class="kpi-label">Current Value</span>
+              <span class="kpi-value">{{ formatCurrency(selectedInvestment.currentValue) }}</span>
             </div>
-            <div class="detail-card">
-              <span class="detail-label">Principal Amount</span>
-              <span class="detail-value currency">{{ formatCurrency(selectedInvestment.principalAmount) }}</span>
-            </div>
-            <div class="detail-card">
-              <span class="detail-label">Current Value</span>
-              <span class="detail-value currency highlight">{{ formatCurrency(selectedInvestment.currentValue) }}</span>
-            </div>
-            <div class="detail-card">
-              <span class="detail-label">Total Returns</span>
-              <span class="detail-value currency" [class.positive]="selectedInvestment.returnAmount >= 0" [class.negative]="selectedInvestment.returnAmount < 0">
+            <div class="kpi">
+              <span class="kpi-label">Total Returns</span>
+              <span class="kpi-value" [class.pos]="selectedInvestment.returnAmount >= 0" [class.neg]="selectedInvestment.returnAmount < 0">
                 {{ selectedInvestment.returnAmount >= 0 ? '+' : '' }}{{ formatCurrency(selectedInvestment.returnAmount) }}
+                <em class="kpi-sub">{{ selectedInvestment.returnPercentage >= 0 ? '+' : '' }}{{ selectedInvestment.returnPercentage.toFixed(2) }}%</em>
               </span>
             </div>
-            <div class="detail-card">
-              <span class="detail-label">Return Percentage</span>
-              <span class="detail-value return-badge" [class.positive]="selectedInvestment.returnPercentage >= 0" [class.negative]="selectedInvestment.returnPercentage < 0">
-                {{ selectedInvestment.returnPercentage >= 0 ? '+' : '' }}{{ selectedInvestment.returnPercentage.toFixed(2) }}%
+            <div class="kpi" *ngIf="selectedInvestment.totalShares">
+              <span class="kpi-label">Subscription</span>
+              <span class="kpi-value">
+                {{ selectedInvestment.subscriptionPercentage.toFixed(0) }}%
+                <span class="kpi-progress"><i [style.width.%]="selectedInvestment.subscriptionPercentage"></i></span>
               </span>
-            </div>
-            <div class="detail-card">
-              <span class="detail-label">Status</span>
-              <span class="detail-value status-pill" [ngClass]="statusClass(selectedInvestment.status)">
-                {{ selectedInvestment.status }}
-              </span>
-            </div>
-            <div class="detail-card" *ngIf="selectedInvestment.category">
-              <span class="detail-label">Category</span>
-              <span class="detail-value">{{ selectedInvestment.category }}</span>
-            </div>
-            <div class="detail-card" *ngIf="selectedInvestment.maturityDate">
-              <span class="detail-label">Maturity Date</span>
-              <span class="detail-value">{{ selectedInvestment.maturityDate | date:'longDate' }}</span>
-            </div>
-            <div class="detail-card" *ngIf="selectedInvestment.durationMonths">
-              <span class="detail-label">Duration</span>
-              <span class="detail-value">{{ selectedInvestment.durationMonths }} months</span>
-            </div>
-            <div class="detail-card" *ngIf="selectedInvestment.totalShares">
-              <span class="detail-label">Shares</span>
-              <span class="detail-value">
-                {{ selectedInvestment.totalShares }} &times; {{ formatCurrency(selectedInvestment.sharePrice || 0) }}
-              </span>
-            </div>
-            <div class="detail-card" *ngIf="selectedInvestment.certificateNumber">
-              <span class="detail-label">Certificate No.</span>
-              <span class="detail-value">{{ selectedInvestment.certificateNumber }}</span>
-            </div>
-            <div class="detail-card" *ngIf="selectedInvestment.referenceNumber">
-              <span class="detail-label">Reference No.</span>
-              <span class="detail-value">{{ selectedInvestment.referenceNumber }}</span>
             </div>
           </div>
+        </div>
 
-          <div class="members-section" *ngIf="selectedInvestment.partners?.length">
-            <h4>Partners ({{ selectedInvestment.partners.length }})</h4>
-            <div class="members-list">
-              <div class="member-item partner-item" *ngFor="let p of selectedInvestment.partners">
-                <div class="member-avatar">{{ getInitials(p.partnerName) }}</div>
-                <div class="member-info">
-                  <span class="member-name">{{ p.partnerName }}</span>
-                  <span class="member-share">
-                    {{ p.phone1 }}<span *ngIf="p.email"> &middot; {{ p.email }}</span>
+        <div class="vmodal-body" *ngIf="selectedInvestment">
+          <div class="vmodal-section">
+            <h4 class="vmodal-section-title"><span class="material-icons">info</span> Investment Details</h4>
+            <dl class="vmodal-defs">
+              <div class="def" *ngIf="selectedInvestment.dateInvested">
+                <dt>Start Date</dt>
+                <dd>{{ selectedInvestment.dateInvested | date:'mediumDate' }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.maturityDate">
+                <dt>Maturity Date</dt>
+                <dd>{{ selectedInvestment.maturityDate | date:'mediumDate' }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.totalShares">
+                <dt>Total Shares</dt>
+                <dd>{{ selectedInvestment.totalShares | number }} <span class="def-muted">@ {{ formatCurrency(selectedInvestment.sharePrice || 0) }}/share</span></dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.soldShares > 0">
+                <dt>Shares Sold</dt>
+                <dd>{{ selectedInvestment.soldShares | number }} <span class="def-muted">/ {{ selectedInvestment.totalShares | number }}</span></dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.minimumSharesPerMember">
+                <dt>Min Shares / Member</dt>
+                <dd>{{ selectedInvestment.minimumSharesPerMember | number }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.maximumSharesPerMember">
+                <dt>Max Shares / Member</dt>
+                <dd>{{ selectedInvestment.maximumSharesPerMember | number }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.targetGrossProfit">
+                <dt>Target Gross Profit</dt>
+                <dd>{{ formatCurrency(selectedInvestment.targetGrossProfit) }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.grossReceivedAmount">
+                <dt>Gross Received</dt>
+                <dd>{{ formatCurrency(selectedInvestment.grossReceivedAmount) }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.interimProfitTotal">
+                <dt>Interim Profits</dt>
+                <dd class="pos">{{ formatCurrency(selectedInvestment.interimProfitTotal) }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.totalProjectCost">
+                <dt>Project Costs</dt>
+                <dd class="neg">{{ formatCurrency(selectedInvestment.totalProjectCost) }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.maintenancePercentage > 0">
+                <dt>Maintenance</dt>
+                <dd>{{ selectedInvestment.maintenancePercentage }}% of profit</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.certificateNumber">
+                <dt>Certificate No.</dt>
+                <dd>{{ selectedInvestment.certificateNumber }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.referenceNumber">
+                <dt>Reference No.</dt>
+                <dd>{{ selectedInvestment.referenceNumber }}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="vmodal-section"
+               *ngIf="selectedInvestment.investorName || selectedInvestment.witnessName || selectedInvestment.guarantorName">
+            <h4 class="vmodal-section-title"><span class="material-icons">groups</span> Participants</h4>
+            <dl class="vmodal-defs">
+              <div class="def" *ngIf="selectedInvestment.investorName">
+                <dt>Investor</dt>
+                <dd>{{ selectedInvestment.investorName }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.witnessName">
+                <dt>Investor Witness</dt>
+                <dd>{{ selectedInvestment.witnessName }}</dd>
+              </div>
+              <div class="def" *ngIf="selectedInvestment.guarantorName">
+                <dt>Guarantor</dt>
+                <dd>{{ selectedInvestment.guarantorName }}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="vmodal-section" *ngIf="selectedInvestment.description">
+            <h4 class="vmodal-section-title"><span class="material-icons">notes</span> Description</h4>
+            <p class="vmodal-desc">{{ selectedInvestment.description }}</p>
+          </div>
+
+          <div class="vmodal-section" *ngIf="selectedInvestment.partners?.length">
+            <div class="vmodal-section-head">
+              <h4 class="vmodal-section-title"><span class="material-icons">handshake</span> Partner &amp; Nominee</h4>
+            </div>
+            <div class="vmodal-rows">
+              <div class="vrow partner" *ngFor="let p of selectedInvestment.partners">
+                <div class="vrow-avatar">{{ getInitials(p.partnerName) }}</div>
+                <div class="vrow-main">
+                  <span class="vrow-name">{{ p.partnerName }}</span>
+                  <span class="vrow-meta">{{ p.phone1 }}<ng-container *ngIf="p.email"> &middot; {{ p.email }}</ng-container></span>
+                  <span class="vrow-meta" *ngIf="p.nid">NID: {{ p.nid }}</span>
+                  <span class="vrow-meta" *ngIf="p.presentAddress">{{ p.presentAddress }}</span>
+                  <span class="vrow-meta" *ngIf="p.nominee?.name">
+                    Nominee: {{ p.nominee?.name }} &middot; {{ p.nominee?.phone }} &middot; NID {{ p.nominee?.nid }}<ng-container *ngIf="p.nominee?.relation"> ({{ p.nominee?.relation }})</ng-container>
                   </span>
-                  <span class="member-share" *ngIf="p.nomineeName">
-                    Nominee: {{ p.nomineeName }}<span *ngIf="p.nomineeRelationship"> ({{ p.nomineeRelationship }})</span>
-                  </span>
+                  <span class="vrow-meta" *ngIf="!p.nominee?.name && p.nomineeName">Nominee: {{ p.nomineeName }}<ng-container *ngIf="p.nomineeRelationship"> ({{ p.nomineeRelationship }})</ng-container></span>
                 </div>
-                <span class="meta-chip" *ngIf="p.memberId">Member</span>
+                <span class="vrow-tag" *ngIf="p.memberId">Member</span>
               </div>
             </div>
           </div>
 
-          <div class="members-section" *ngIf="selectedInvestment.documents?.length">
-            <h4>Documents ({{ selectedInvestment.documents.length }})</h4>
-            <div class="members-list">
-              <a
-                class="member-item document-item"
-                *ngFor="let d of selectedInvestment.documents"
-                [href]="d.fileUrl"
-                target="_blank"
-                rel="noopener">
-                <span class="material-icons">description</span>
-                <div class="member-info">
-                  <span class="member-name">{{ d.fileName }}</span>
-                  <span class="member-share">{{ (d.fileSizeBytes / 1024) | number:'1.0-0' }} KB</span>
+          <div class="vmodal-section" *ngIf="selectedInvestment.members && selectedInvestment.members.length > 0">
+            <div class="vmodal-section-head">
+              <h4 class="vmodal-section-title"><span class="material-icons">group</span> Invested Members</h4>
+              <span class="vmodal-count">{{ selectedInvestment.members.length }}</span>
+            </div>
+            <div class="vmodal-rows">
+              <div class="vrow" *ngFor="let m of selectedInvestment.members">
+                <div class="vrow-avatar">{{ getInitials(m.memberName) }}</div>
+                <div class="vrow-main">
+                  <span class="vrow-name">{{ m.memberName }}</span>
+                  <span class="vrow-meta">{{ m.sharePercentage.toFixed(2) }}% share</span>
                 </div>
+                <span class="vrow-value">{{ formatCurrency(m.shareValue) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="vmodal-section" *ngIf="selectedInvestment.documents?.length">
+            <div class="vmodal-section-head">
+              <h4 class="vmodal-section-title"><span class="material-icons">attach_file</span> Documents</h4>
+              <span class="vmodal-count">{{ selectedInvestment.documents.length }}</span>
+            </div>
+            <div class="vmodal-rows">
+              <a class="vrow doc" *ngFor="let d of selectedInvestment.documents" [href]="d.fileUrl" target="_blank" rel="noopener">
+                <span class="vrow-docicon material-icons">description</span>
+                <div class="vrow-main">
+                  <span class="vrow-name">{{ d.fileName }}</span>
+                  <span class="vrow-meta">{{ (d.fileSizeBytes / 1024) | number:'1.0-0' }} KB</span>
+                </div>
+                <span class="material-icons vrow-arrow">open_in_new</span>
               </a>
-            </div>
-          </div>
-          <div class="description-section" *ngIf="selectedInvestment.description">
-            <h4>Description</h4>
-            <p>{{ selectedInvestment.description }}</p>
-          </div>
-          <div class="members-section" *ngIf="selectedInvestment.members && selectedInvestment.members.length > 0">
-            <h4>Invested Members ({{ selectedInvestment.members.length }})</h4>
-            <div class="members-list">
-              <div class="member-item" *ngFor="let m of selectedInvestment.members">
-                <div class="member-avatar">{{ getInitials(m.memberName) }}</div>
-                <div class="member-info">
-                  <span class="member-name">{{ m.memberName }}</span>
-                  <span class="member-share">{{ m.sharePercentage.toFixed(2) }}% share</span>
-                </div>
-                <span class="member-value">{{ formatCurrency(m.shareValue) }}</span>
-              </div>
             </div>
           </div>
         </div>
@@ -459,6 +558,72 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
       (changed)="loadInvestments()"
       (closed)="managing = null">
     </app-investment-manage>
+
+    <!-- Invest / Buy Shares -->
+    <div class="modal-overlay" *ngIf="investingInvestment" (click)="cancelInvest()">
+      <div class="modal-content invest-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>Invest in {{ investingInvestment.name }}</h3>
+          <button class="close-btn" (click)="cancelInvest()">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+        <div class="modal-body" *ngIf="investingInvestment as inv">
+          <div class="invest-summary">
+            <div><span class="k">Share Price</span><span class="v">{{ formatCurrency(inv.sharePrice || 0) }}</span></div>
+            <div><span class="k">Available</span><span class="v">{{ inv.remainingShares }}</span></div>
+            <div *ngIf="inv.minimumSharesPerMember"><span class="k">Minimum</span><span class="v">{{ inv.minimumSharesPerMember }}</span></div>
+            <div *ngIf="inv.maximumSharesPerMember"><span class="k">Maximum</span><span class="v">{{ inv.maximumSharesPerMember }}</span></div>
+          </div>
+
+          <div class="field">
+            <label>Number of shares *</label>
+            <input
+              type="number"
+              min="1"
+              [max]="inv.remainingShares"
+              step="1"
+              [(ngModel)]="investShares"
+              name="invest-shares" />
+            <span class="field-error" *ngIf="investShares && (inv.minimumSharesPerMember && investShares < inv.minimumSharesPerMember)">
+              Minimum purchase is {{ inv.minimumSharesPerMember }} share(s).
+            </span>
+          </div>
+
+          <div class="field" *ngIf="isAdmin && investBalances.length > 0">
+            <label>Invest on behalf of (delegation)</label>
+            <select [(ngModel)]="investForMemberId" name="invest-member">
+              <option [ngValue]="null">Myself</option>
+              <option *ngFor="let b of investBalances" [ngValue]="b.memberId">
+                {{ b.memberName }}
+              </option>
+            </select>
+            <span class="field-hint">Select a member to allocate the shares to their account.</span>
+          </div>
+
+          <div class="cost-box">
+            <span class="k">Total cost</span>
+            <span class="v">{{ formatCurrency((investShares || 0) * (inv.sharePrice || 0)) }}</span>
+          </div>
+
+          <label class="agreement-check">
+            <input type="checkbox" [(ngModel)]="investAgreementAccepted" name="invest-agreement" />
+            <span>I have read and understood the investment agreement/caution and agree to the
+              terms before purchasing shares.</span>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button class="btn-secondary" (click)="cancelInvest()">Cancel</button>
+          <button
+            class="btn-invest-confirm"
+            [disabled]="isInvesting || !investValid()"
+            (click)="confirmInvest()">
+            <span class="material-icons">payments</span>
+            {{ isInvesting ? 'Investing...' : 'Confirm Investment' }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- Delete Confirmation -->
     <div class="modal-overlay" *ngIf="showDeleteModal" (click)="cancelDelete()">
@@ -507,37 +672,60 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .investment-meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
     .meta-chip { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 500; background: #f1f3f9; color: #555; }
     .status-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
-    .status-active { background: #e8f5e9; color: #2e7d32; }
-    .status-matured { background: #e3f2fd; color: #1565c0; }
-    .status-closed { background: #eceff1; color: #546e7a; }
-    .status-suspended { background: #fff3e0; color: #ef6c00; }
-    .partner-item .member-info { gap: 2px; }
-    .document-item { text-decoration: none; color: inherit; }
-    .document-item:hover .member-name { color: #667eea; }
 
-    .investments-wrapper { max-width: 1600px; margin: 0 auto; padding: 24px; box-sizing: border-box; }
-    
+    /* Status colours — one palette shared by the grid card pill, the table pill
+       and the detail hero. Each project lifecycle state has its own hue. */
+    .status-draft, .icard-status.status-draft { background: #eef1f4; color: #5b6470; }
+    .status-openforsubscription, .icard-status.status-openforsubscription { background: #e7f6ec; color: #1e7e34; }
+    .status-fullysubscribed, .icard-status.status-fullysubscribed { background: #e4f0fb; color: #1565c0; }
+    .status-active, .icard-status.status-active { background: #ede7f6; color: #5e35b1; }
+    .status-completed, .icard-status.status-completed { background: #fff6e0; color: #b7791f; }
+    .status-profitdistributed, .icard-status.status-profitdistributed { background: #e0f2f1; color: #00695c; }
+    .status-closed, .icard-status.status-closed { background: #eef1f4; color: #5b6470; }
+    .status-cancelled, .icard-status.status-cancelled { background: #fdecea; color: #c62828; }
+
+    .investments-wrapper { max-width: 1600px; margin: 0 auto; padding: 20px 24px; box-sizing: border-box; }
+
     /* Stats */
-    .stats-section { margin-bottom: 24px; }
-    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-    
+    .stats-section { margin-bottom: 16px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
     /* Filter Section */
-    .filter-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; background: white; padding: 16px 24px; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
-    .filter-left { display: flex; align-items: center; gap: 16px; }
-    .view-toggle { display: flex; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
-    .view-toggle button { background: white; border: none; padding: 10px 14px; cursor: pointer; color: #666; transition: all 0.2s; }
-    .view-toggle button:hover { background: #f5f5f5; }
-    .view-toggle button.active { background: #667eea; color: white; }
-    .filter-group select { padding: 10px 16px; border: 1px solid #e0e0e0; border-radius: 10px; font-size: 14px; background: white; cursor: pointer; }
-    .search-box { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border: 1px solid #e0e0e0; border-radius: 10px; background: white; }
-    .search-box .material-icons { color: #999; }
-    .search-box input { border: none; background: transparent; outline: none; font-size: 14px; width: 220px; }
+    .filter-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; background: white; padding: 12px 16px; border-radius: var(--radius-lg, 12px); border: 1px solid var(--color-border-light, #f1f5f9); box-shadow: var(--shadow-card, none); }
+    .filter-left { display: flex; align-items: center; gap: 12px; }
+    .view-toggle { display: flex; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); overflow: hidden; }
+    .view-toggle button { background: white; border: none; padding: 8px 12px; cursor: pointer; color: var(--text-muted, #64748b); transition: all 0.2s; }
+    .view-toggle button:hover { background: var(--color-background-alt, #f8fafc); }
+    .view-toggle button.active { background: var(--color-accent, #0d9488); color: white; }
+    .filter-group select { padding: 8px 12px; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); font-size: 13px; background: white; cursor: pointer; color: var(--text-primary, #0f172a); }
+    .search-box { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); background: white; }
+    .search-box .material-icons { color: var(--text-muted, #64748b); font-size: 18px; }
+    .search-box input { border: none; background: transparent; outline: none; font-size: 13px; width: 200px; color: var(--text-primary, #0f172a); }
 
     /* Button Styles */
-    .btn-refresh { background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 12px; cursor: pointer; color: #666; transition: all 0.3s; }
-    .btn-refresh:hover { background: #667eea; color: white; border-color: #667eea; }
-    .btn-primary { display: flex; align-items: center; gap: 8px; padding: 12px 24px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 12px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.3s; }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+    .btn-refresh { background: white; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); padding: 8px; cursor: pointer; color: var(--text-muted, #64748b); transition: all 0.2s; }
+    .btn-refresh:hover { background: var(--color-accent, #0d9488); color: white; border-color: var(--color-accent, #0d9488); }
+    .btn-primary { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: linear-gradient(135deg, #0d9488, #1e40af); color: white; border: none; border-radius: var(--radius-md, 8px); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-primary:hover { box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35); }
+
+    /* Invest / buy share */
+    .btn-invest { display: inline-flex; align-items: center; gap: 5px; padding: 7px 12px; background: linear-gradient(135deg, #059669, #0d9488); color: white; border: none; border-radius: var(--radius-md, 8px); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-invest .material-icons { font-size: 16px; }
+    .btn-invest:hover { box-shadow: 0 4px 12px rgba(13, 148, 136, 0.35); }
+    .btn-invest-table { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+    .btn-invest-table:hover { box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4); }
+    .invest-modal { max-width: 460px; }
+    .invest-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; background: #f8f9fa; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .invest-summary > div { display: flex; flex-direction: column; gap: 3px; }
+    .invest-summary .k { font-size: 12px; color: #888; }
+    .invest-summary .v { font-size: 16px; font-weight: 600; color: #1a1a2e; }
+    .cost-box { display: flex; justify-content: space-between; align-items: center; background: #e8f5e9; border-radius: 12px; padding: 14px 16px; margin-top: 12px; }
+    .cost-box .k { font-size: 13px; color: #2e7d32; }
+    .cost-box .v { font-size: 20px; font-weight: 700; color: #1b5e20; }
+    .btn-invest-confirm { display: inline-flex; align-items: center; gap: 6px; padding: 11px 20px; background: linear-gradient(135deg, #27ae60, #2ecc71); color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .btn-invest-confirm:disabled { opacity: 0.6; cursor: not-allowed; }
+    .agreement-check { display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; font-size: 13px; line-height: 1.5; color: #444; cursor: pointer; }
+    .agreement-check input { margin-top: 2px; width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
 
     /* Loading */
     .loading-container { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; }
@@ -545,52 +733,89 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
     /* Grid View */
-    .investments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 24px; }
-    .investment-card { background: white; border-radius: 20px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); transition: all 0.3s; animation: fadeInUp 0.4s ease forwards; opacity: 0; }
-    @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-    .investment-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.12); }
-    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .investment-type { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; text-transform: uppercase; }
-    .investment-type.stock { background: #e3f2fd; color: #1976d2; }
-    .investment-type.bond { background: #f3e5f5; color: #7b1fa2; }
-    .investment-type.realestate { background: #e8f5e9; color: #388e3c; }
-    .investment-type.mutualfund { background: #fff3e0; color: #f57c00; }
-    .investment-type.fixeddeposit { background: #fce4ec; color: #c2185b; }
-    .investment-type.other { background: #eceff1; color: #546e7a; }
-    .return-badge { padding: 4px 10px; border-radius: 12px; font-size: 13px; font-weight: 600; }
-    .return-badge.positive { background: #e8f5e9; color: #27ae60; }
-    .return-badge.negative { background: #ffebee; color: #e74c3c; }
-    .investment-name { font-size: 20px; font-weight: 700; color: #1a1a2e; margin: 0 0 4px 0; }
-    .investment-desc { font-size: 13px; color: #666; margin: 0 0 16px 0; }
-    .investment-value { background: #f8f9fa; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-    .value-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-    .value-row:last-child { margin-bottom: 0; }
-    .value-row .label { color: #666; font-size: 13px; }
-    .value-row .amount { font-weight: 600; color: #1a1a2e; }
-    .value-row .amount.current { color: #667eea; font-size: 16px; }
-    .value-row.return { padding-top: 8px; border-top: 1px dashed #ddd; margin-top: 8px; }
-    .value-row.return .amount.positive { color: #27ae60; }
-    .value-row.return .amount.negative { color: #e74c3c; }
-    .progress-section { margin-bottom: 16px; }
-    .progress-header { display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-bottom: 6px; }
-    .progress-bar { height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; }
-    .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 4px; transition: width 0.5s ease; }
-    .card-footer { display: flex; justify-content: space-between; align-items: center; }
+    .investments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-items: stretch; }
+    .investment-card { display: flex; flex-direction: column; background: white; border: 1px solid var(--color-border-light, #eef2f7); border-left: 4px solid var(--color-border, #cbd5e1); border-radius: var(--radius-xl, 14px); padding: 14px 14px 12px; box-shadow: var(--shadow-card, 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)); transition: transform 0.25s ease, box-shadow 0.25s ease; overflow: hidden; min-width: 0; will-change: transform; }
+
+    /* Status-wise colour indicator: a coloured spine down the left edge of every card. */
+    .investment-card.card-draft { border-left-color: #94a3b8; }
+    .investment-card.card-openforsubscription { border-left-color: #22a559; }
+    .investment-card.card-fullysubscribed { border-left-color: #1565c0; }
+    .investment-card.card-active { border-left-color: #7e57c2; }
+    .investment-card.card-completed { border-left-color: #d69e2e; }
+    .investment-card.card-profitdistributed { border-left-color: #00897b; }
+    .investment-card.card-closed { border-left-color: #94a3b8; }
+    .investment-card.card-cancelled { border-left-color: #e53935; }
+    @keyframes fadeInUp { from { transform: translateY(8px); } to { transform: translateY(0); } }
+    .investment-card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(0,0,0,0.16), 0 6px 16px rgba(0,0,0,0.10); }
+
+    .icard-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 12px; min-width: 0; }
+    .icard-type { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .icard-type .material-icons { font-size: 14px; }
+    .icard-type.stock { background: #e3f2fd; color: #1976d2; }
+    .icard-type.bond { background: #f3e5f5; color: #7b1fa2; }
+    .icard-type.realestate { background: #e8f5e9; color: #388e3c; }
+    .icard-type.business { background: #ccfbf1; color: #0f766e; }
+    .icard-type.savings { background: #fff3e0; color: #f57c00; }
+    .icard-type.fixeddeposit { background: #fce4ec; color: #c2185b; }
+    .icard-type.other { background: #eceff1; color: #546e7a; }
+    .icard-status { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--color-background-alt, #f8fafc); color: var(--text-muted, #64748b); max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .icard-status .material-icons { font-size: 13px; }
+
+    .icard-name { font-size: 15px; font-weight: 700; color: var(--text-primary, #0f172a); margin: 0 0 2px; letter-spacing: -0.2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .icard-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 4px 0 8px; }
+    .icard-meta-item { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-muted, #64748b); min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .icard-meta-item .material-icons { font-size: 13px; }
+    /* No hover behaviour - content is static, so this box never changes size. */
+    .icard-desc-wrap { position: relative; margin-bottom: 10px; min-height: 35px; }
+    .icard-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; color: var(--text-secondary, #475569); margin: 0; line-height: 1.45; }
+    /* A real button: click opens the same detail view as the eye icon. */
+    .icard-readmore { display: inline-block; margin-top: 2px; padding: 0; border: none; background: none; font-size: 11.5px; font-weight: 600; color: var(--color-accent, #0d9488); cursor: pointer; }
+    .icard-readmore:hover { text-decoration: underline; }
+
+    .icard-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+    .icard-stat { background: var(--color-background-alt, #f8fafc); border: 1px solid var(--color-border-light, #f1f5f9); border-radius: var(--radius-lg, 10px); padding: 7px 8px; min-width: 0; }
+    .icard-stat-label { display: block; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted, #64748b); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .icard-stat-value { display: block; font-size: 13.5px; font-weight: 700; color: var(--text-primary, #0f172a); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .icard-stat-value.pos { color: var(--color-success, #059669); }
+    .icard-stat-value.neg { color: var(--color-error, #dc2626); }
+    .icard-stat-sub { display: block; font-style: normal; font-size: 11px; font-weight: 600; opacity: 0.85; }
+
+    .icard-progress { margin-bottom: 10px; }
+    .icard-progress-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+    .icard-progress-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted, #64748b); font-weight: 600; }
+    .icard-progress-pct { font-size: 11.5px; font-weight: 700; color: var(--color-success, #059669); }
+    .icard-progress-bar { height: 5px; background: var(--color-border, #e2e8f0); border-radius: 999px; overflow: hidden; }
+    .icard-progress-fill { height: 100%; background: linear-gradient(90deg, #14b8a6, #0d9488); border-radius: 999px; transition: width 0.5s ease; }
+    .icard-progress-fill.neg { background: linear-gradient(90deg, #f87171, #dc2626); }
+
+    .icard-shares { margin-bottom: 10px; padding: 8px 10px; min-height: 58px; background: var(--color-background-alt, #f8fafc); border: 1px solid var(--color-border-light, #f1f5f9); border-radius: var(--radius-lg, 10px); }
+    .icard-shares-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+    .icard-shares-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted, #64748b); font-weight: 600; }
+    .icard-shares-count { font-size: 12px; color: var(--text-muted, #64748b); }
+    .icard-shares-count strong { font-size: 13px; color: var(--color-accent, #0d9488); font-weight: 700; }
+    .icard-shares-bar { height: 5px; background: var(--color-border, #e2e8f0); border-radius: 999px; overflow: hidden; }
+    .icard-shares-fill { height: 100%; background: linear-gradient(90deg, #14b8a6, #0d9488); border-radius: 999px; transition: width 0.5s ease; }
+    .icard-shares-fill.sold-out { background: linear-gradient(90deg, #34d399, #059669); }
+    .icard-shares-foot { display: flex; justify-content: space-between; margin-top: 4px; font-size: 10.5px; color: var(--text-muted, #64748b); }
+    .icard-shares-pct { font-weight: 600; color: var(--color-accent, #0d9488); }
+
+    .icard-footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--color-divider, #f0f0f0); }
     .members-preview { display: flex; align-items: center; gap: 8px; }
     .member-avatars { display: flex; }
-    .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; margin-left: -8px; border: 2px solid white; }
+    .avatar { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #14b8a6, #0f172a); color: white; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; margin-left: -7px; border: 2px solid white; }
     .avatar:first-child { margin-left: 0; }
-    .avatar.more { background: #e0e0e0; color: #666; font-size: 10px; }
-    .members-count { font-size: 12px; color: #666; }
+    .avatar.more { background: #e2e8f0; color: var(--text-muted, #64748b); font-size: 8px; }
+    .members-count { font-size: 11px; color: var(--text-muted, #64748b); }
     .card-actions { display: flex; gap: 4px; }
-    .btn-icon { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 8px; cursor: pointer; color: #666; transition: all 0.2s; }
-    .btn-icon:hover { background: #f5f5f5; color: #667eea; border-color: #667eea; }
+    .btn-icon { background: white; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); padding: 5px; cursor: pointer; color: var(--text-muted, #64748b); transition: all 0.2s; }
+    .btn-icon .material-icons { font-size: 17px; }
+    .btn-icon:hover { background: var(--color-background-alt, #f8fafc); color: var(--color-accent, #0d9488); border-color: var(--color-accent, #0d9488); }
 
     /* Empty State */
-    .empty-state { grid-column: 1 / -1; text-align: center; padding: 60px 40px; background: white; border-radius: 20px; }
-    .empty-state .material-icons { font-size: 64px; color: #667eea; opacity: 0.5; }
-    .empty-state h3 { font-size: 20px; color: #1a1a2e; margin: 16px 0 8px; }
-    .empty-state p { color: #666; margin-bottom: 24px; }
+    .empty-state { grid-column: 1 / -1; text-align: center; padding: 48px 32px; background: white; border: 1px solid var(--color-border-light, #f1f5f9); border-radius: var(--radius-xl, 16px); }
+    .empty-state .material-icons { font-size: 48px; color: var(--color-accent, #0d9488); opacity: 0.45; }
+    .empty-state h3 { font-size: 18px; color: var(--text-primary, #0f172a); margin: 12px 0 6px; }
+    .empty-state p { color: var(--text-muted, #64748b); margin-bottom: 16px; }
 
     /* Table View */
     .table-section { background: white; border-radius: 20px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
@@ -598,8 +823,8 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .investments-table th { text-align: left; padding: 14px 16px; background: #f8f9fa; color: #666; font-weight: 600; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #e0e0e0; }
     .investments-table td { padding: 16px; border-bottom: 1px solid #eee; }
     .investments-table tbody tr:hover { background: #f8f9fa; }
-    .name-cell strong { color: #1a1a2e; display: block; }
-    .name-cell .desc { font-size: 12px; color: #999; }
+    .name-cell { max-width: 260px; }
+    .name-cell strong { color: #1a1a2e; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .type-badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
     .type-badge.stock { background: #e3f2fd; color: #1976d2; }
     .type-badge.bond { background: #f3e5f5; color: #7b1fa2; }
@@ -641,22 +866,54 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .modal-header h3 { font-size: 20px; font-weight: 600; color: #1a1a2e; margin: 0; }
     .close-btn { background: none; border: none; cursor: pointer; padding: 4px; color: #666; }
     .modal-body { padding: 24px; }
-    .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
-    .detail-card { background: #f8f9fa; border-radius: 12px; padding: 16px; }
-    .detail-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
-    .detail-value { font-size: 18px; font-weight: 600; color: #1a1a2e; display: block; }
-    .detail-value.currency.highlight { color: #667eea; }
-    .detail-value.positive { color: #27ae60; }
-    .detail-value.negative { color: #e74c3c; }
-    .description-section h4, .members-section h4 { font-size: 14px; font-weight: 600; color: #1a1a2e; margin: 0 0 12px; }
-    .description-section p { font-size: 14px; color: #666; line-height: 1.6; margin: 0 0 24px; }
-    .members-list { display: flex; flex-direction: column; gap: 12px; }
-    .member-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: #f8f9fa; border-radius: 12px; }
-    .member-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; }
-    .member-info { flex: 1; }
-    .member-name { font-weight: 600; color: #1a1a2e; display: block; }
-    .member-share { font-size: 12px; color: #666; }
-.member-value { font-weight: 600; color: #667eea; }
+
+    /* ==== Investment detail (view) modal ==== */
+    .vmodal { max-width: 760px; max-height: 90vh; display: flex; flex-direction: column; border-radius: var(--radius-xl, 16px); overflow: hidden; box-shadow: var(--shadow-xl, 0 8px 32px rgba(0,0,0,0.18)); }
+    .vmodal-hero { flex-shrink: 0; padding: 24px 28px 20px; color: #fff; background: linear-gradient(135deg, var(--color-navy, #0f172a) 0%, #134e4a 100%); }
+    .vmodal-hero-top { display: flex; align-items: center; gap: 10px; }
+    .vmodal-type { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; background: rgba(255,255,255,0.14); color: #fff; }
+    .vmodal-type .material-icons { font-size: 15px; }
+    .vmodal-status { margin-left: auto; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(255,255,255,0.18); color: #fff; }
+    .vmodal-close { margin-left: 4px; background: rgba(255,255,255,0.12); border: none; color: #fff; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background .2s; }
+    .vmodal-close:hover { background: rgba(255,255,255,0.24); }
+    .vmodal-title { margin: 14px 0 2px; font-size: 22px; font-weight: 700; letter-spacing: -0.2px; }
+    .vmodal-subtitle { margin: 0; font-size: 13px; color: rgba(255,255,255,0.7); }
+    .vmodal-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 20px; }
+    .kpi { background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.10); border-radius: var(--radius-lg, 12px); padding: 12px 14px; }
+    .kpi-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: rgba(255,255,255,0.6); margin-bottom: 4px; }
+    .kpi-value { display: block; font-size: 17px; font-weight: 700; }
+    .kpi-value.pos { color: #34d399; }
+    .kpi-value.neg { color: #fca5a5; }
+    .kpi-sub { display: block; font-style: normal; font-size: 12px; font-weight: 600; opacity: .85; margin-top: 1px; }
+    .kpi-progress { display: block; height: 5px; background: rgba(255,255,255,0.18); border-radius: 999px; margin-top: 7px; overflow: hidden; }
+    .kpi-progress i { display: block; height: 100%; background: linear-gradient(90deg, #2dd4bf, #14b8a6); border-radius: 999px; }
+    .vmodal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 28px 28px; }
+    .vmodal-section { padding: 20px 0; border-bottom: 1px solid var(--color-divider, #f0f0f0); }
+    .vmodal-section:last-child { border-bottom: none; }
+    .vmodal-section-head { display: flex; align-items: center; justify-content: space-between; }
+    .vmodal-section-title { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 14px; font-weight: 700; color: var(--text-primary, #0f172a); letter-spacing: -0.1px; }
+    .vmodal-section-head .vmodal-section-title { margin-bottom: 14px; }
+    .vmodal-section-title .material-icons { font-size: 18px; color: var(--color-accent, #0d9488); }
+    .vmodal-count { font-size: 12px; font-weight: 600; color: var(--text-muted, #64748b); background: var(--color-background-alt, #f8fafc); border-radius: 999px; padding: 3px 10px; margin-bottom: 14px; }
+    .vmodal-defs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 24px; margin: 0; }
+    .def dt { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted, #64748b); margin-bottom: 3px; }
+    .def dd { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary, #0f172a); }
+    .def dd.pos { color: var(--color-success, #059669); }
+    .def-muted { font-weight: 500; color: var(--text-muted, #64748b); }
+    .vmodal-desc { margin: 0; font-size: 14px; line-height: 1.7; color: var(--text-secondary, #475569); white-space: pre-wrap; }
+    .vmodal-rows { display: flex; flex-direction: column; gap: 10px; }
+    .vrow { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--color-background-alt, #f8fafc); border: 1px solid var(--color-border-light, #f1f5f9); border-radius: var(--radius-lg, 12px); transition: border-color .2s, background .2s; }
+    .vrow.partner:hover, .vrow:hover:not(.doc) { border-color: var(--color-border, #e2e8f0); }
+    .vrow-avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, var(--color-accent, #0d9488), var(--color-navy, #0f172a)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+    .vrow-main { flex: 1; min-width: 0; }
+    .vrow-name { display: block; font-size: 14px; font-weight: 600; color: var(--text-primary, #0f172a); }
+    .vrow-meta { display: block; font-size: 12.5px; color: var(--text-muted, #64748b); }
+    .vrow-value { font-weight: 700; color: var(--text-primary, #0f172a); }
+    .vrow-tag { font-size: 11px; font-weight: 600; color: var(--color-accent, #0d9488); background: var(--color-accent-subtle, #ccfbf1); padding: 3px 10px; border-radius: 999px; }
+    .vrow.doc { text-decoration: none; color: inherit; cursor: pointer; }
+    .vrow.doc:hover { border-color: var(--color-accent, #0d9488); }
+    .vrow-docicon { color: var(--color-accent, #0d9488); }
+    .vrow-arrow { color: var(--text-light, #94a3b8); font-size: 18px; }
 
     .material-icons { font-size: 20px; }
 
@@ -706,6 +963,13 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
 
   managing: Investment | null = null;
   isAdmin = false;
+
+  investingInvestment: Investment | null = null;
+  investShares: number | null = null;
+  investForMemberId: string | null = null;
+  investBalances: { memberId: string; memberName: string }[] = [];
+  investAgreementAccepted = false;
+  isInvesting = false;
 
   showDeleteModal = false;
   deletingInvestment: Investment | null = null;
@@ -776,8 +1040,10 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
 
   loadInvestments() {
     this.isLoading = true;
-    this.investmentService
-      .getInvestments()
+    const source = this.isAdmin
+      ? this.investmentService.getInvestments()
+      : this.investmentService.getPublishedInvestments();
+    source
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (data) => {
@@ -849,6 +1115,77 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
           this.cdr.detectChanges();
         },
         error: () => this.toast.error('Could not load the investment.'),
+      });
+  }
+
+  openInvest(investment: Investment) {
+    this.investingInvestment = investment;
+    this.investShares = investment.minimumSharesPerMember ?? 1;
+    this.investForMemberId = null;
+    this.investAgreementAccepted = false;
+    if (this.isAdmin && this.investBalances.length === 0) {
+      this.loadInvestBalances();
+    }
+  }
+
+  private loadInvestBalances(): void {
+    this.investmentService
+      .getAllBalances()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: b => (this.investBalances = b),
+        error: () => (this.investBalances = []),
+      });
+  }
+
+  cancelInvest() {
+    this.investingInvestment = null;
+    this.investShares = null;
+    this.investForMemberId = null;
+    this.investAgreementAccepted = false;
+    this.isInvesting = false;
+  }
+
+  investValid(): boolean {
+    const inv = this.investingInvestment;
+    if (!inv || !this.investShares || this.investShares < 1) return false;
+    if (this.investShares > inv.remainingShares) return false;
+    if (inv.minimumSharesPerMember && this.investShares < inv.minimumSharesPerMember) return false;
+    if (inv.maximumSharesPerMember && this.investShares > inv.maximumSharesPerMember) return false;
+    if (!this.investAgreementAccepted) return false;
+    return true;
+  }
+
+  confirmInvest() {
+    if (!this.investingInvestment || !this.investValid()) {
+      this.toast.error('Please enter a valid number of shares.');
+      return;
+    }
+
+    this.isInvesting = true;
+    this.investmentService
+      .subscribe(
+        this.investingInvestment.id,
+        this.investShares!,
+        this.investAgreementAccepted,
+        this.investForMemberId ?? undefined,
+      )
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.toast.success(
+            this.investForMemberId
+              ? `${this.investShares} share(s) allocated.`
+              : `${this.investShares} share(s) purchased.`,
+          );
+          this.isInvesting = false;
+          this.cancelInvest();
+          this.loadInvestments();
+        },
+        error: err => {
+          this.isInvesting = false;
+          this.toast.error(err?.error?.message || 'Could not complete the purchase.');
+        },
       });
   }
 
@@ -929,5 +1266,46 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
 
   statusClass(status: string): string {
     return `status-${status.toLowerCase()}`;
+  }
+
+  statusLabel(status: string): string {
+    const labels: { [key: string]: string } = {
+      'Draft': 'Draft',
+      'OpenForSubscription': 'Open for Subscription',
+      'FullySubscribed': 'Fully Subscribed',
+      'Active': 'Active',
+      'Completed': 'Completed',
+      'ProfitDistributed': 'Profit Distributed',
+      'Closed': 'Closed',
+      'Cancelled': 'Cancelled'
+    };
+    return labels[status] || status;
+  }
+
+  statusIcon(status: string): string {
+    const icons: { [key: string]: string } = {
+      'Draft': 'edit_note',
+      'OpenForSubscription': 'storefront',
+      'FullySubscribed': 'verified',
+      'Active': 'trending_up',
+      'Completed': 'task_alt',
+      'ProfitDistributed': 'payments',
+      'Closed': 'lock',
+      'Cancelled': 'block'
+    };
+    return icons[status] || 'circle';
+  }
+
+  /** Real project progress: money received vs total expected return (principal + target profit). */
+  investmentProgress(investment: Investment): number {
+    const target = investment.principalAmount + (investment.targetGrossProfit ?? 0);
+    const received = investment.grossReceivedAmount ?? 0;
+    if (target <= 0) return 0;
+    return Math.min(Math.max((received / target) * 100, 0), 100);
+  }
+
+  /** Cheap heuristic for whether the "Read more" button should appear at all. */
+  isDescTruncated(investment: Investment): boolean {
+    return (investment.description?.length ?? 0) > 100;
   }
 }

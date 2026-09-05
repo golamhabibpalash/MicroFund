@@ -5,8 +5,8 @@ import { HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { Token } from '../core/services/token';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
-import * as jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type ReportType = 'transactions' | 'accounts' | 'investors' | 'contributions' | 'summary';
 
@@ -161,13 +161,13 @@ interface SummaryReport {
       </section>
 
       <!-- Report Preview -->
-      <section class="report-preview-section" *ngIf="selectedReport && reportData.length > 0">
+      <section class="report-preview-section" *ngIf="selectedReport && (reportData.length > 0 || summaryData)">
         <div class="preview-header">
           <div class="preview-title">
             <h3>{{ selectedReport.title }} Report</h3>
-            <span class="record-count">{{ filteredData.length }} records found</span>
+            <span class="record-count" *ngIf="selectedReport.id !== 'summary'">{{ filteredData.length }} records found</span>
           </div>
-          <div class="preview-actions">
+          <div class="preview-actions" *ngIf="selectedReport.id !== 'summary'">
             <button class="btn-export" (click)="exportToPDF()">
               <span class="material-icons">picture_as_pdf</span>
               Export PDF
@@ -197,7 +197,7 @@ interface SummaryReport {
         </div>
 
         <!-- Data Table -->
-        <div class="table-container">
+        <div class="table-container" *ngIf="reportData.length > 0">
           <table class="report-table">
             <thead>
               <tr>
@@ -226,7 +226,7 @@ interface SummaryReport {
         </div>
 
         <!-- Pagination -->
-        <div class="pagination">
+        <div class="pagination" *ngIf="reportData.length > 0">
           <div class="pagination-info">
             Showing {{ (currentPage - 1) * pageSize + 1 }} to {{ currentPage * pageSize }} of {{ filteredData.length }} entries
           </div>
@@ -410,9 +410,9 @@ export class ReportsComponent implements OnInit {
       color: 'linear-gradient(135deg, #3498db, #2980b9)',
       endpoints: { data: '/api/transactions' },
       columns: [
-        { key: 'refNo', label: 'Ref No' },
+        { key: 'transactionId', label: 'Ref No' },
         { key: 'accountName', label: 'Account' },
-        { key: 'transferFor', label: 'Description' },
+        { key: 'transferTo', label: 'Description' },
         { key: 'amount', label: 'Amount', format: 'currency' },
         { key: 'status', label: 'Type' },
         { key: 'approvalStatus', label: 'Status' },
@@ -655,7 +655,7 @@ export class ReportsComponent implements OnInit {
   exportToPDF() {
     if (!this.selectedReport || this.filteredData.length === 0) return;
 
-    const doc = new jsPDF.jsPDF();
+    const doc = new jsPDF();
     doc.setFontSize(18);
     doc.text(this.selectedReport.title + ' Report', 14, 22);
     doc.setFontSize(10);
@@ -672,7 +672,7 @@ export class ReportsComponent implements OnInit {
       })
     );
 
-    (doc as any).autoTable({ head, body, startY: 38 });
+    autoTable(doc, { head, body, startY: 38 });
     doc.save(`${this.selectedReport.title.replace(/\s+/g, '_')}_Report_${new Date().toISOString().split('T')[0]}.pdf`);
   }
 

@@ -79,6 +79,18 @@ public class Investment
     [Column(TypeName = "decimal(18,2)")]
     public decimal? SharePrice { get; set; }
 
+    /// <summary>
+    /// Minimum total shares a member may hold in this investment (cumulative across
+    /// all purchases). Null means no minimum beyond 1.
+    /// </summary>
+    public int? MinimumSharesPerMember { get; set; }
+
+    /// <summary>
+    /// Maximum total shares a member may hold in this investment (cumulative across
+    /// all purchases). Null means no limit.
+    /// </summary>
+    public int? MaximumSharesPerMember { get; set; }
+
     /// <summary>Estimated profit, captured when the project is created.</summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal? TargetGrossProfit { get; set; }
@@ -88,17 +100,46 @@ public class Investment
     public decimal? ActualGrossProfit { get; set; }
 
     /// <summary>
-    /// Frozen onto the project at creation from the global default, so changing the
-    /// global rate later cannot retroactively alter a settled project's arithmetic.
+    /// The organisation's maintenance/service fee for this project, expressed as a
+    /// percentage and applied to the project's PROFIT (never to gross or principal).
+    /// Frozen onto the project at creation so a later edit cannot retroactively alter
+    /// a settled project's arithmetic.
     /// </summary>
     [Column(TypeName = "decimal(5,2)")]
-    public decimal OperationalExpensePercentage { get; set; }
+    public decimal MaintenancePercentage { get; set; }
 
+    /// <summary>
+    /// The organisation account where this project's maintenance amount is disbursed
+    /// when profit is distributed. Null means no maintenance account configured yet.
+    /// </summary>
+    public Guid? MaintenanceAccountId { get; set; }
+
+    [ForeignKey(nameof(MaintenanceAccountId))]
+    public virtual Account? MaintenanceAccount { get; set; }
+
+    /// <summary>
+    /// The maintenance amount (profit × percentage) retained by the organisation and
+    /// disbursed to MaintenanceAccount at distribution. Stored once at settlement so a
+    /// later edit cannot rewrite what was already disbursed.
+    /// </summary>
     [Column(TypeName = "decimal(18,2)")]
-    public decimal? OperationalExpenseAmount { get; set; }
+    public decimal? MaintenanceAmount { get; set; }
 
     [Column(TypeName = "decimal(18,2)")]
     public decimal? NetProfit { get; set; }
+
+    /// <summary>Accumulated project costs, stored as individual records. The running total is the sum.</summary>
+    [NotMapped]
+    public decimal TotalProjectCost =>
+        ProjectCosts.Sum(pc => pc.Amount);
+
+    /// <summary>
+    /// Gross received after deducting the accumulated project costs. The backend treats
+    /// this as the value the project actually generated and uses it to derive profit.
+    /// </summary>
+    [NotMapped]
+    public decimal ValueAfterCosts =>
+        (ActualGrossProfit ?? 0m) + InterimProfits.Sum(p => p.Amount) - TotalProjectCost;
 
     /// <summary>
     /// Rounding remainder that could not be allocated to investors; belongs to the
@@ -135,6 +176,27 @@ public class Investment
     [MaxLength(100)]
     public string? ReferenceNumber { get; set; }
 
+    // --- Mandatory participants (nullable in the schema so pre-existing projects
+    // migrate cleanly; required by the create DTO and service validation). ---
+
+    /// <summary>The fund member on whose behalf the project is run. From the member list.</summary>
+    public Guid? InvestorMemberId { get; set; }
+
+    [ForeignKey(nameof(InvestorMemberId))]
+    public virtual Member? InvestorMember { get; set; }
+
+    /// <summary>Witness for the investor. A different fund member from the investor.</summary>
+    public Guid? WitnessMemberId { get; set; }
+
+    [ForeignKey(nameof(WitnessMemberId))]
+    public virtual Member? WitnessMember { get; set; }
+
+    /// <summary>Guarantor for the project. A fund member, different from investor and witness.</summary>
+    public Guid? GuarantorMemberId { get; set; }
+
+    [ForeignKey(nameof(GuarantorMemberId))]
+    public virtual Member? GuarantorMember { get; set; }
+
     [MaxLength(100)]
     public string? CreatedBy { get; set; }
 
@@ -156,4 +218,9 @@ public class Investment
     public virtual ICollection<ShareSubscription> Subscriptions { get; set; } = new List<ShareSubscription>();
 
     public virtual ICollection<ProfitDistribution> ProfitDistributions { get; set; } = new List<ProfitDistribution>();
+
+    public virtual ICollection<InvestmentInterimProfit> InterimProfits { get; set; } = new List<InvestmentInterimProfit>();
+
+    /// <summary>Individual operating/expense records against the project (feed, labour, transport, etc.).</summary>
+    public virtual ICollection<InvestmentProjectCost> ProjectCosts { get; set; } = new List<InvestmentProjectCost>();
 }

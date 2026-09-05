@@ -21,7 +21,13 @@ public enum WalletEntryType
     ProfitCredit,
 
     /// <summary>Debit when the organisation pays money out to the investor.</summary>
-    Disbursement
+    Disbursement,
+
+    /// <summary>
+    /// Debit when fund money is returned/withdrawn to the member (a Refund transaction
+    /// or an approved cash-out request).
+    /// </summary>
+    Withdrawal
 }
 
 /// <summary>

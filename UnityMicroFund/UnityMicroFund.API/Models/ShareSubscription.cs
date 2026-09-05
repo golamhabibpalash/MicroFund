@@ -56,6 +56,13 @@ public class ShareSubscription
 
     public DateTime PurchasedAt { get; set; }
 
+    /// <summary>
+    /// When the buyer acknowledged the investment agreement / caution. A purchase
+    /// cannot be recorded without acceptance, so on an active row this is always set;
+    /// nullable only for rows created before the acknowledgement was required.
+    /// </summary>
+    public DateTime? AgreementAcceptedAt { get; set; }
+
     [MaxLength(100)]
     public string? CreatedBy { get; set; }
 }

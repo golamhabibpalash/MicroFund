@@ -269,15 +269,13 @@ interface Member {
           <table class="investors-table">
             <thead>
               <tr>
-                <th>Investor</th>
-                <th>Phone</th>
-                <th>Monthly Amount</th>
-                <th *ngIf="isAdmin">Contributions</th>
-                <th *ngIf="isAdmin">Installments</th>
-                <th>Share %</th>
+                <th class="col-investor">Investor</th>
+                <th class="num">Monthly</th>
+                <th class="num" *ngIf="isAdmin">Contributions</th>
+                <th class="num hide-sm">Share</th>
                 <th>Status</th>
-                <th>Joined</th>
-                <th *ngIf="isAdmin">Action</th>
+                <th class="hide-sm">Joined</th>
+                <th class="actions-col" *ngIf="isAdmin">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -289,21 +287,25 @@ interface Member {
                   </div>
                   <div class="investor-info">
                     <span class="investor-name">{{ member.name }}</span>
-                    <span class="investor-email">{{ member.email }}</span>
+                    <span class="investor-contact">
+                      <span class="c-item"><span class="material-icons">mail</span>{{ member.email || '—' }}</span>
+                      <span class="c-item"><span class="material-icons">call</span>{{ member.phone || '—' }}</span>
+                    </span>
                   </div>
                 </td>
-                <td>{{ member.phone }}</td>
-                <td class="amount">{{ member.monthlyAmount | bdtCurrency }}</td>
-                <td *ngIf="isAdmin" class="contributions">{{ member.totalContributions | bdtCurrency }}</td>
-                <td *ngIf="isAdmin">{{ member.totalInstallmentsPaid }}</td>
-                <td class="share">{{ member.sharePercentage | number:'1.1-1' }}%</td>
+                <td class="num amount">{{ member.monthlyAmount | bdtCurrency }}</td>
+                <td class="num" *ngIf="isAdmin">
+                  <span class="contributions">{{ member.totalContributions | bdtCurrency }}</span>
+                  <span class="cell-sub">{{ member.totalInstallmentsPaid }} installments</span>
+                </td>
+                <td class="num share hide-sm">{{ member.sharePercentage | number:'1.1-1' }}%</td>
                 <td>
                   <span class="status-badge" [class.active]="member.isActive" [class.inactive]="!member.isActive">
                     {{ member.isActive ? 'Active' : 'Inactive' }}
                   </span>
                 </td>
-                <td class="date">{{ member.joinDate | date:'mediumDate' }}</td>
-                <td *ngIf="isAdmin">
+                <td class="date hide-sm">{{ member.joinDate | date:'mediumDate' }}</td>
+                <td class="actions-col" *ngIf="isAdmin">
                   <button class="btn-action" (click)="viewProfile(member)" title="View Profile">
                     <span class="material-icons">person</span>
                   </button>
@@ -316,7 +318,7 @@ interface Member {
                 </td>
               </tr>
               <tr *ngIf="filteredMembers.length === 0">
-                <td [attr.colspan]="isAdmin ? 9 : 6" class="empty-row">
+                <td [attr.colspan]="isAdmin ? 6 : 4" class="empty-row">
                   <span class="material-icons">people</span>
                   <span>No investors found</span>
                 </td>
@@ -412,27 +414,37 @@ interface Member {
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     
     /* Table Styles */
-    .content-section { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .content-section { background: white; border-radius: 12px; padding: 8px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     .table-container { overflow-x: auto; }
-    .investors-table { width: 100%; border-collapse: collapse; }
-    .investors-table th { text-align: left; padding: 12px 16px; background: #f8f9fa; color: #666; font-weight: 600; font-size: 12px; text-transform: uppercase; border-bottom: 2px solid #e9ecef; }
-    .investors-table td { padding: 12px 16px; border-bottom: 1px solid #e9ecef; vertical-align: middle; }
-    .investors-table tbody tr:hover { background: #f8f9fa; }
+    .investors-table { width: 100%; border-collapse: collapse; table-layout: auto; }
+    .investors-table th { text-align: left; padding: 14px 16px; background: white; color: #8a8a9a; font-weight: 600; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; z-index: 1; }
+    .investors-table td { padding: 14px 16px; border-bottom: 1px solid #f0f1f4; vertical-align: middle; }
+    .investors-table tbody tr:last-child td { border-bottom: none; }
+    .investors-table tbody tr { transition: background 0.15s; }
+    .investors-table tbody tr:hover { background: #f8f9fc; }
+    .investors-table th.num, .investors-table td.num { text-align: right; white-space: nowrap; }
+    .investors-table th.actions-col, .investors-table td.actions-col { text-align: right; white-space: nowrap; width: 1%; }
+    .col-investor { width: 40%; }
+
     .investor-cell { display: flex; align-items: center; gap: 12px; }
-    .investor-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; flex-shrink: 0; overflow: hidden; }
+    .investor-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; flex-shrink: 0; overflow: hidden; }
     .investor-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .investor-cell .investor-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-    .investor-cell .investor-name { font-weight: 500; color: #1a1a2e; font-size: 14px; line-height: 1.3; }
-    .investor-cell .investor-email { font-size: 12px; color: #999; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .amount { font-weight: 600; color: #667eea; }
-    .contributions { color: #27ae60; font-weight: 600; }
+    .investor-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .investor-name { font-weight: 600; color: #1a1a2e; font-size: 14px; line-height: 1.2; }
+    .investor-contact { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: 12px; color: #8a8a9a; line-height: 1.3; }
+    .investor-contact .c-item { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .investor-contact .c-item .material-icons { font-size: 13px; color: #b5b5c0; flex-shrink: 0; }
+
+    .amount { font-weight: 600; color: #1a1a2e; }
+    .contributions { display: block; color: #27ae60; font-weight: 600; }
+    .cell-sub { display: block; font-size: 11px; color: #b0b0bb; font-weight: 400; margin-top: 2px; }
     .share { font-weight: 600; color: #f39c12; }
-    .date { color: #666; font-size: 13px; }
-    .empty-row { text-align: center; padding: 40px; color: #999; }
-    .empty-row .material-icons { font-size: 48px; display: block; margin-bottom: 8px; }
-    .btn-action { background: none; border: none; padding: 6px; cursor: pointer; color: #667eea; border-radius: 4px; transition: all 0.2s; }
+    .date { color: #8a8a9a; font-size: 13px; white-space: nowrap; }
+    .empty-row { text-align: center; padding: 48px 40px; color: #999; }
+    .empty-row .material-icons { font-size: 48px; display: block; margin-bottom: 8px; opacity: 0.5; }
+    .btn-action { background: none; border: none; padding: 6px; cursor: pointer; color: #667eea; border-radius: 6px; transition: all 0.2s; }
     .btn-action:hover { background: #667eea; color: white; }
-    .investors-table .btn-action { margin-right: 4px; }
+    .investors-table .btn-action + .btn-action { margin-left: 2px; }
     
     /* Card Styles */
     .members-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
@@ -474,14 +486,19 @@ interface Member {
       .investors-wrapper { padding: 16px; }
       .top-header { flex-direction: column; align-items: flex-start; gap: 12px; }
       .search-box { width: 100%; }
+      .search-box input { width: 100%; }
       .view-toggle { display: none; }
-      .table-container { overflow-x: auto; }
-      .members-table { min-width: 600px; }
+      .investors-table .hide-sm { display: none; }
+      .col-investor { width: auto; }
+      .investor-contact { flex-direction: column; gap: 2px; }
     }
     @media (max-width: 576px) {
       .stat-card { padding: 16px; }
       .stat-card .stat-value { font-size: 20px; }
       .btn { padding: 8px 12px; font-size: 13px; }
+      .content-section { padding: 4px 12px; }
+      .investors-table th, .investors-table td { padding: 12px 10px; }
+      .investor-avatar { width: 36px; height: 36px; }
     }
 
     /* Modal Styles */

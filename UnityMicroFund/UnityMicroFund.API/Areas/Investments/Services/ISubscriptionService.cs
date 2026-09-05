@@ -13,6 +13,7 @@ public interface ISubscriptionService
         Guid investmentId,
         Guid memberId,
         int shares,
+        bool agreementAccepted,
         string? createdBy,
         CancellationToken cancellationToken = default);
 

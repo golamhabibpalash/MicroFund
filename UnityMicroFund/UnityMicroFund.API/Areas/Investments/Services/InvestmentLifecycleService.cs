@@ -1,7 +1,9 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Areas.Investments.DTOs;
+using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Data;
+using UnityMicroFund.API.Infrastructure.Email;
 using UnityMicroFund.API.Infrastructure.ExceptionHandling;
 using UnityMicroFund.API.Models;
 
@@ -29,12 +31,27 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
     private readonly AppDbContext _context;
     private readonly IWalletService _wallet;
     private readonly IInvestmentService _investments;
+    private readonly INotificationService _notifications;
+    private readonly IEmailService _email;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<InvestmentLifecycleService> _logger;
 
-    public InvestmentLifecycleService(AppDbContext context, IWalletService wallet, IInvestmentService investments)
+    public InvestmentLifecycleService(
+        AppDbContext context,
+        IWalletService wallet,
+        IInvestmentService investments,
+        INotificationService notifications,
+        IEmailService email,
+        IConfiguration configuration,
+        ILogger<InvestmentLifecycleService> logger)
     {
         _context = context;
         _wallet = wallet;
         _investments = investments;
+        _notifications = notifications;
+        _email = email;
+        _configuration = configuration;
+        _logger = logger;
     }
 
     public async Task<InvestmentResponseDto> ChangeStatusAsync(
@@ -52,11 +69,6 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
             ?? throw new NotFoundException("Investment not found.");
 
         GuardTransition(investment.Status, target);
-
-        if (target == InvestmentStatus.Active)
-        {
-            await GuardFullySubscribedAsync(investment, cancellationToken);
-        }
 
         if (target == InvestmentStatus.OpenForSubscription)
         {
@@ -81,6 +93,20 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
         }
 
         ApplyStatus(investment, target, actionedBy);
+
+        // Circulating a project notifies every eligible member (spec section 2/17.1).
+        // The project starts (becomes Active) later; starting closes further buying.
+        if (target == InvestmentStatus.OpenForSubscription)
+        {
+            await NotifyMembersOnCirculationAsync(investment, cancellationToken);
+        }
+
+        // Starting the project notifies each investor of their own stake in it.
+        if (target == InvestmentStatus.Active)
+        {
+            await NotifyMembersOnActivationAsync(investment, cancellationToken);
+        }
+
         await _context.SaveChangesAsync(cancellationToken);
 
         return (await _investments.GetInvestmentByIdAsync(investmentId, cancellationToken))!;
@@ -116,6 +142,7 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
             IsolationLevel.Serializable, cancellationToken);
 
         var investment = await _context.Investments
+            .Include(i => i.ProjectCosts)
             .FirstOrDefaultAsync(i => i.Id == investmentId, cancellationToken)
             ?? throw new NotFoundException("Investment not found.");
 
@@ -152,20 +179,74 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
         var totalShares = investment.TotalShares ?? holdings.Sum(h => h.SharesOwned);
         var grossProfit = investment.ActualGrossProfit.Value;
 
-        // Section 11: the organisation's operational fee comes off the top.
-        var operationalExpense = Round2(grossProfit * investment.OperationalExpensePercentage / 100m);
-        var netProfit = grossProfit - operationalExpense;
+        // Accrued interim profits are included in the investable result, so a project
+        // that paid profit along the way is settled correctly at the end.
+        var interimProfitTotal = await _context.InvestmentInterimProfits
+            .Where(p => p.InvestmentId == investmentId)
+            .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
+
+        // Project costs (feed, transport, labour, ...) reduce the gross value before
+        // any profit is derived. The running total is always the sum of the rows, so
+        // there is a single source of truth.
+        var totalProjectCost = investment.ProjectCosts.Sum(pc => pc.Amount);
+
+        // Confirmed financial model (single source of truth):
+        //   fundsAvailable = ActualGrossProfit + interimProfitTotal − totalProjectCost
+        //   profit         = fundsAvailable − principal
+        //   maintenance    = profit × maintenance%   (org service share, applied to PROFIT)
+        //   investorProfit = profit − maintenance
+        //
+        // Loss policy: a loss is shared by the investors, proportional to their holding,
+        // instead of being absorbed by the organisation. If the realised value after
+        // costs falls short of the capital collected, no maintenance is taken (there is
+        // no profit to take it from) and each investor's payout is their proportional
+        // share of what actually came back - not their full original principal.
+        // Example: 100 collected, only 90 realised -> every investor is paid ~90% of
+        // what they put in; nobody is topped up to their original 100.
+        var grossResult = grossProfit + interimProfitTotal;
+        var valueAfterCosts = grossResult - totalProjectCost;
+        var principalTotal = holdings.Sum(h => h.AmountInvested);
+        var isLoss = valueAfterCosts < principalTotal;
+
+        var maintenancePercentage = investment.MaintenancePercentage;
+        var maintenance = 0m;
+        var investorProfitPool = 0m;
+
+        if (!isLoss)
+        {
+            var profitBeforeMaintenance = valueAfterCosts - principalTotal;
+            maintenance = profitBeforeMaintenance > 0m
+                ? Round2(profitBeforeMaintenance * maintenancePercentage / 100m)
+                : 0m;
+            investorProfitPool = profitBeforeMaintenance - maintenance;
+        }
+
+        // The reduced pool actually paid out on a loss; floored at zero so a
+        // catastrophic loss can never ask the pot to pay out negative money.
+        var payablePool = isLoss ? Math.Max(0m, valueAfterCosts) : principalTotal + investorProfitPool;
 
         var now = DateTime.UtcNow;
         var distributions = new List<ProfitDistribution>();
-        var allocatedProfit = 0m;
+        var allocatedPayable = 0m;
 
         foreach (var holding in holdings.OrderByDescending(h => h.SharesOwned).ThenBy(h => h.MemberId))
         {
             // Section 12, computed from integer share counts rather than a stored
-            // percentage, and always rounded DOWN so the sum can never exceed net profit.
-            var profit = Floor2(netProfit * holding.SharesOwned / totalShares);
-            allocatedProfit += profit;
+            // percentage, and always rounded DOWN so the sum can never exceed the pot.
+            decimal payable;
+            if (isLoss)
+            {
+                // Proportional share of the reduced pool - can be less than the capital
+                // this holding put in.
+                payable = Floor2(payablePool * holding.SharesOwned / totalShares);
+            }
+            else
+            {
+                // Unchanged: full principal back plus this holding's floor-rounded profit share.
+                var profit = Floor2(investorProfitPool * holding.SharesOwned / totalShares);
+                payable = holding.AmountInvested + profit;
+            }
+            allocatedPayable += payable;
 
             var distribution = new ProfitDistribution
             {
@@ -175,33 +256,55 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
                 SharesOwned = holding.SharesOwned,
                 OwnershipPercentage = Math.Round((decimal)holding.SharesOwned / totalShares * 100m, 6),
                 PrincipalAmount = holding.AmountInvested,
-                ProfitAmount = profit,
-                TotalPayable = holding.AmountInvested + profit,
+                // Negative on a loss: this holding's share of the shortfall. Always true
+                // that PrincipalAmount + ProfitAmount == TotalPayable.
+                ProfitAmount = payable - holding.AmountInvested,
+                TotalPayable = payable,
                 DistributedAt = now
             };
 
             distributions.Add(distribution);
             _context.ProfitDistributions.Add(distribution);
 
-            // Section 13: principal and profit both land back in the wallet, so the
-            // investor can reinvest or request payout.
-            _wallet.AddEntry(
-                holding.MemberId, WalletEntryType.PrincipalReturn, holding.AmountInvested,
-                $"Principal returned from {investment.Name}", actionedBy, investmentId: investmentId);
-
-            if (profit > 0)
-            {
-                _wallet.AddEntry(
-                    holding.MemberId, WalletEntryType.ProfitCredit, profit,
-                    $"Profit from {investment.Name}", actionedBy, investmentId: investmentId);
-            }
+            // Distribution only records each investor's entitlement (the ProfitDistribution
+            // row). Principal and profit are credited to the wallet later, in DisburseAsync,
+            // so the money is not shown as spendable before it has actually been paid out.
         }
 
         // Whatever rounding left behind stays with the organisation.
-        var remainder = netProfit - allocatedProfit;
+        var remainder = payablePool - allocatedPayable;
 
-        investment.OperationalExpenseAmount = operationalExpense;
-        investment.NetProfit = netProfit;
+        // Disburse the organisation's maintenance share to the chosen account. This is
+        // recorded in the ledger (InvestmentMaintenanceDistribution) AND credited to the
+        // account balance, inside the same atomic settlement transaction, so it can never
+        // be disbursed twice.
+        if (maintenance > 0m && investment.MaintenanceAccountId.HasValue)
+        {
+            var account = await _context.Accounts
+                .FirstOrDefaultAsync(a => a.Id == investment.MaintenanceAccountId.Value, cancellationToken)
+                ?? throw new ValidationException("The configured maintenance account no longer exists.");
+
+            account.Balance += maintenance;
+
+            _context.InvestmentMaintenanceDistributions.Add(new InvestmentMaintenanceDistribution
+            {
+                Id = Guid.NewGuid(),
+                InvestmentId = investmentId,
+                AccountId = account.Id,
+                Amount = maintenance,
+                Percentage = maintenancePercentage,
+                DisbursedBy = actionedBy,
+                DisbursedAt = now,
+                Remarks = $"Maintenance ({maintenancePercentage}%) on profit for {investment.Name}"
+            });
+        }
+
+        investment.MaintenanceAmount = maintenance;
+        // Negative on a loss, so it still reports the true result instead of hiding a
+        // loss behind a floored-at-zero "profit" of 0.
+        investment.NetProfit = isLoss
+            ? Math.Round(valueAfterCosts - principalTotal, 2, MidpointRounding.AwayFromZero)
+            : Math.Round(investorProfitPool, 2, MidpointRounding.AwayFromZero);
         investment.UndistributedRemainder = remainder;
         ApplyStatus(investment, InvestmentStatus.ProfitDistributed, actionedBy);
 
@@ -246,14 +349,24 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
             })
             .ToListAsync(cancellationToken);
 
-        return new ProfitSettlementDto
+        var totalProjectCost = await _context.InvestmentProjectCosts
+            .Where(pc => pc.InvestmentId == investmentId)
+            .SumAsync(pc => (decimal?)pc.Amount, cancellationToken) ?? 0m;
+
+        var settlement = new ProfitSettlementDto
         {
             InvestmentId = investment.Id,
             InvestmentName = investment.Name,
             Status = investment.Status.ToString(),
             ActualGrossProfit = investment.ActualGrossProfit ?? 0m,
-            OperationalExpensePercentage = investment.OperationalExpensePercentage,
-            OperationalExpenseAmount = investment.OperationalExpenseAmount ?? 0m,
+            TotalProjectCost = totalProjectCost,
+            MaintenancePercentage = investment.MaintenancePercentage,
+            MaintenanceAmount = investment.MaintenanceAmount ?? 0m,
+            MaintenanceAccountName = investment.MaintenanceAccount?.Name ?? (await _context.Accounts
+                .AsNoTracking()
+                .Where(a => a.Id == investment.MaintenanceAccountId)
+                .Select(a => a.Name)
+                .FirstOrDefaultAsync(cancellationToken)),
             NetProfit = investment.NetProfit ?? 0m,
             UndistributedRemainder = investment.UndistributedRemainder ?? 0m,
             TotalPrincipalReturned = rows.Sum(r => r.PrincipalAmount),
@@ -261,11 +374,30 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
             TotalPayable = rows.Sum(r => r.TotalPayable),
             Distributions = rows
         };
+
+        var totalShares = investment.TotalShares ?? rows.Sum(r => r.SharesOwned);
+        var holdings = await _context.MemberInvestments
+            .AsNoTracking()
+            .Where(mi => mi.InvestmentId == investmentId)
+            .ToListAsync(cancellationToken);
+
+        settlement.TotalInvested = holdings.Sum(h => h.AmountInvested);
+        settlement.SharesSold = rows.Sum(r => r.SharesOwned);
+        settlement.InterimProfitTotal = await _context.InvestmentInterimProfits
+            .Where(p => p.InvestmentId == investmentId)
+            .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
+        settlement.GrossResult = (investment.ActualGrossProfit ?? 0m) + settlement.InterimProfitTotal;
+        settlement.ValueAfterCosts = settlement.GrossResult - settlement.TotalProjectCost;
+
+        return settlement;
     }
 
     public async Task<ProfitSettlementDto> DisburseAsync(
         Guid investmentId, Guid? memberId, string? actionedBy, CancellationToken cancellationToken = default)
     {
+        await using var tx = await _context.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable, cancellationToken);
+
         var investment = await _context.Investments
             .FirstOrDefaultAsync(i => i.Id == investmentId, cancellationToken)
             ?? throw new NotFoundException("Investment not found.");
@@ -290,28 +422,40 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
 
         foreach (var row in pending)
         {
-            var balance = await _context.WalletEntries
-                .Where(w => w.MemberId == row.MemberId)
-                .SumAsync(w => (decimal?)w.Amount, cancellationToken) ?? 0m;
-
-            // The investor may already have reinvested the credited money elsewhere;
-            // paying out more than the wallet holds would drive it negative.
-            if (balance < row.TotalPayable)
+            // Disbursement is the point where the settled funds actually reach the
+            // investor: principal and profit are credited to the wallet here, not at
+            // distribution time, so the wallet never carries money that has not yet
+            // been paid out. The two entries always sum to TotalPayable.
+            if (row.ProfitAmount >= 0m)
             {
-                throw new ValidationException(
-                    $"{row.Member?.Name ?? "This investor"} has a wallet balance of {balance:N2}, " +
-                    $"which is less than the {row.TotalPayable:N2} payable. The funds may already have been reinvested.");
-            }
+                _wallet.AddEntry(
+                    row.MemberId, WalletEntryType.PrincipalReturn, row.PrincipalAmount,
+                    $"Principal returned from {investment.Name}", actionedBy, investmentId: investmentId);
 
-            _wallet.AddEntry(
-                row.MemberId, WalletEntryType.Disbursement, -row.TotalPayable,
-                $"Settlement paid out for {investment.Name}", actionedBy, investmentId: investmentId);
+                if (row.ProfitAmount > 0m)
+                {
+                    _wallet.AddEntry(
+                        row.MemberId, WalletEntryType.ProfitCredit, row.ProfitAmount,
+                        $"Profit from {investment.Name}", actionedBy, investmentId: investmentId);
+                }
+            }
+            else
+            {
+                // Loss: ProfitAmount is negative (this investor's share of the shortfall),
+                // so only the reduced TotalPayable is credited - never the full original
+                // principal. A single entry keeps the ledger honest about what was
+                // actually returned.
+                _wallet.AddEntry(
+                    row.MemberId, WalletEntryType.PrincipalReturn, row.TotalPayable,
+                    $"Principal returned from {investment.Name} (reduced after a loss)", actionedBy, investmentId: investmentId);
+            }
 
             row.DisbursedAt = now;
             row.DisbursedBy = actionedBy;
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
 
         return await GetSettlementAsync(investmentId, cancellationToken);
     }
@@ -360,16 +504,129 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
 
     // ---- helpers -----------------------------------------------------------
 
-    /// <summary>Section 9: a project cannot start until every share is sold.</summary>
-    private async Task GuardFullySubscribedAsync(Investment investment, CancellationToken cancellationToken)
+    /// <summary>
+    /// Notifies every eligible member's user account when a project is circulated
+    /// and emails each of them a professional investment-opportunity message.
+    /// Members without a linked user account (older records) are skipped - the
+    /// notification and email are a convenience, not a hard requirement.
+    /// </summary>
+    private async Task NotifyMembersOnCirculationAsync(Investment investment, CancellationToken cancellationToken)
     {
-        var totalShares = investment.TotalShares ?? 0;
-        var sold = await SoldSharesAsync(investment.Id, cancellationToken);
+        var creator = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.IsActive)
+            .OrderBy(u => u.CreatedAt)
+            .Select(u => u.Id)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (totalShares <= 0 || sold < totalShares)
+        var targets = await _context.Members
+            .AsNoTracking()
+            .Where(m => m.IsActive && m.UserId != null)
+            .Select(m => new { UserId = m.UserId!.Value, MemberId = m.Id, Name = m.Name, Email = m.User!.Email })
+            .ToListAsync(cancellationToken);
+
+        // Email sending is best-effort and isolated (SMTP churn, latency or a
+        // per-recipient failure must not block the status change itself).
+        var allowedOrigins = _configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+        var domain = (allowedOrigins is { Length: > 0 })
+            ? new Uri(allowedOrigins[0]).Host
+            : "app.unitymicrofund.com";
+
+        foreach (var target in targets)
         {
-            throw new ValidationException(
-                $"'{investment.Name}' cannot start until all shares are sold ({sold} of {totalShares} sold, {totalShares - sold} remaining).");
+            await _notifications.CreateNotificationAsync(
+                "New investment circulated",
+                $"'{investment.Name}' is now open for subscription. Buy ৳{investment.SharePrice?.ToString("N2") ?? "n/a"} per share between " +
+                $"{(investment.MinimumSharesPerMember?.ToString() ?? "1")} and {(investment.MaximumSharesPerMember?.ToString() ?? "unlimited")} shares.",
+                NotificationType.InvestmentUpdate,
+                target.UserId,
+                creator,
+                relatedMemberId: target.MemberId);
+
+            if (!string.IsNullOrWhiteSpace(target.Email))
+            {
+                try
+                {
+                    await _email.SendInvestmentCirculatedEmailAsync(
+                        target.Email,
+                        target.Name,
+                        investment.Name,
+                        investment.SharePrice ?? 0m,
+                        investment.MinimumSharesPerMember,
+                        investment.MaximumSharesPerMember,
+                        domain);
+                }
+                catch (Exception ex)
+                {
+                    // A downstream email failure must never roll back the circulation.
+                    _logger.LogWarning(ex, "Failed to email member {MemberId} about circulated investment {InvestmentId}",
+                        target.MemberId, investment.Id);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Notifies every investor holding shares in the project once it goes Active,
+    /// with that investor's own stake (project basics, their share count and the
+    /// amount they invested) rather than a generic broadcast. Members without a
+    /// linked user account are skipped, same as circulation - the notification and
+    /// email are a convenience, not a hard requirement, and a per-recipient failure
+    /// must never roll back the activation itself.
+    /// </summary>
+    private async Task NotifyMembersOnActivationAsync(Investment investment, CancellationToken cancellationToken)
+    {
+        var creator = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.IsActive)
+            .OrderBy(u => u.CreatedAt)
+            .Select(u => u.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var holdings = await _context.MemberInvestments
+            .AsNoTracking()
+            .Include(mi => mi.Member)
+            .Where(mi => mi.InvestmentId == investment.Id && mi.SharesOwned > 0)
+            .ToListAsync(cancellationToken);
+
+        foreach (var holding in holdings)
+        {
+            var member = holding.Member;
+            if (member == null || !member.IsActive || member.UserId is null) continue;
+
+            await _notifications.CreateNotificationAsync(
+                "Investment project activated",
+                $"'{investment.Name}' is now Active. Your holding: {holding.SharesOwned} share(s) " +
+                $"(৳{holding.AmountInvested:N2} invested).",
+                NotificationType.InvestmentUpdate,
+                member.UserId.Value,
+                creator,
+                relatedMemberId: member.Id);
+
+            if (!string.IsNullOrWhiteSpace(member.Email))
+            {
+                try
+                {
+                    var body =
+                        $"<p>Hello {member.Name},</p>" +
+                        $"<p><strong>{investment.Name}</strong> has started - its status is now <strong>Active</strong>, " +
+                        "and buying is closed for this project.</p>" +
+                        "<p>Your holding in this project:</p>" +
+                        "<ul>" +
+                        $"<li>Shares owned: {holding.SharesOwned}</li>" +
+                        $"<li>Amount invested: ৳{holding.AmountInvested:N2}</li>" +
+                        "</ul>" +
+                        "<p>You will be notified again when the project completes and profit is distributed.</p>";
+
+                    await _email.SendEmailAsync(member.Email, $"'{investment.Name}' is now active", body);
+                }
+                catch (Exception ex)
+                {
+                    // A downstream email failure must never roll back the activation.
+                    _logger.LogWarning(ex, "Failed to email member {MemberId} about activated investment {InvestmentId}",
+                        member.Id, investment.Id);
+                }
+            }
         }
     }
 

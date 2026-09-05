@@ -38,6 +38,7 @@ public class WalletSummaryDto
     public decimal TotalInvested { get; set; }
     public decimal TotalProfitEarned { get; set; }
     public decimal TotalDisbursed { get; set; }
+    public decimal TotalWithdrawn { get; set; }
     public List<WalletEntryDto> Entries { get; set; } = new();
 }
 
@@ -47,6 +48,12 @@ public class SubscribeToInvestmentDto
     public Guid? MemberId { get; set; }
 
     public int Shares { get; set; }
+
+    /// <summary>
+    /// The buyer's explicit acknowledgement of the investment agreement / caution.
+    /// Must be true; the purchase is rejected server-side otherwise.
+    /// </summary>
+    public bool AgreementAccepted { get; set; }
 }
 
 public class ShareSubscriptionDto
