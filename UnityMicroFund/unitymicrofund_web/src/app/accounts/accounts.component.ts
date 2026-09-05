@@ -78,7 +78,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
             <span class="stat-breakdown" *ngIf="summary">
               Pool {{ summary.totalPoolAmount | bdtCurrency }}
               <span class="pos">+ {{ summary.totalInvestmentNetProfit | bdtCurrency }} invest. profit</span>
-              <span class="hint">expenses −{{ summary.totalExpenses | bdtCurrency }} · other income +{{ summary.totalOtherIncome | bdtCurrency }} (already in balances)</span>
+              <span class="neg">− {{ summary.totalExpenses | bdtCurrency }} expenses</span>
             </span>
           </div>
         </div>
@@ -231,11 +231,6 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
         <div class="section-header">
           <h2>Expenses &amp; Income</h2>
           <div class="ledger-actions">
-            <select [(ngModel)]="ledgerFilter" (ngModelChange)="loadLedger()" class="ledger-filter">
-              <option value="">All entries</option>
-              <option value="Expense">Expenses only</option>
-              <option value="Income">Income only</option>
-            </select>
             <button *ngIf="isAdmin" class="btn-expense" (click)="openLedgerModal('Expense')">
               <span class="material-icons">south_west</span> Add Expense
             </button>
@@ -245,21 +240,82 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
           </div>
         </div>
 
+        <div class="ledger-filters">
+          <div class="ledger-filters-main">
+            <div class="search-box">
+              <span class="material-icons">search</span>
+              <input type="text" [(ngModel)]="ledgerSearch" (ngModelChange)="onLedgerSearchChange()"
+                     placeholder="Search account, category, notes…" />
+              <button type="button" class="search-clear" *ngIf="ledgerSearch"
+                      (click)="ledgerSearch = ''; onLedgerSearchChange()" title="Clear search" aria-label="Clear search">
+                <span class="material-icons">close</span>
+              </button>
+            </div>
+            <div class="ledger-filter-fields">
+              <label class="led-field">
+                <span class="field-label">Type</span>
+                <select [(ngModel)]="ledgerDirection" (ngModelChange)="applyLedgerFilters()">
+                  <option value="">All types</option>
+                  <option value="Expense">Expenses</option>
+                  <option value="Income">Income</option>
+                </select>
+              </label>
+              <label class="led-field">
+                <span class="field-label">Account</span>
+                <select [(ngModel)]="ledgerAccountId" (ngModelChange)="applyLedgerFilters()">
+                  <option value="">All accounts</option>
+                  <option *ngFor="let a of accounts" [value]="a.id">{{ a.name }}</option>
+                </select>
+              </label>
+              <div class="led-field field-date">
+                <span class="field-label">Date range</span>
+                <div class="date-range">
+                  <input type="date" [(ngModel)]="ledgerFromDate" (ngModelChange)="applyLedgerFilters()" aria-label="From date" />
+                  <span class="date-sep material-icons">arrow_forward</span>
+                  <input type="date" [(ngModel)]="ledgerToDate" (ngModelChange)="applyLedgerFilters()" aria-label="To date" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="ledger-filters-active" *ngIf="hasLedgerActiveFilters()">
+            <span class="active-label">Filters</span>
+            <button type="button" class="ledger-clear-all" (click)="clearLedgerFilters()">
+              <span class="material-icons">restart_alt</span>
+              Clear all
+            </button>
+          </div>
+        </div>
+
         <div class="table-container">
           <table class="accounts-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Account</th>
-                <th>Category</th>
-                <th class="num">Amount</th>
+                <th class="sortable" (click)="sortLedger('entryDate')">
+                  Date
+                  <span class="sort-icon material-icons" *ngIf="ledgerSortColumn === 'entryDate'">{{ ledgerSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
+                </th>
+                <th class="sortable" (click)="sortLedger('direction')">
+                  Type
+                  <span class="sort-icon material-icons" *ngIf="ledgerSortColumn === 'direction'">{{ ledgerSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
+                </th>
+                <th class="sortable" (click)="sortLedger('accountName')">
+                  Account
+                  <span class="sort-icon material-icons" *ngIf="ledgerSortColumn === 'accountName'">{{ ledgerSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
+                </th>
+                <th class="sortable" (click)="sortLedger('category')">
+                  Category
+                  <span class="sort-icon material-icons" *ngIf="ledgerSortColumn === 'category'">{{ ledgerSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
+                </th>
+                <th class="num sortable" (click)="sortLedger('amount')">
+                  Amount
+                  <span class="sort-icon material-icons" *ngIf="ledgerSortColumn === 'amount'">{{ ledgerSortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward' }}</span>
+                </th>
                 <th>Notes</th>
                 <th class="actions-col" *ngIf="isAdmin">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let e of ledgerEntries">
+              <tr *ngFor="let e of paginatedLedger">
                 <td class="date">{{ e.entryDate | date:'mediumDate' }}</td>
                 <td>
                   <span class="ledger-badge" [class.expense]="e.direction === 'Expense'" [class.income]="e.direction === 'Income'">
@@ -283,14 +339,53 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="ledgerEntries.length === 0">
+              <tr *ngIf="paginatedLedger.length === 0">
                 <td [attr.colspan]="isAdmin ? 7 : 6" class="empty-row">
                   <span class="material-icons">receipt_long</span>
-                  <span>No expenses or income recorded yet</span>
+                  <span>{{ hasLedgerActiveFilters() ? 'No entries match your filters' : 'No expenses or income recorded yet' }}</span>
                 </td>
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Ledger Pagination -->
+        <div class="pagination" *ngIf="filteredLedger.length > 0">
+          <div class="page-info">
+            Showing {{ (ledgerCurrentPage - 1) * ledgerPageSize + 1 }}–{{ Math.min(ledgerCurrentPage * ledgerPageSize, filteredLedger.length) }} of {{ filteredLedger.length }} entries
+          </div>
+          <div class="pagination-right">
+            <div class="page-size-select">
+              <label>Rows:</label>
+              <select [(ngModel)]="ledgerPageSize" (ngModelChange)="onLedgerPageSizeChange()">
+                <option [value]="10">10</option>
+                <option [value]="25">25</option>
+                <option [value]="50">50</option>
+                <option [value]="100">100</option>
+              </select>
+            </div>
+            <div class="page-buttons">
+              <button class="btn-page" (click)="goToLedgerPage(1)" [disabled]="ledgerCurrentPage === 1" title="First">
+                <span class="material-icons">first_page</span>
+              </button>
+              <button class="btn-page" (click)="goToLedgerPage(ledgerCurrentPage - 1)" [disabled]="ledgerCurrentPage === 1" title="Previous">
+                <span class="material-icons">chevron_left</span>
+              </button>
+              <button *ngFor="let page of ledgerVisiblePages"
+                      class="btn-page"
+                      [class.active]="page === ledgerCurrentPage"
+                      (click)="goToLedgerPage(page)"
+                      [disabled]="page === -1">
+                {{ page === -1 ? '...' : page }}
+              </button>
+              <button class="btn-page" (click)="goToLedgerPage(ledgerCurrentPage + 1)" [disabled]="ledgerCurrentPage === ledgerTotalPages" title="Next">
+                <span class="material-icons">chevron_right</span>
+              </button>
+              <button class="btn-page" (click)="goToLedgerPage(ledgerTotalPages)" [disabled]="ledgerCurrentPage === ledgerTotalPages" title="Last">
+                <span class="material-icons">last_page</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -501,15 +596,129 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .stat-label { font-size: 14px; color: #666; }
     .stat-breakdown { display: flex; flex-direction: column; gap: 1px; margin-top: 4px; font-size: 11px; color: #94a3b8; }
     .stat-breakdown .pos { color: #0d9488; font-weight: 600; }
-    .stat-breakdown .hint { color: #b0b7c3; }
+    .stat-breakdown .neg { color: #e11d48; font-weight: 600; }
 
     .ledger-section { margin-top: 24px; }
     .ledger-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .ledger-filter { padding: 9px 12px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; font-size: 13px; color: #444; }
     .btn-expense, .btn-income { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; color: white; }
     .btn-expense { background: #e74c3c; } .btn-expense:hover { background: #c0392b; }
     .btn-income { background: #27ae60; } .btn-income:hover { background: #1e8e4e; }
     .btn-expense .material-icons, .btn-income .material-icons { font-size: 16px; }
+
+    /* Ledger: search / filter */
+    .ledger-filters {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .ledger-filters-main {
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .ledger-filters-main .search-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      height: 38px;
+      flex: 1 1 260px;
+      max-width: 360px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .ledger-filters-main .search-box:focus-within { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12); }
+    .ledger-filters-main .search-box > .material-icons { font-size: 18px; color: #94a3b8; flex-shrink: 0; }
+    .ledger-filters-main .search-box input { border: none; background: transparent; outline: none; font-size: 13px; color: #0f172a; width: 100%; min-width: 100px; }
+    .ledger-filters-main .search-box input::placeholder { color: #94a3b8; }
+    .search-clear {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; padding: 0; border: none; border-radius: 50%;
+      background: #f1f5f9; color: #64748b; cursor: pointer; flex-shrink: 0;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .search-clear:hover { background: #fef2f2; color: #dc2626; }
+    .search-clear .material-icons { font-size: 14px; }
+    .ledger-filter-fields { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; flex: 1 1 auto; }
+    .led-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .led-field .field-label { font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: #64748b; padding-left: 2px; }
+    .led-field select {
+      height: 38px; padding: 0 30px 0 12px; border: 1px solid #e2e8f0; border-radius: 8px;
+      font-size: 13px; color: #0f172a; background-color: white; cursor: pointer; outline: none;
+      appearance: none; min-width: 140px; max-width: 190px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 9px center;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .led-field select:hover { border-color: #0d9488; }
+    .led-field select:focus { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12); }
+    .led-field.field-date { flex: 0 0 auto; }
+    .date-range {
+      display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px;
+      background: white; border: 1px solid #e2e8f0; border-radius: 8px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .date-range:focus-within { border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12); }
+    .date-range input[type="date"] { font-size: 13px; color: #0f172a; border: none; background: transparent; outline: none; width: 118px; cursor: pointer; }
+    .date-range .date-sep { font-size: 14px; color: #94a3b8; flex-shrink: 0; }
+    .date-range input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: 0.45; }
+    .date-range input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 0.9; }
+
+    /* Ledger: active filter bar */
+    .ledger-filters-active {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+      padding-top: 12px; border-top: 1px dashed #e2e8f0;
+    }
+    .ledger-filters-active .active-label { font-size: 11px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: #64748b; margin-right: 4px; }
+    .ledger-clear-all {
+      display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
+      padding: 4px 10px; background: transparent; color: #dc2626; border: 1px solid transparent;
+      border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .ledger-clear-all:hover { background: #fef2f2; border-color: #dc2626; }
+    .ledger-clear-all .material-icons { font-size: 15px; }
+
+    /* Ledger: pagination */
+    .pagination {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: 16px; margin-top: 4px; border-top: 1px solid #f0f0f0; flex-wrap: wrap; gap: 12px;
+    }
+    .page-info { font-size: 13px; color: #64748b; }
+    .pagination-right { display: flex; align-items: center; gap: 16px; }
+    .page-size-select { display: flex; align-items: center; gap: 8px; }
+    .page-size-select label { font-size: 13px; color: #64748b; white-space: nowrap; }
+    .page-size-select select {
+      padding: 4px 26px 4px 8px; border: 1px solid #e2e8f0; border-radius: 6px;
+      font-size: 13px; color: #475569; background: white; appearance: none; cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 8px center;
+    }
+    .page-buttons { display: flex; gap: 2px; }
+    .btn-page {
+      display: flex; align-items: center; justify-content: center;
+      min-width: 32px; height: 32px; padding: 0 6px; background: transparent;
+      border: 1px solid transparent; border-radius: 6px; font-size: 13px; color: #475569;
+      cursor: pointer; transition: all 0.15s ease;
+    }
+    .btn-page:hover:not(:disabled) { background: #f1f5f9; border-color: #e2e8f0; }
+    .btn-page.active { background: #0d9488; border-color: #0d9488; color: white; font-weight: 600; }
+    .btn-page:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn-page .material-icons { font-size: 18px; }
+
+    /* Ledger: sortable header + sort icon */
+    .accounts-table th.sortable { cursor: pointer; user-select: none; transition: color 0.15s ease; }
+    .accounts-table th.sortable:hover { color: #0d9488; }
+    .accounts-table .sort-icon { font-size: 14px; vertical-align: middle; margin-left: 2px; }
+
     .ledger-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
     .ledger-badge.expense { background: #fdecea; color: #c0392b; }
     .ledger-badge.income { background: #e8f5e9; color: #1e8e4e; }
@@ -621,6 +830,10 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
       .accounts-grid { grid-template-columns: 1fr; }
       .section-header { flex-direction: column; align-items: flex-start; gap: 12px; }
       .ledger-actions { width: 100%; }
+      .ledger-filters-main { align-items: stretch; }
+      .ledger-filters-main .search-box { max-width: none; flex: 1 1 100%; }
+      .ledger-filter-fields { width: 100%; }
+      .led-field { flex: 1 1 calc(50% - 6px); }
     }
     @media (max-width: 768px) {
       .accounts-wrapper { padding: 16px; }
@@ -631,6 +844,8 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
       .table-container { overflow-x: auto; }
       .accounts-table { min-width: 600px; }
       .view-toggle { display: none; }
+      .pagination { flex-direction: column; align-items: flex-start; }
+      .pagination-right { width: 100%; justify-content: space-between; }
     }
     @media (max-width: 576px) {
       .page-header h1 { font-size: 20px; }
@@ -638,6 +853,8 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
       .stat-card .stat-value { font-size: 20px; }
       .modal-content { margin: 12px; padding: 16px; }
       .form-grid { grid-template-columns: 1fr; }
+      .led-field { flex: 1 1 100%; }
+      .pagination-right { flex-direction: column; align-items: flex-start; gap: 8px; }
     }
   `]
 })
@@ -653,6 +870,7 @@ export class AccountsComponent implements OnInit, OnDestroy {
   accountToDelete: Account | null = null;
   viewMode: 'table' | 'card' = 'table';
   searchTerm = '';
+  Math = Math;
 
   formData: any = this.getEmptyForm();
   private subscription?: Subscription;
@@ -660,7 +878,19 @@ export class AccountsComponent implements OnInit, OnDestroy {
   isAdmin = false;
   summary: AccountsSummary | null = null;
   ledgerEntries: AccountLedgerEntry[] = [];
-  ledgerFilter: '' | AccountEntryDirection = '';
+  // Expenses & Income: search / filter / sort / pagination (client-side)
+  filteredLedger: AccountLedgerEntry[] = [];
+  paginatedLedger: AccountLedgerEntry[] = [];
+  ledgerSearch = '';
+  ledgerDirection: '' | AccountEntryDirection = '';
+  ledgerAccountId = '';
+  ledgerFromDate = '';
+  ledgerToDate = '';
+  ledgerSortColumn: keyof AccountLedgerEntry = 'entryDate';
+  ledgerSortDirection: 'asc' | 'desc' = 'desc';
+  ledgerCurrentPage = 1;
+  ledgerPageSize = 10;
+  ledgerTotalPages = 1;
   showLedgerModal = false;
   ledgerEditId: string | null = null;
   ledgerForm: any = this.getEmptyLedgerForm();
@@ -691,7 +921,7 @@ export class AccountsComponent implements OnInit, OnDestroy {
   }
 
   get totalBalance(): number {
-    return this.accounts.filter(a => a.isActive).reduce((sum, a) => sum + a.balance, 0);
+    return this.accounts.reduce((sum, a) => sum + a.balance, 0);
   }
 
   get activeAccounts(): number {
@@ -766,10 +996,136 @@ export class AccountsComponent implements OnInit, OnDestroy {
   }
 
   loadLedger() {
-    this.accountService.getLedger(this.ledgerFilter ? { direction: this.ledgerFilter } : undefined).subscribe({
-      next: (rows) => { this.ledgerEntries = Array.isArray(rows) ? rows : []; this.cdr.detectChanges(); },
-      error: () => { this.ledgerEntries = []; this.cdr.detectChanges(); },
+    this.accountService.getLedger().subscribe({
+      next: (rows) => {
+        this.ledgerEntries = Array.isArray(rows) ? rows : [];
+        this.applyLedgerFiltersAndSort();
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.ledgerEntries = [];
+        this.filteredLedger = [];
+        this.paginatedLedger = [];
+        this.ledgerTotalPages = 1;
+        this.cdr.detectChanges();
+      },
     });
+  }
+
+  onLedgerSearchChange() {
+    this.ledgerCurrentPage = 1;
+    this.applyLedgerFiltersAndSort();
+  }
+
+  applyLedgerFilters() {
+    this.ledgerCurrentPage = 1;
+    this.applyLedgerFiltersAndSort();
+  }
+
+  sortLedger(column: keyof AccountLedgerEntry) {
+    if (this.ledgerSortColumn === column) {
+      this.ledgerSortDirection = this.ledgerSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.ledgerSortColumn = column;
+      this.ledgerSortDirection = 'asc';
+    }
+    this.applyLedgerFiltersAndSort();
+  }
+
+  applyLedgerFiltersAndSort() {
+    let result = [...this.ledgerEntries];
+
+    if (this.ledgerSearch.trim()) {
+      const search = this.ledgerSearch.trim().toLowerCase();
+      result = result.filter(e =>
+        e.accountName.toLowerCase().includes(search) ||
+        e.category.toLowerCase().includes(search) ||
+        e.direction.toLowerCase().includes(search) ||
+        (e.notes && e.notes.toLowerCase().includes(search))
+      );
+    }
+
+    if (this.ledgerDirection) {
+      result = result.filter(e => e.direction === this.ledgerDirection);
+    }
+
+    if (this.ledgerAccountId) {
+      result = result.filter(e => e.accountId === this.ledgerAccountId);
+    }
+
+    if (this.ledgerFromDate || this.ledgerToDate) {
+      const from = this.ledgerFromDate ? new Date(this.ledgerFromDate + 'T00:00:00') : null;
+      const to = this.ledgerToDate ? new Date(this.ledgerToDate + 'T23:59:59.999') : null;
+      result = result.filter(e => {
+        const d = new Date(e.entryDate);
+        if (from && d < from) return false;
+        if (to && d > to) return false;
+        return true;
+      });
+    }
+
+    result.sort((a, b) => {
+      let aVal: any = a[this.ledgerSortColumn];
+      let bVal: any = b[this.ledgerSortColumn];
+      if (typeof aVal === 'string') { aVal = aVal.toLowerCase(); bVal = (bVal as string).toLowerCase(); }
+      if (aVal < bVal) return this.ledgerSortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return this.ledgerSortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    this.filteredLedger = result;
+    this.ledgerTotalPages = Math.ceil(this.filteredLedger.length / this.ledgerPageSize) || 1;
+    if (this.ledgerCurrentPage > this.ledgerTotalPages) this.ledgerCurrentPage = 1;
+    this.updatePaginatedLedger();
+  }
+
+  updatePaginatedLedger() {
+    const start = (this.ledgerCurrentPage - 1) * this.ledgerPageSize;
+    this.paginatedLedger = this.filteredLedger.slice(start, start + this.ledgerPageSize);
+  }
+
+  onLedgerPageSizeChange() {
+    this.ledgerCurrentPage = 1;
+    this.ledgerTotalPages = Math.ceil(this.filteredLedger.length / this.ledgerPageSize) || 1;
+    this.updatePaginatedLedger();
+  }
+
+  get ledgerVisiblePages(): number[] {
+    const pages: number[] = [];
+    const maxVisible = 5;
+    if (this.ledgerTotalPages <= maxVisible) {
+      for (let i = 1; i <= this.ledgerTotalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (this.ledgerCurrentPage > 2) pages.push(-1);
+      const start = Math.max(2, this.ledgerCurrentPage - 1);
+      const end = Math.min(this.ledgerTotalPages - 1, this.ledgerCurrentPage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (this.ledgerCurrentPage < this.ledgerTotalPages - 1) pages.push(-1);
+      pages.push(this.ledgerTotalPages);
+    }
+    return pages;
+  }
+
+  goToLedgerPage(page: number) {
+    if (page >= 1 && page <= this.ledgerTotalPages && page !== this.ledgerCurrentPage) {
+      this.ledgerCurrentPage = page;
+      this.updatePaginatedLedger();
+    }
+  }
+
+  hasLedgerActiveFilters(): boolean {
+    return !!this.ledgerSearch.trim() || !!this.ledgerDirection ||
+      !!this.ledgerAccountId || !!this.ledgerFromDate || !!this.ledgerToDate;
+  }
+
+  clearLedgerFilters() {
+    this.ledgerSearch = '';
+    this.ledgerDirection = '';
+    this.ledgerAccountId = '';
+    this.ledgerFromDate = '';
+    this.ledgerToDate = '';
+    this.applyLedgerFiltersAndSort();
   }
 
   getEmptyLedgerForm(): any {

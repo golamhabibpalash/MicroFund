@@ -16,15 +16,11 @@ public class DashboardService : IDashboardService
 
     public async Task<DashboardStatsDto> GetDashboardStatsAsync()
     {
-        var totalPool = await _context.Contributions
-            .Where(c => c.Status == ContributionStatus.Paid)
-            .SumAsync(c => c.Amount);
-
-        var totalAccountsBalance = await _context.Accounts
-            .Where(a => a.IsActive)
-            .SumAsync(a => a.Balance);
-
-        totalPool += totalAccountsBalance;
+        // "Total Pool Amount" = funding by all members = sum of approved Fund transactions.
+        var totalPool = await _context.Transactions
+            .Where(t => t.Status == TransactionStatus.Fund
+                        && t.ApprovalStatus == TransactionApprovalStatus.Approved)
+            .SumAsync(t => t.Amount);
 
         var totalMembers = await _context.Members.CountAsync(m => m.IsActive);
 

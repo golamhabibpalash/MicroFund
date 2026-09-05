@@ -167,12 +167,13 @@ public class AccountLedgerService : IAccountLedgerService
         var activeAccounts = await _context.Accounts.CountAsync(a => a.IsActive, cancellationToken);
 
         var totalBalance = await _context.Accounts
-            .Where(a => a.IsActive)
             .SumAsync(a => (decimal?)a.Balance, cancellationToken) ?? 0m;
 
-        var paidContributions = await _context.Contributions
-            .Where(c => c.Status == ContributionStatus.Paid)
-            .SumAsync(c => (decimal?)c.Amount, cancellationToken) ?? 0m;
+        // "Total Pool Amount" = funding by all members = sum of approved Fund transactions.
+        var totalPoolAmount = await _context.Transactions
+            .Where(t => t.Status == TransactionStatus.Fund
+                        && t.ApprovalStatus == TransactionApprovalStatus.Approved)
+            .SumAsync(t => (decimal?)t.Amount, cancellationToken) ?? 0m;
 
         // NetProfit is only stamped when a project's profit is distributed, so this is
         // "net profit of settled projects".
@@ -188,7 +189,8 @@ public class AccountLedgerService : IAccountLedgerService
             .Where(e => e.Direction == AccountEntryDirection.Income)
             .SumAsync(e => (decimal?)e.Amount, cancellationToken) ?? 0m;
 
-        var totalPoolAmount = paidContributions + totalBalance;
+        // AvailableBalance = funding + profits - cost (expenses).
+        var availableBalance = totalPoolAmount + totalInvestmentNetProfit - totalExpenses;
 
         return new AccountsSummaryDto
         {
@@ -199,7 +201,7 @@ public class AccountLedgerService : IAccountLedgerService
             TotalInvestmentNetProfit = totalInvestmentNetProfit,
             TotalExpenses = totalExpenses,
             TotalOtherIncome = totalOtherIncome,
-            AvailableBalance = totalPoolAmount + totalInvestmentNetProfit
+            AvailableBalance = availableBalance
         };
     }
 

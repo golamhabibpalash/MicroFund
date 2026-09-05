@@ -139,9 +139,9 @@ public class AccountLedgerEntryDto
 }
 
 /// <summary>
-/// Roll-up for the accounts page stat cards. availableBalance = totalPoolAmount +
-/// totalInvestmentNetProfit; totalExpenses/totalOtherIncome are informational only
-/// (they are already reflected in the account balances that feed the pool).
+/// Roll-up for the accounts page stat cards. totalPoolAmount = funding by all members
+/// (sum of approved Fund transactions). availableBalance = totalPoolAmount +
+/// totalInvestmentNetProfit - totalExpenses. totalBalance = sum of all account balances.
 /// </summary>
 public class AccountsSummaryDto
 {
