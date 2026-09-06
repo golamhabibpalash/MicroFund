@@ -17,6 +17,7 @@ using UnityMicroFund.API.Areas.Members.Services;
 using UnityMicroFund.API.Areas.OCR.Services;
 using UnityMicroFund.API.Areas.Settings.Services;
 using UnityMicroFund.API.Areas.Transactions.Services;
+using UnityMicroFund.API.Areas.Versioning.Services;
 using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Infrastructure.Email;
 using UnityMicroFund.API.Infrastructure.Sms;
@@ -190,6 +191,7 @@ builder.Services.AddHttpClient<ISmsService, SmsService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IParamBusConfigService, ParamBusConfigService>();
+builder.Services.AddScoped<IVersioningService, VersioningService>();
 
 // Logging CQRS
 builder.Services.AddScoped<ILogRepository, LogRepository>();
@@ -333,6 +335,11 @@ using (var scope = app.Services.CreateScope())
         // member wallets so wallet balances reconcile with real funding.
         var wallet = scope.ServiceProvider.GetRequiredService<IWalletService>();
         await wallet.BackfillDepositsAsync();
+
+        // Idempotent: writes/refreshes the built-in release history and keeps the
+        // "current version" marker on the newest entry.
+        var versioning = scope.ServiceProvider.GetRequiredService<IVersioningService>();
+        await versioning.SeedAsync();
     }
     catch (Exception ex)
     {

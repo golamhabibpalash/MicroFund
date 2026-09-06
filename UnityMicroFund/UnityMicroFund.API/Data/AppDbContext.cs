@@ -64,6 +64,8 @@ public class AppDbContext : DbContext
     public DbSet<InvestmentInterimProfit> InvestmentInterimProfits { get; set; }
     public DbSet<InvestmentProjectCost> InvestmentProjectCosts { get; set; }
     public DbSet<InvestmentMaintenanceDistribution> InvestmentMaintenanceDistributions { get; set; }
+    public DbSet<AppVersion> AppVersions { get; set; }
+    public DbSet<AppVersionChange> AppVersionChanges { get; set; }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -456,6 +458,23 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AppVersion>(entity =>
+        {
+            entity.HasIndex(e => e.Version).IsUnique();
+            entity.HasIndex(e => e.SortOrder);
+
+            entity.HasMany(e => e.Changes)
+                  .WithOne(c => c.AppVersion!)
+                  .HasForeignKey(c => c.AppVersionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AppVersionChange>(entity =>
+        {
+            entity.Property(e => e.Type).HasConversion<string>().HasMaxLength(20);
+            entity.HasIndex(e => e.AppVersionId);
         });
 
         modelBuilder.ApplyConfiguration(new LogEntryConfiguration());

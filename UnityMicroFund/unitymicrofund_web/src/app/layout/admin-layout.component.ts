@@ -7,6 +7,7 @@ import { Token } from '../core/services/token';
 import { BrandingService } from '../core/services/branding.service';
 import { ChatInterfaceComponent } from '../chat/chat-interface.component';
 import { NotificationBellComponent } from '../shared/notification-bell/notification-bell.component';
+import { VersionFooterComponent } from '../shared/version-history/version-footer.component';
 import {
   SideNavComponent,
   NavModule,
@@ -87,6 +88,7 @@ const NAV_POLICY: NavPolicy = {
     ChatInterfaceComponent,
     NotificationBellComponent,
     SideNavComponent,
+    VersionFooterComponent,
   ],
   template: `
     <div class="layout-container">
@@ -193,6 +195,7 @@ const NAV_POLICY: NavPolicy = {
         <div class="content-area">
           <router-outlet (activate)="onRouteActivate()"></router-outlet>
         </div>
+        <app-version-footer></app-version-footer>
       </main>
 
       <app-chat-interface></app-chat-interface>
