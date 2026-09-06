@@ -136,59 +136,91 @@ public class DashboardService : IDashboardService
             .Take(recentActivityCount)
             .ToList();
 
-        // === Top Investors ===
-        const int topInvestorCount = 10;
+        // === Top Investors and Top Funding ===
+        //
+        // Funding and Investing are two SEPARATE financial activities and must never be
+        // combined here:
+        //   * Funding  = money a member pays into the pool. Source of truth: approved
+        //                Fund transactions linked to the member via MemberTransactionMaps.
+        //   * Investing = capital a member commits to purchase investment shares. Source
+        //                of truth: MemberInvestment.AmountInvested (the per-member holding
+        //                rollup kept in step with the immutable ShareSubscription history).
+        //                NOT ShareValue, which tracks current/appreciated value.
+        const int topRankCount = 10;
 
-        // Member funding is recorded as approved Fund transactions linked via MemberTransactionMaps
-        // (the payment/approval flow), not as Contribution rows — mirror ProfileService here.
-        var memberInvestmentTotals = await _context.Members
+        // --- Top Investors: investing amount only ---
+        var investorRows = await _context.Members
             .Where(m => m.IsActive)
             .Select(m => new
             {
-                Member = m,
-                TotalContributions = m.MemberTransactionMaps
+                m.Name,
+                m.ProfileImageUrl,
+                InvestmentAmount = m.MemberInvestments.Sum(mi => (decimal?)mi.AmountInvested) ?? 0,
+                InvestmentCount = m.MemberInvestments.Count(),
+                LatestDate = m.MemberInvestments.Max(mi => (DateTime?)mi.CreatedAt)
+            })
+            .Where(x => x.InvestmentAmount > 0)
+            .OrderByDescending(x => x.InvestmentAmount)
+            .ThenByDescending(x => x.InvestmentCount)
+            .ThenBy(x => x.Name)
+            .Take(topRankCount)
+            .ToListAsync();
+
+        var totalInvestedAllMembers = await _context.MemberInvestments
+            .SumAsync(mi => (decimal?)mi.AmountInvested) ?? 0;
+
+        var topInvestorDtos = investorRows
+            .Select((x, index) => new TopInvestorDto
+            {
+                MemberName = x.Name,
+                AvatarUrl = x.ProfileImageUrl,
+                InvestmentAmount = x.InvestmentAmount,
+                SharePercentage = totalInvestedAllMembers > 0
+                    ? x.InvestmentAmount / totalInvestedAllMembers * 100 : 0,
+                TransactionCount = x.InvestmentCount,
+                LatestDate = x.LatestDate ?? DateTime.MinValue,
+                Rank = index + 1
+            })
+            .ToList();
+
+        // --- Top Funding: funding amount only ---
+        var fundingRows = await _context.Members
+            .Where(m => m.IsActive)
+            .Select(m => new
+            {
+                m.Name,
+                m.ProfileImageUrl,
+                FundingAmount = m.MemberTransactionMaps
                     .Where(mtm => mtm.Transaction != null
                                   && mtm.Transaction.Status == TransactionStatus.Fund
                                   && mtm.Transaction.ApprovalStatus == TransactionApprovalStatus.Approved)
                     .Sum(mtm => (decimal?)mtm.Transaction!.Amount) ?? 0,
-                ContributionCount = m.MemberTransactionMaps
+                FundingCount = m.MemberTransactionMaps
                     .Count(mtm => mtm.Transaction != null
                                   && mtm.Transaction.Status == TransactionStatus.Fund
                                   && mtm.Transaction.ApprovalStatus == TransactionApprovalStatus.Approved),
-                TotalInvestments = m.MemberInvestments
-                    .Sum(mi => (decimal?)mi.ShareValue) ?? 0,
-                InvestmentCount = m.MemberInvestments.Count(),
-                LatestContribution = m.MemberTransactionMaps
+                LatestDate = m.MemberTransactionMaps
                     .Where(mtm => mtm.Transaction != null
                                   && mtm.Transaction.Status == TransactionStatus.Fund
                                   && mtm.Transaction.ApprovalStatus == TransactionApprovalStatus.Approved)
-                    .Max(mtm => (DateTime?)(mtm.Transaction!.TransactionDate ?? mtm.Transaction.CreatedAt)),
-                LatestInvestment = m.MemberInvestments
-                    .Max(mi => (DateTime?)mi.CreatedAt)
+                    .Max(mtm => (DateTime?)(mtm.Transaction!.TransactionDate ?? mtm.Transaction.CreatedAt))
             })
-            .Select(x => new
-            {
-                x.Member,
-                TotalAmount = x.TotalContributions + x.TotalInvestments,
-                TransactionCount = x.ContributionCount + x.InvestmentCount,
-                LatestDate = x.LatestContribution ?? x.LatestInvestment ?? DateTime.MinValue
-            })
-            .Where(x => x.TotalAmount > 0)
-            .OrderByDescending(x => x.TotalAmount)
-            .ThenByDescending(x => x.TransactionCount)
-            .ThenByDescending(x => x.LatestDate)
-            .Take(topInvestorCount)
+            .Where(x => x.FundingAmount > 0)
+            .OrderByDescending(x => x.FundingAmount)
+            .ThenByDescending(x => x.FundingCount)
+            .ThenBy(x => x.Name)
+            .Take(topRankCount)
             .ToListAsync();
 
-        var topInvestorDtos = memberInvestmentTotals
-            .Select((x, index) => new TopInvestorDto
+        var topFundingDtos = fundingRows
+            .Select((x, index) => new TopFundingDto
             {
-                MemberName = x.Member.Name,
-                AvatarUrl = x.Member.ProfileImageUrl,
-                TotalAmount = x.TotalAmount,
-                SharePercentage = totalPool > 0 ? x.TotalAmount / totalPool * 100 : 0,
-                TransactionCount = x.TransactionCount,
-                LatestDate = x.LatestDate,
+                MemberName = x.Name,
+                AvatarUrl = x.ProfileImageUrl,
+                FundingAmount = x.FundingAmount,
+                SharePercentage = totalPool > 0 ? x.FundingAmount / totalPool * 100 : 0,
+                TransactionCount = x.FundingCount,
+                LatestDate = x.LatestDate ?? DateTime.MinValue,
                 Rank = index + 1
             })
             .ToList();
@@ -221,6 +253,7 @@ public class DashboardService : IDashboardService
             ContributionsThisMonth = contributionsThisMonth,
             RecentActivities = recentActivities,
             TopInvestors = topInvestorDtos,
+            TopFunding = topFundingDtos,
             MonthlyTrend = monthlyTrend
         };
     }

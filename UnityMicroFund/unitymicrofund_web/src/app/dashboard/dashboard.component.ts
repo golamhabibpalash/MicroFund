@@ -24,6 +24,7 @@ interface DashboardStats {
   contributionsThisMonth: number;
   recentActivities: RecentActivity[];
   topInvestors: TopInvestor[];
+  topFunding: TopFunding[];
   monthlyTrend: MonthlyTrend;
 }
 
@@ -37,10 +38,22 @@ interface RecentActivity {
   userId?: string;
 }
 
+// Ranking by investing amount only (share-purchase capital), never combined with funding.
 interface TopInvestor {
   memberName: string;
   avatarUrl?: string;
-  totalAmount: number;
+  investmentAmount: number;
+  sharePercentage: number;
+  transactionCount: number;
+  latestDate: string;
+  rank: number;
+}
+
+// Ranking by funding amount only (money paid into the pool), never combined with investing.
+interface TopFunding {
+  memberName: string;
+  avatarUrl?: string;
+  fundingAmount: number;
   sharePercentage: number;
   transactionCount: number;
   latestDate: string;
@@ -202,9 +215,80 @@ interface MonthlyTrend {
           </div>
         </section>
 
+        <!-- Rankings Section: Funding and Investing are separate financial activities -->
+        <section class="rankings-section">
+          <div class="rankings-grid">
+            <!-- Top Investors: ranked by investing amount only -->
+            <div class="investors-card">
+              <div class="card-header">
+                <h3><span class="material-icons">star</span> Top Investors</h3>
+                <a routerLink="/investors" class="view-all">View All</a>
+              </div>
+              <div class="investors-list">
+                <div class="investor-item" *ngFor="let investor of stats.topInvestors; let i = index" [style.animation-delay]="i * 50 + 'ms'">
+                  <div class="investor-rank" [class.gold]="i === 0" [class.silver]="i === 1" [class.bronze]="i === 2">
+                    #{{ investor.rank }}
+                  </div>
+                  <div class="investor-avatar" *ngIf="!investor.avatarUrl">
+                    {{ getInitials(investor.memberName) }}
+                  </div>
+                  <img *ngIf="investor.avatarUrl" class="investor-avatar-img" [src]="investor.avatarUrl" [alt]="investor.memberName" />
+                  <div class="investor-info">
+                    <span class="investor-name">{{ investor.memberName }}</span>
+                    <div class="investor-meta">
+                      <span class="investor-transactions">{{ investor.transactionCount }} investments</span>
+                      <span class="investor-latest-date">{{ investor.latestDate | timeAgo }}</span>
+                    </div>
+                  </div>
+                  <div class="investor-amount">
+                    {{ investor.investmentAmount | bdtCurrency }}
+                  </div>
+                </div>
+                <div class="empty-investors" *ngIf="stats.topInvestors.length === 0">
+                  <span class="material-icons">people_outline</span>
+                  <p>No investors yet</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Top Funding: ranked by funding amount only -->
+            <div class="investors-card">
+              <div class="card-header">
+                <h3><span class="material-icons">volunteer_activism</span> Top Funding</h3>
+                <a routerLink="/payments" class="view-all">View All</a>
+              </div>
+              <div class="investors-list">
+                <div class="investor-item" *ngFor="let funder of stats.topFunding; let i = index" [style.animation-delay]="i * 50 + 'ms'">
+                  <div class="investor-rank" [class.gold]="i === 0" [class.silver]="i === 1" [class.bronze]="i === 2">
+                    #{{ funder.rank }}
+                  </div>
+                  <div class="investor-avatar" *ngIf="!funder.avatarUrl">
+                    {{ getInitials(funder.memberName) }}
+                  </div>
+                  <img *ngIf="funder.avatarUrl" class="investor-avatar-img" [src]="funder.avatarUrl" [alt]="funder.memberName" />
+                  <div class="investor-info">
+                    <span class="investor-name">{{ funder.memberName }}</span>
+                    <div class="investor-meta">
+                      <span class="investor-transactions">{{ funder.transactionCount }} funding transactions</span>
+                      <span class="investor-latest-date">{{ funder.latestDate | timeAgo }}</span>
+                    </div>
+                  </div>
+                  <div class="investor-amount">
+                    {{ funder.fundingAmount | bdtCurrency }}
+                  </div>
+                </div>
+                <div class="empty-investors" *ngIf="stats.topFunding.length === 0">
+                  <span class="material-icons">people_outline</span>
+                  <p>No funding yet</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- Bottom Section -->
         <section class="bottom-section">
-          <div class="bottom-grid">
+          <div class="bottom-grid bottom-grid--two">
             <!-- Recent Activities -->
             <div class="activity-card">
               <div class="card-header">
@@ -230,39 +314,6 @@ interface MonthlyTrend {
                 <div class="empty-activity" *ngIf="stats.recentActivities.length === 0">
                   <span class="material-icons">inbox</span>
                   <p>No recent activities</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Top Investors -->
-            <div class="investors-card">
-              <div class="card-header">
-                <h3><span class="material-icons">star</span> Top Investors</h3>
-                <a routerLink="/investors" class="view-all">View All</a>
-              </div>
-              <div class="investors-list">
-                <div class="investor-item" *ngFor="let investor of stats.topInvestors; let i = index" [style.animation-delay]="i * 50 + 'ms'">
-                  <div class="investor-rank" [class.gold]="i === 0" [class.silver]="i === 1" [class.bronze]="i === 2">
-                    #{{ investor.rank }}
-                  </div>
-                  <div class="investor-avatar" *ngIf="!investor.avatarUrl">
-                    {{ getInitials(investor.memberName) }}
-                  </div>
-                  <img *ngIf="investor.avatarUrl" class="investor-avatar-img" [src]="investor.avatarUrl" [alt]="investor.memberName" />
-                  <div class="investor-info">
-                    <span class="investor-name">{{ investor.memberName }}</span>
-                    <div class="investor-meta">
-                      <span class="investor-transactions">{{ investor.transactionCount }} transactions</span>
-                      <span class="investor-latest-date">{{ investor.latestDate | timeAgo }}</span>
-                    </div>
-                  </div>
-                  <div class="investor-amount">
-                    {{ investor.totalAmount | bdtCurrency }}
-                  </div>
-                </div>
-                <div class="empty-investors" *ngIf="stats.topInvestors.length === 0">
-                  <span class="material-icons">people_outline</span>
-                  <p>No investors yet</p>
                 </div>
               </div>
             </div>
@@ -377,9 +428,14 @@ interface MonthlyTrend {
     .legend-label { flex: 1; font-size: var(--text-sm); color: var(--text-muted); }
     .legend-value { font-weight: 600; color: var(--text-primary); font-size: var(--text-base); }
 
+    /* Rankings Section (Top Investors + Top Funding) */
+    .rankings-section { margin-bottom: var(--space-6); }
+    .rankings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
+
     /* Bottom Section */
     .bottom-section { margin-bottom: 0; }
     .bottom-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--space-5); }
+    .bottom-grid--two { grid-template-columns: 2fr 1fr; }
     .activity-card, .investors-card, .actions-card { background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-5); box-shadow: var(--shadow-card); border: 1px solid var(--color-border-light); }
     .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
     .card-header h3 { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-lg); font-weight: 600; color: var(--text-primary); margin: 0; }
@@ -442,11 +498,14 @@ interface MonthlyTrend {
     @media (max-width: 1200px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); gap: var(--space-4); }
       .charts-grid { grid-template-columns: 1fr; }
+      .rankings-grid { grid-template-columns: 1fr; gap: var(--space-4); }
       .bottom-grid { grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+      .bottom-grid--two { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 768px) {
       .stats-grid { grid-template-columns: 1fr; }
       .bottom-grid { grid-template-columns: 1fr; }
+      .bottom-grid--two { grid-template-columns: 1fr; }
       .actions-grid { grid-template-columns: repeat(2, 1fr); }
       .action-item { padding: 12px; }
       .action-icon { width: 40px; height: 40px; }
@@ -479,6 +538,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     contributionsThisMonth: 0,
     recentActivities: [],
     topInvestors: [],
+    topFunding: [],
     monthlyTrend: { labels: [], contributions: [], investments: [], returns: [] }
   };
 

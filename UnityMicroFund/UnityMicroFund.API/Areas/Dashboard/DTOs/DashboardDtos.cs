@@ -14,6 +14,7 @@ public class DashboardStatsDto
     public int ContributionsThisMonth { get; set; }
     public List<RecentActivityDto> RecentActivities { get; set; } = new();
     public List<TopInvestorDto> TopInvestors { get; set; } = new();
+    public List<TopFundingDto> TopFunding { get; set; } = new();
     public MonthlyTrendDto MonthlyTrend { get; set; } = new();
 }
 
@@ -28,11 +29,32 @@ public class RecentActivityDto
     public Guid? UserId { get; set; }
 }
 
+/// <summary>
+/// Ranking by a member's <b>investing</b> activity only — the capital they committed
+/// to purchase investment shares (<see cref="Models.MemberInvestment.AmountInvested"/>).
+/// Funding (money paid into the pool) is deliberately excluded; see <see cref="TopFundingDto"/>.
+/// </summary>
 public class TopInvestorDto
 {
     public string MemberName { get; set; } = string.Empty;
     public string? AvatarUrl { get; set; }
-    public decimal TotalAmount { get; set; }
+    public decimal InvestmentAmount { get; set; }
+    public decimal SharePercentage { get; set; }
+    public int TransactionCount { get; set; }
+    public DateTime LatestDate { get; set; }
+    public int Rank { get; set; }
+}
+
+/// <summary>
+/// Ranking by a member's <b>funding</b> activity only — money funded into the pool via
+/// approved <see cref="Models.TransactionStatus.Fund"/> transactions. Investing
+/// (share purchases) is deliberately excluded; see <see cref="TopInvestorDto"/>.
+/// </summary>
+public class TopFundingDto
+{
+    public string MemberName { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
+    public decimal FundingAmount { get; set; }
     public decimal SharePercentage { get; set; }
     public int TransactionCount { get; set; }
     public DateTime LatestDate { get; set; }
