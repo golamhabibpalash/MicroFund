@@ -249,13 +249,14 @@ const NAV_POLICY: NavPolicy = {
     .logo-wrapper.hidden { opacity: 0; max-width: 0; margin: 0; pointer-events: none; }
     .logo-icon-container {
       width: 38px; height: 38px;
-      background: var(--brand-gradient);
+      background: #fff;
       border-radius: var(--radius-md);
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
+      overflow: hidden;
       box-shadow: 0 2px 8px rgba(13, 148, 136, 0.3);
     }
-    .logo-img { width: 24px; height: 24px; object-fit: contain; filter: brightness(0) invert(1); }
+    .logo-img { width: 100%; height: 100%; object-fit: contain; }
     .logo-content { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
     .logo-text { font-size: 15px; font-weight: 700; color: var(--sidebar-text-active); letter-spacing: 0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .logo-tagline { font-size: 9px; font-weight: 500; color: var(--color-accent-lighter); text-transform: uppercase; letter-spacing: 1.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
