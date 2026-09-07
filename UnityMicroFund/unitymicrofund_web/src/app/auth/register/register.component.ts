@@ -161,7 +161,14 @@ export class RegisterComponent implements OnInit {
       this.authService.googleLogin(response.credential).subscribe({
         next: (res) => {
           this.isGoogleLoading = false;
-          if (res.accessToken) {
+          if (res.requiresMemberRegistration) {
+            this.router.navigate(['/complete-profile']);
+            this.cdr.detectChanges();
+          } else if (res.requiresApproval) {
+            this.error = 'Your registration is pending approval.';
+            this.tokenService.clearAll();
+            this.cdr.detectChanges();
+          } else if (res.accessToken) {
             this.router.navigate(['/dashboard']);
           } else {
             this.error = res.message || 'Registration pending approval.';

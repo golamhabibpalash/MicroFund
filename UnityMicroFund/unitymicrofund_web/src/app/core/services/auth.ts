@@ -175,8 +175,17 @@ export class Auth {
   private handleSsoResponse(response: any): AuthResponse {
     if (response.requiresMemberRegistration) {
       const loginToken = response.accessToken || response.AccessToken;
+      const refreshToken = response.refreshToken || response.RefreshToken;
+      const expiresAt = response.expiresAt || response.ExpiresAt;
+
       if (loginToken) {
         this.tokenService.saveToken(loginToken);
+      }
+      if (refreshToken) {
+        this.tokenService.saveRefreshToken(refreshToken);
+      }
+      if (expiresAt) {
+        this.tokenService.setTokenExpiry(new Date(expiresAt));
       }
       return {
         requiresMemberRegistration: true,
