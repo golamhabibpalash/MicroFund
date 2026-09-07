@@ -150,6 +150,34 @@ public class MembersController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Active user accounts that are not yet linked to a member — the pool an admin
+    /// can assign when creating a new member.
+    /// </summary>
+    [HttpGet("assignable-users")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> GetAssignableUsers()
+    {
+        var linkedUserIds = await _context.Members
+            .Where(m => m.UserId != null)
+            .Select(m => m.UserId!.Value)
+            .ToListAsync();
+
+        var users = await _context.Users
+            .Where(u => u.IsActive && !linkedUserIds.Contains(u.Id))
+            .OrderBy(u => u.Name)
+            .Select(u => new
+            {
+                u.Id,
+                u.Name,
+                u.Email,
+                Role = u.Role.ToString()
+            })
+            .ToListAsync();
+
+        return Ok(users);
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetMember(Guid id)
     {

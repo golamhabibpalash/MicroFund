@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule, DecimalPipe, DatePipe } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgForm } from '@angular/forms';
 import { Token } from '../core/services/token';
 import { UserService } from '../core/services/user';
 import { ChangeDetectorRef } from '@angular/core';
@@ -195,10 +195,153 @@ interface Member {
           </form>
         </div>
       </div>
+      <!-- Create Member Modal -->
+      <div class="modal-overlay" *ngIf="showCreateModal" (click)="closeCreateModal()">
+        <div class="modal-content edit-modal" (click)="$event.stopPropagation()">
+          <div class="modal-header">
+            <h2>Add Member</h2>
+            <button class="modal-close" (click)="closeCreateModal()">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+          <form (ngSubmit)="createMember(createForm)" #createForm="ngForm" novalidate>
+            <div class="modal-body">
+              <div class="alert alert-error" *ngIf="createError">{{ createError }}</div>
+
+              <div class="form-section">
+                <h3>User Account</h3>
+                <div class="form-grid">
+                  <div class="form-group full-width">
+                    <label for="newUser">Assign User <span class="req">*</span></label>
+                    <select id="newUser" [(ngModel)]="newMember.userId" name="userId" required
+                            (ngModelChange)="onAssignUserChange()" [disabled]="isLoadingUsers">
+                      <option [ngValue]="''" disabled>
+                        {{ isLoadingUsers ? 'Loading users…' : (assignableUsers.length ? 'Select a user' : 'No unassigned users available') }}
+                      </option>
+                      <option *ngFor="let u of assignableUsers" [ngValue]="u.id">
+                        {{ u.name }} — {{ u.email }} ({{ u.role }})
+                      </option>
+                    </select>
+                    <span class="field-hint">Every member must be linked to a user. Users who already have a membership are not listed.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <h3>Personal Information</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="newName">Full Name <span class="req">*</span></label>
+                    <input type="text" id="newName" [(ngModel)]="newMember.name" name="name" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newEmail">Email</label>
+                    <input type="email" id="newEmail" [(ngModel)]="newMember.email" name="email">
+                  </div>
+                  <div class="form-group">
+                    <label for="newPhone">Phone <span class="req">*</span></label>
+                    <input type="tel" id="newPhone" [(ngModel)]="newMember.phone" name="phone" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newDob">Date of Birth <span class="req">*</span></label>
+                    <input type="date" id="newDob" [(ngModel)]="newMember.dateOfBirth" name="dateOfBirth" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newGender">Gender <span class="req">*</span></label>
+                    <select id="newGender" [(ngModel)]="newMember.gender" name="gender" required>
+                      <option value="" disabled>Select</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="newNationality">Nationality <span class="req">*</span></label>
+                    <input type="text" id="newNationality" [(ngModel)]="newMember.nationality" name="nationality" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newOccupation">Occupation <span class="req">*</span></label>
+                    <input type="text" id="newOccupation" [(ngModel)]="newMember.occupation" name="occupation" required>
+                  </div>
+                  <div class="form-group full-width">
+                    <label for="newAddress">Address <span class="req">*</span></label>
+                    <textarea id="newAddress" [(ngModel)]="newMember.address" name="address" rows="2" required></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <h3>Emergency & Nominee</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="newEmContact">Emergency Contact Phone <span class="req">*</span></label>
+                    <input type="tel" id="newEmContact" [(ngModel)]="newMember.emergencyContactPhone" name="emergencyContactPhone" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newNomineeName">Nominee Name <span class="req">*</span></label>
+                    <input type="text" id="newNomineeName" [(ngModel)]="newMember.nomineeName" name="nomineeName" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newNomineePhone">Nominee Phone</label>
+                    <input type="tel" id="newNomineePhone" [(ngModel)]="newMember.nomineePhone" name="nomineePhone">
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <h3>Bank Details</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="newBankName">Bank Name <span class="req">*</span></label>
+                    <input type="text" id="newBankName" [(ngModel)]="newMember.bankName" name="bankName" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newAccHolder">Account Holder Name <span class="req">*</span></label>
+                    <input type="text" id="newAccHolder" [(ngModel)]="newMember.accountHolderName" name="accountHolderName" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newAccNumber">Account Number <span class="req">*</span></label>
+                    <input type="text" id="newAccNumber" [(ngModel)]="newMember.accountNumber" name="accountNumber" required>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <h3>Financial Information</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="newMonthly">Monthly Amount (BDT) <span class="req">*</span></label>
+                    <input type="number" id="newMonthly" [(ngModel)]="newMember.monthlyAmount" name="monthlyAmount" min="1" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="newJoinDate">Join Date</label>
+                    <input type="date" id="newJoinDate" [(ngModel)]="newMember.joinDate" name="joinDate">
+                  </div>
+                </div>
+                <label class="checkbox-row">
+                  <input type="checkbox" [(ngModel)]="newMember.acceptTerms" name="acceptTerms" required>
+                  <span>Member has accepted the terms and conditions</span>
+                </label>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" (click)="closeCreateModal()">Cancel</button>
+              <button type="submit" class="btn btn-primary" [disabled]="isCreating || !newMember.userId">
+                {{ isCreating ? 'Creating…' : 'Create Member' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <!-- Top Header -->
       <header class="top-header">
         <div class="header-left">
           <h1>Investors</h1>
+          <button *ngIf="isAdmin" class="btn-add" (click)="openCreateModal()" title="Add Member">
+            <span class="material-icons">person_add</span>
+            Add Member
+          </button>
           <button class="btn-refresh" (click)="loadMembers()" title="Refresh">
             <span class="material-icons">refresh</span>
           </button>
@@ -394,6 +537,13 @@ interface Member {
     .header-left h1 { font-size: 28px; font-weight: 600; color: #1a1a2e; margin: 0; }
     .btn-refresh { background: #f5f6fa; border: 1px solid #ddd; border-radius: 8px; padding: 8px; cursor: pointer; color: #666; }
     .btn-refresh:hover { background: #eee; color: #667eea; }
+    .btn-add { display: inline-flex; align-items: center; gap: 6px; background: #667eea; color: white; border: none; border-radius: 8px; padding: 9px 16px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+    .btn-add:hover { background: #5568d3; }
+    .btn-add .material-icons { font-size: 18px; }
+    .req { color: #e74c3c; }
+    .field-hint { font-size: 12px; color: #8a8a9a; margin-top: 6px; }
+    .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 14px; color: #444; cursor: pointer; }
+    .checkbox-row input { width: 16px; height: 16px; }
     .view-toggle { display: flex; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
     .view-toggle button { background: white; border: none; padding: 8px 12px; cursor: pointer; color: #666; }
     .view-toggle button:hover { background: #f5f6fa; }
@@ -553,6 +703,13 @@ export class InvestorsComponent implements OnInit {
   isSaving = false;
   isAdmin = false;
 
+  showCreateModal = false;
+  isCreating = false;
+  createError = '';
+  isLoadingUsers = false;
+  assignableUsers: { id: string; name: string; email: string; role: string }[] = [];
+  newMember = this.emptyNewMember();
+
   constructor(
     private http: HttpClient,
     private tokenService: Token,
@@ -664,6 +821,120 @@ export class InvestorsComponent implements OnInit {
   closeProfileModal() {
     this.showProfileModal = false;
     this.selectedMember = null;
+  }
+
+  private emptyNewMember() {
+    return {
+      userId: '',
+      name: '',
+      email: '',
+      phone: '',
+      dateOfBirth: '',
+      gender: '',
+      nationality: 'Bangladeshi',
+      address: '',
+      occupation: '',
+      emergencyContactPhone: '',
+      nomineeName: '',
+      nomineePhone: '',
+      bankName: '',
+      accountHolderName: '',
+      accountNumber: '',
+      monthlyAmount: null as number | null,
+      joinDate: '',
+      acceptTerms: false,
+    };
+  }
+
+  openCreateModal() {
+    this.newMember = this.emptyNewMember();
+    this.createError = '';
+    this.showCreateModal = true;
+    this.loadAssignableUsers();
+  }
+
+  closeCreateModal() {
+    this.showCreateModal = false;
+  }
+
+  loadAssignableUsers() {
+    this.isLoadingUsers = true;
+    this.http.get<{ id: string; name: string; email: string; role: string }[]>('/api/members/assignable-users')
+      .subscribe({
+        next: (users) => {
+          this.assignableUsers = users;
+          this.isLoadingUsers = false;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.assignableUsers = [];
+          this.isLoadingUsers = false;
+          this.createError = 'Failed to load user accounts.';
+          this.cdr.detectChanges();
+        },
+      });
+  }
+
+  onAssignUserChange() {
+    const user = this.assignableUsers.find(u => u.id === this.newMember.userId);
+    if (user) {
+      if (!this.newMember.name) this.newMember.name = user.name;
+      if (!this.newMember.email) this.newMember.email = user.email;
+    }
+  }
+
+  createMember(form: NgForm) {
+    this.createError = '';
+
+    if (!this.newMember.userId) {
+      this.createError = 'Please assign a user account to this member.';
+      return;
+    }
+    if (!form.valid) {
+      form.control.markAllAsTouched();
+      this.createError = 'Please fill in all required fields.';
+      return;
+    }
+    if (!this.newMember.acceptTerms) {
+      this.createError = 'The member must accept the terms and conditions.';
+      return;
+    }
+
+    this.isCreating = true;
+    const payload = {
+      userId: this.newMember.userId,
+      name: this.newMember.name,
+      email: this.newMember.email || null,
+      phone: this.newMember.phone,
+      dateOfBirth: this.newMember.dateOfBirth,
+      gender: this.newMember.gender,
+      nationality: this.newMember.nationality,
+      address: this.newMember.address,
+      occupation: this.newMember.occupation,
+      emergencyContactPhone: this.newMember.emergencyContactPhone,
+      nomineeName: this.newMember.nomineeName,
+      nomineePhone: this.newMember.nomineePhone || null,
+      bankName: this.newMember.bankName,
+      accountHolderName: this.newMember.accountHolderName,
+      accountNumber: this.newMember.accountNumber,
+      monthlyAmount: Number(this.newMember.monthlyAmount),
+      joinDate: this.newMember.joinDate || null,
+      acceptTerms: this.newMember.acceptTerms,
+    };
+
+    this.http.post('/api/members', payload).subscribe({
+      next: () => {
+        this.isCreating = false;
+        this.showCreateModal = false;
+        this.loadMembers();
+        this.cdr.detectChanges();
+      },
+      error: (err: any) => {
+        this.isCreating = false;
+        this.createError = err.error?.message || 'Failed to create member. Please try again.';
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   downloadProfile(member: Member) {

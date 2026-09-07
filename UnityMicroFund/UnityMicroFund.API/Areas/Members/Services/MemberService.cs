@@ -72,6 +72,21 @@ public class MemberService : IMemberService
             throw new ArgumentException("You must accept the terms and conditions");
         }
 
+        // A member must always be linked to a user account.
+        if (dto.UserId is not { } userId || userId == Guid.Empty)
+        {
+            throw new ArgumentException("A user account must be assigned to the member");
+        }
+
+        var linkedUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId)
+            ?? throw new ArgumentException("The selected user account was not found");
+
+        // A user can hold at most one membership.
+        if (await _context.Members.AnyAsync(m => m.UserId == userId))
+        {
+            throw new ArgumentException("The selected user already has a membership");
+        }
+
         if (await _context.Members.AnyAsync(m => m.Phone == dto.Phone))
         {
             throw new ArgumentException("A member with this phone number already exists");
@@ -82,35 +97,16 @@ public class MemberService : IMemberService
             throw new ArgumentException("Invalid gender value");
         }
 
-        // Auto-link to an existing User account with the same email
-        Guid? linkedUserId = null;
-        if (!string.IsNullOrWhiteSpace(dto.Email))
-        {
-            var matchedUser = await _context.Users
-                .Where(u => u.Email.ToLower() == dto.Email.ToLower())
-                .Select(u => new { u.Id })
-                .FirstOrDefaultAsync();
-
-            if (matchedUser != null)
-            {
-                // Only link if that user doesn't already own a different member record
-                var alreadyLinked = await _context.Members
-                    .AnyAsync(m => m.UserId == matchedUser.Id);
-                if (!alreadyLinked)
-                    linkedUserId = matchedUser.Id;
-            }
-        }
-
         var member = new Member
         {
-            UserId = linkedUserId,
+            UserId = userId,
             Name = dto.Name,
             DateOfBirth = dto.DateOfBirth,
             Gender = gender,
             Nationality = dto.Nationality,
             Phone = dto.Phone,
             AlternatePhone = dto.AlternatePhone,
-            Email = dto.Email,
+            Email = string.IsNullOrWhiteSpace(dto.Email) ? linkedUser.Email : dto.Email,
             Address = dto.Address,
             Occupation = dto.Occupation,
             EmployerName = dto.EmployerName,

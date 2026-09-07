@@ -5,6 +5,12 @@ namespace UnityMicroFund.API.Areas.Members.DTOs;
 
 public class CreateMemberDto
 {
+    /// <summary>
+    /// The user account this member is linked to. Required when an admin creates a member;
+    /// ignored on the self-service complete-profile flow (which always uses the caller's own id).
+    /// </summary>
+    public Guid? UserId { get; set; }
+
     [Required]
     [MaxLength(100)]
     public string Name { get; set; } = string.Empty;
