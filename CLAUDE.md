@@ -6,25 +6,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Unity MicroFund is a microfund management platform with two applications:
 
-- **`UnityMicroFund/UnityMicroFund.API/`** — ASP.NET Core Web API (.NET 10, MySQL/MariaDB via Pomelo EF Core)
-- **`UnityMicroFund/unitymicrofund_web/`** — Angular 21 frontend (Angular Material, SignalR, Chart.js)
+- **`UnityMicroFund/UnityMicroFund.API/`** — ASP.NET Core Web API (.NET 10, MariaDB via Pomelo EF Core)
+- **`UnityMicroFund/unitymicrofund_web/`** — Angular 21 frontend (Angular Material, SignalR, Chart.js/ng2-charts, ngx-toastr, jsPDF)
 
-> Note: The root `docker-compose.yml` references PostgreSQL but is outdated. The actual database is **MariaDB** — use `mariadb/docker-compose.yml`.
+The root `README.md` is stale (mentions PostgreSQL, port 5000, a Flutter app, and a `UnityMicroFund.Web` folder). Trust this file and the code instead.
 
 ## Development Commands
 
 ### Database (MariaDB)
 ```bash
-cd mariadb && docker compose up -d
+cd mariadb && docker compose up -d     # preferred: persistent volume, db "microfundDb" on :3306
 ```
+The root `docker-compose.yml` is also MariaDB but uses a different container name/user; use `mariadb/`.
 
 ### API
 ```bash
 cd UnityMicroFund/UnityMicroFund.API
 dotnet restore
-dotnet run                        # Runs on http://localhost:5248
+dotnet run                        # http://localhost:5248, Swagger at /swagger
 dotnet build
 ```
+There is no backend test project.
 
 ### EF Core Migrations
 ```bash
@@ -32,30 +34,30 @@ cd UnityMicroFund/UnityMicroFund.API
 dotnet ef migrations add <MigrationName>
 dotnet ef database update
 ```
-Migrations run automatically on startup via `db.Database.MigrateAsync()`.
+Migrations run automatically on startup via `db.Database.MigrateAsync()` in `Program.cs`. Startup also calls `VersioningService.SeedAsync()` (see Versioning below).
 
 ### Angular Web App
 ```bash
 cd UnityMicroFund/unitymicrofund_web
 npm install
-npm start         # Runs on http://localhost:4200 with proxy to API at :5248
+npm start         # ng serve --proxy-config proxy.conf.json → http://localhost:4200
 npm run build
-npm test          # Runs vitest
+npm test          # ng test → @angular/build:unit-test builder (vitest)
+npx ng test --watch=false --include=src/app/core/services/token.spec.ts   # single test
 ```
+Prettier is configured (`.prettierrc`) but there is no lint/format script.
 
-### Run a single test
-```bash
-cd UnityMicroFund/unitymicrofund_web
-npx vitest run --reporter=verbose <path-to-spec-file>
-```
+## Local Setup Gotchas
+
+- **`appsettings.json` is gitignored.** A fresh clone only has `appsettings.Development.json` and `appsettings.template.json`; copy the template to `appsettings.json` and fill in values before `dotnet run`.
+- **`src/assets/config/app-config.json` is gitignored** (runtime Google/Facebook OAuth client IDs, read by `AppConfigService`). Copy from `app-config.example.json`. Google login requires its `googleClientId` to match the API's `Google:ClientId`.
+- OCR uses Tesseract 5; on macOS native `.dylib`s are loaded from `/opt/homebrew/lib` (hardcoded in `Program.cs`). Language data is in `tessdata/`.
 
 ## Architecture
 
 ### API — Feature-based Areas
 
-All feature code lives in `Areas/<FeatureName>/` with subdirectories: `Controllers/`, `Services/`, `DTOs/`, `Models/`, `Interfaces/`. Cross-cutting concerns go in `Infrastructure/` (logging, exception handling, middleware, email).
-
-Active features: `Auth`, `Members`, `Contributions`, `Investments`, `Transactions`, `Accounts`, `Dashboard`, `Settings`, `Chat`, `OCR`, `Profile`, `Audit`, `Tasks`
+Feature code lives in `Areas/<Feature>/` with `Controllers/`, `Services/`, `DTOs/` (plus `Models/`, `Interfaces/` where used). Areas: `Accounts`, `Audit`, `Auth`, `CashOut`, `Chat`, `Contributions`, `Dashboard`, `Investments`, `Logging`, `Members`, `OCR`, `Profile`, `Settings`, `Tasks`, `Transactions`, `Versioning`. Shared code: `Data/AppDbContext.cs`, `Infrastructure/` (Authorization, Configuration, Email, Sms, ExceptionHandling, Logging, Middleware, Helpers).
 
 **Key rules:**
 - Controllers are thin — all business logic belongs in Services
@@ -63,62 +65,59 @@ Active features: `Auth`, `Members`, `Contributions`, `Investments`, `Transaction
 - Use `record` types for DTOs, `class` for EF entities
 - Use `AsNoTracking()` for read-only queries; always pass `cancellationToken` in service methods
 
+**Authorization:** policy names and permission constants live in `Infrastructure/Authorization/Policies.cs` (`AdminPolicy`, `ManagerPolicy`, `MemberPolicy`, `AdminOrManagerPolicy`).
+
+**Logging area** uses a small command/query-handler pattern (`ICommandHandler<,>`, `IQueryHandler<,>`, `ILogManager`) rather than a plain service.
+
 **Real-time:** SignalR hub at `/chat` (`Areas/Chat/Hubs/ChatHub`). JWT is passed via query string `access_token` for SignalR connections.
 
-**OCR:** Tesseract 5 is used for receipt scanning. On macOS, native libs are resolved from `/opt/homebrew/lib`.
+**Versioning:** the app's release history is a hard-coded `ReleaseHistory` array in `Areas/Versioning/Services/VersioningService.cs`, idempotently seeded to the DB on startup and shown as a footer version badge. When shipping a user-visible change, add an entry there.
 
-**Static files:** Payment receipt images are served from `unitymicrofund_web/src/assets/paymentReceipt/` at `/assets/paymentReceipt`.
+**Static files / uploads** (configured in `Program.cs`):
+- `/assets/member`, `/assets/organization`, `/assets/investment` → `Uploads:*Path` config, defaulting to `UnityMicroFund/uploads/<kind>/`
+- `/assets/paymentReceipt` (and `/uploads/receipts/<file>`) → `unitymicrofund_web/src/assets/paymentReceipt/`
+- `/assets` → the built Angular `dist/.../browser/assets` if present
 
-### Angular Web App — Feature-based components
+### Angular Web App
 
 ```
 src/app/
-├── core/          # Guards, interceptors, singleton services, models
-├── shared/        # Reusable components, pipes
-├── layout/        # Shell/layout components
-└── <feature>/     # auth, dashboard, investors, investments, payments,
-                   # accounts, chat, reports, settings, user-management,
-                   # profile, logs
+├── core/          # core-module, guards, interceptors, singleton services, models
+├── shared/        # reusable components, pipes
+├── layout/        # admin-layout / user-layout shells
+└── <feature>/     # auth, dashboard, investors, investments, payments, accounts,
+                   # cashout, wallet, chat, reports, settings, user-management, profile, logs
 ```
 
+**Hybrid NgModule + standalone:** the app bootstraps through `AppModule` (`app-module.ts`, `app-routing-module.ts`), and several features have their own `*-module.ts` / `*-routing-module.ts` (16 modules). Most individual components are `standalone: true`. `angular.json` schematics still default to `standalone: false`, so pass `--standalone` when generating, and follow the pattern of the feature you're editing.
+
 **Key rules:**
-- Use standalone components (not NgModules)
-- Use reactive forms with `FormBuilder`; call `form.markAllAsTouched()` before showing validation errors
-- Use `takeUntil(this.destroy$)` pattern to clean up subscriptions in `ngOnDestroy`
+- Reactive forms with `FormBuilder`; call `form.markAllAsTouched()` before showing validation errors
+- `takeUntil(this.destroy$)` to clean up subscriptions in `ngOnDestroy`
 - `OnPush` change detection for pure/display components
 - Routes are lazy-loaded
-- API base URL comes from `environment.apiUrl` (proxied to `http://localhost:5248` in dev via `proxy.conf.json`)
-- Auth JWT token is attached via `AuthInterceptor` from `localStorage`
+- JWT is attached by `AuthInterceptor` from `localStorage`; `AuthGuard` checks the stored token expiry
+
+**API URL:** `environment.ts` sets `apiUrl: 'http://localhost:5248/api'` (calls the API directly in dev); `environment.prod.ts` uses `/api`. `proxy.conf.json` forwards `/api` and `/assets/{member,organization,investment}` → `:5248`.
 
 ### Data Flow
 
 ```
-Angular Component
-  → calls Service (HttpClient)
-  → proxy.conf.json forwards /api → localhost:5248
-  → API Controller (thin)
-  → Service (business logic)
+Angular Component → Service (HttpClient, environment.apiUrl)
+  → API Controller (thin) → Service (business logic)
   → AppDbContext (EF Core → MariaDB)
 ```
 
-## Configuration
+## Deployment (don't break this)
 
-### API (`appsettings.json`)
-- `ConnectionStrings:DefaultConnection` — MariaDB connection string
-- `Jwt:Secret`, `Jwt:Issuer`, `Jwt:Audience`, `Jwt:ExpiryMinutes`
-- `Google:ClientId`, `Google:ClientSecret` — Google OAuth
-- `Email:*` — SMTP via Gmail/MailKit
-
-### Angular (`environment.ts`)
-- `apiUrl: 'http://localhost:5000/api'` in the environment file, but `proxy.conf.json` routes `/api` → `http://localhost:5248` so the actual target is the API port.
+- **Push to `main` deploys to production** (`.github/workflows/deploy.yml` → SSH → `update.sh` on the server).
+- **Push to `uat`** deploys to UAT (`deploy-uat.yml` → `update-uat.sh`, `/var/www/unitymicrofund-uat`).
+- Production secrets are not in git. The server scripts (`deploy.sh`, `update.sh`) build `appsettings.Production.json` and `environment.prod.ts` from a server-side secrets file (format in `server-secrets.example`).
+- `umf.sh` is the server management CLI (`sudo bash umf.sh install`; then `umf email-password`, `umf restart`, `umf logs`, etc.).
 
 ## Coding Standards
 
-Full standards are documented in:
-- `UnityMicroFund/CODING_STANDARDS_API.md` (C#/.NET)
-- `UnityMicroFund/CODING_STANDARDS_WEB.md` (Angular/TypeScript)
-
-### Naming quick-reference
+Full standards: `UnityMicroFund/CODING_STANDARDS_API.md` (C#/.NET) and `UnityMicroFund/CODING_STANDARDS_WEB.md` (Angular/TypeScript).
 
 | Artifact | Convention |
 |---|---|
@@ -130,8 +129,4 @@ Full standards are documented in:
 | Angular service file | `feature.service.ts` |
 | Angular model file | `feature.model.ts` |
 
-### Import order — C#
-System → Microsoft → Project (alphabetical within groups)
-
-### Import order — TypeScript
-Angular → RxJS → Third-party → Project → Relative
+Import order: C# System → Microsoft → Project; TypeScript Angular → RxJS → Third-party → Project → Relative (alphabetical within groups).
