@@ -47,12 +47,21 @@ public class VersioningService : IVersioningService
 
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
+        await using var tx = await _context.Database.BeginTransactionAsync(cancellationToken);
+
         var existing = await _context.AppVersions
-            .Include(v => v.Changes)
             .ToDictionaryAsync(v => v.Version, cancellationToken);
+        var existingChanges = await _context.AppVersionChanges
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+        var changesByVersion = existingChanges
+            .GroupBy(c => c.AppVersionId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(c => c.SortOrder).ToList());
 
         var now = DateTime.UtcNow;
         var order = 0;
+        var rebuiltVersionIds = new List<Guid>();
+        var newChanges = new List<AppVersionChange>();
 
         foreach (var seed in ReleaseHistory)
         {
@@ -78,33 +87,32 @@ public class VersioningService : IVersioningService
 
             // Only rebuild the changelog when it actually differs, so an unchanged
             // release history is a genuine no-op on restart.
-            var current = version.Changes
-                .OrderBy(c => c.SortOrder)
+            var current = changesByVersion.GetValueOrDefault(version.Id)?
                 .Select(c => (c.Type, c.Description))
-                .ToList();
+                .ToList() ?? [];
             var desired = seed.Changes.Select(c => (c.Type, c.Description)).ToList();
 
-            if (!current.SequenceEqual(desired))
-            {
-                if (version.Changes.Count > 0)
-                {
-                    _context.AppVersionChanges.RemoveRange(version.Changes);
-                    version.Changes.Clear();
-                }
+            if (current.SequenceEqual(desired)) continue;
 
-                var changeOrder = 0;
-                foreach (var change in seed.Changes)
-                {
-                    version.Changes.Add(new AppVersionChange
-                    {
-                        Id = Guid.NewGuid(),
-                        AppVersionId = version.Id,
-                        Type = change.Type,
-                        Description = change.Description,
-                        SortOrder = changeOrder++
-                    });
-                }
-            }
+            rebuiltVersionIds.Add(version.Id);
+            var changeOrder = 0;
+            newChanges.AddRange(seed.Changes.Select(change => new AppVersionChange
+            {
+                Id = Guid.NewGuid(),
+                AppVersionId = version.Id,
+                Type = change.Type,
+                Description = change.Description,
+                SortOrder = changeOrder++
+            }));
+        }
+
+        if (rebuiltVersionIds.Count > 0)
+        {
+            // Delete by set so a stale tracked entity can never fail the seed on restart.
+            await _context.AppVersionChanges
+                .Where(c => rebuiltVersionIds.Contains(c.AppVersionId))
+                .ExecuteDeleteAsync(cancellationToken);
+            _context.AppVersionChanges.AddRange(newChanges);
         }
 
         var maxOrder = order;
@@ -114,6 +122,8 @@ public class VersioningService : IVersioningService
         }
 
         var written = await _context.SaveChangesAsync(cancellationToken);
+        await tx.CommitAsync(cancellationToken);
+
         if (written > 0)
         {
             _logger.LogInformation("Version history seeded/refreshed ({Count} versions).", ReleaseHistory.Length);
@@ -358,6 +368,43 @@ public class VersioningService : IVersioningService
                 Fix("Top Investors now ranks by investing amount only — never funding + investing combined"),
                 Feature("New \"Top Funding\" dashboard section ranking members by funding amount"),
                 Improvement("Explicit, unambiguous amount fields in the dashboard API")
+            ]),
+
+        new("1.8.0", new DateTime(2026, 11, 6), "Chart of accounts & financial statements",
+            "Accounts gain accounting categories, codes, a balance sheet and an income statement.",
+            [
+                Feature("Asset, Liability, Equity, Income and Expense account categories"),
+                Feature("Unique chart-of-accounts codes with automatic generation"),
+                Feature("Derived balance sheet and income statement endpoints and UI"),
+                Improvement("Account search and filters now include codes and categories"),
+                Fix("Dashboard and statement investment values now match the investments page")
+            ]),
+
+        new("1.9.0", new DateTime(2026, 11, 6), "Monthly profit distribution",
+            "Admins can calculate, review, finalize and pay monthly profits to investors.",
+            [
+                Feature("Monthly profit batches calculated from active investment holdings"),
+                Feature("Draft review, recalculation and distribution finalization"),
+                Feature("Payment tracking with wallet credit transaction records")
+            ]),
+
+        new("1.10.0", new DateTime(2026, 11, 6), "Investment cover images",
+            "Investment details now open on a full-bleed project cover image.",
+            [
+                Feature("Admins and managers can upload, replace or remove a project cover image"),
+                Feature("Cover image picker with live preview in the investment form"),
+                Improvement("Professional default background on the investment details view")
+            ]),
+
+        new("1.11.0", new DateTime(2026, 11, 6), "Monthly & project-based profit distribution",
+            "Projects choose how profit is paid: at completion, a monthly %, or whenever a profit amount is entered.",
+            [
+                Feature("Per-project profit payout setting with a default monthly profit rate"),
+                Feature("Project-based profit: enter a realised amount, split by shares after maintenance"),
+                Feature("Monthly batches use each project's own rate, adjustable per month"),
+                Improvement("Monthly profit is pro-rated by days held for mid-month purchases and project start/maturity"),
+                Improvement("A project can never be paid twice for the same month; late-starting projects can get their own batch"),
+                Improvement("Projects overview on the Profit Distribution page with last payout and totals")
             ])
     ];
 }

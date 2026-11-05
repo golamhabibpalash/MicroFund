@@ -12,6 +12,7 @@ import { PaymentsComponent } from './payments/payments.component';
 import { AccountsComponent } from './accounts/accounts.component';
 import { ReportsComponent } from './reports/reports.component';
 import { InvestmentsComponent } from './investments/investments.component';
+import { MonthlyProfitsComponent } from './monthly-profits/monthly-profits.component';
 import { UserManagementComponent } from './user-management/user-management.component';
 import { LoginComponent } from './auth/login/login.component';
 import { RegisterComponent } from './auth/register/register.component';
@@ -45,6 +46,12 @@ const routes: Routes = [
     component: AdminLayoutComponent,
     canActivate: [AuthGuard, CompleteProfileGuard],
     children: [{ path: '', component: InvestorsComponent }],
+  },
+  {
+    path: 'monthly-profits',
+    component: AdminLayoutComponent,
+    canActivate: [AuthGuard, AdminGuard],
+    children: [{ path: '', component: MonthlyProfitsComponent }],
   },
   {
     path: 'payments',

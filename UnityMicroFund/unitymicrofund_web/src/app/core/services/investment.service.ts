@@ -235,6 +235,8 @@ export interface Investment {
   maintenancePercentage: number;
   maintenanceAmount?: number | null;
   maintenanceAccountId?: string | null;
+  profitPayoutMode?: ProfitPayoutMode;
+  monthlyProfitRate?: number | null;
   netProfit?: number | null;
   undistributedRemainder?: number | null;
   totalInvested?: number;
@@ -265,7 +267,16 @@ export interface Investment {
   partners: InvestmentPartner[];
   documents: InvestmentDocument[];
   interimProfits: InterimProfit[];
+  /** API-routed cover/background image URL, or null when the project has none. */
+  coverImageUrl?: string | null;
 }
+
+/** Shown on the details view when a project has no cover image of its own. */
+export const DEFAULT_INVESTMENT_COVER = 'assets/images/investment-cover-default.svg';
+
+/** Accepted cover image types/size; mirrors InvestmentsController.UploadCoverImage. */
+export const COVER_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+export const COVER_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
 export interface InvestmentProjectCost {
   id: string;
@@ -289,6 +300,27 @@ export interface InterimProfit {
   createdAt: string;
 }
 
+/** How a project's profit reaches shareholders (see the Profit Distribution page). */
+export type ProfitPayoutMode = 'OnCompletion' | 'Monthly' | 'ProjectBased';
+
+export const PROFIT_PAYOUT_MODES: { value: ProfitPayoutMode; label: string; hint: string }[] = [
+  {
+    value: 'OnCompletion',
+    label: 'At completion only',
+    hint: 'Profit is settled once, when the project completes (lifecycle panel).',
+  },
+  {
+    value: 'Monthly',
+    label: 'Monthly % payout',
+    hint: 'Shareholders earn a fixed % of their holding every month, paid in monthly batches.',
+  },
+  {
+    value: 'ProjectBased',
+    label: 'Project-based (enter profit amount)',
+    hint: 'No fixed timeline: enter realised profit whenever it arrives; it is split by shares after maintenance.',
+  },
+];
+
 export interface CreateInvestmentRequest {
   name: string;
   description?: string | null;
@@ -303,6 +335,8 @@ export interface CreateInvestmentRequest {
   maximumSharesPerMember?: number | null;
   maintenancePercentage?: number | null;
   maintenanceAccountId?: string | null;
+  profitPayoutMode?: ProfitPayoutMode;
+  monthlyProfitRate?: number | null;
   targetGrossProfit?: number | null;
   dateInvested: string;
   maturityDate?: string | null;
@@ -366,6 +400,16 @@ export class InvestmentService {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post<InvestmentDocument>(`${this.apiUrl}/${id}/documents`, formData);
+  }
+
+  uploadCoverImage(id: string, file: File): Observable<Investment> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<Investment>(`${this.apiUrl}/${id}/cover-image`, formData);
+  }
+
+  deleteCoverImage(id: string): Observable<Investment> {
+    return this.http.delete<Investment>(`${this.apiUrl}/${id}/cover-image`);
   }
 
   deleteDocument(id: string, documentId: string): Observable<void> {

@@ -248,6 +248,17 @@ namespace UnityMicroFund.API.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("Asset");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -283,6 +294,11 @@ namespace UnityMicroFund.API.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Category");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -801,6 +817,10 @@ namespace UnityMicroFund.API.Migrations
                     b.Property<DateTime?>("CompletionDate")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<string>("CoverImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -855,6 +875,9 @@ namespace UnityMicroFund.API.Migrations
                     b.Property<int?>("MinimumSharesPerMember")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("MonthlyProfitRate")
+                        .HasColumnType("decimal(9,6)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -867,6 +890,11 @@ namespace UnityMicroFund.API.Migrations
                     b.Property<decimal>("PrincipalAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ProfitPayoutMode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<string>("ReferenceNumber")
                         .HasMaxLength(100)
@@ -1407,6 +1435,179 @@ namespace UnityMicroFund.API.Migrations
                         .IsUnique();
 
                     b.ToTable("member_transaction_map");
+                });
+
+            modelBuilder.Entity("UnityMicroFund.API.Models.MonthlyProfitDistribution", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CalculatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("CalculatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DistributedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("DistributedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<decimal?>("GrossProfitAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("InvestmentId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<decimal?>("MaintenanceAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("MaintenancePercentage")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<DateTime?>("ProfitDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal?>("Rate")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<decimal>("TotalInvestmentAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalPaidAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TotalProfitAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<decimal?>("UndistributedRemainder")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvestmentId");
+
+                    b.HasIndex("Type", "Year", "Month");
+
+                    b.ToTable("monthly_profit_distributions");
+                });
+
+            modelBuilder.Entity("UnityMicroFund.API.Models.MonthlyProfitDistributionLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("DaysInPeriod")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("HeldDays")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("InvestmentAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("InvestmentId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("InvestmentName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<Guid>("MemberId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("MemberName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<Guid>("MonthlyProfitDistributionId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PaidBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<decimal>("ProfitAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Rate")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<int>("SharesOwned")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<Guid?>("WalletEntryId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvestmentId");
+
+                    b.HasIndex("MemberId");
+
+                    b.HasIndex("WalletEntryId")
+                        .IsUnique();
+
+                    b.HasIndex("MonthlyProfitDistributionId", "MemberId", "InvestmentId")
+                        .IsUnique();
+
+                    b.ToTable("monthly_profit_distribution_lines");
                 });
 
             modelBuilder.Entity("UnityMicroFund.API.Models.Notification", b =>
@@ -2138,6 +2339,50 @@ namespace UnityMicroFund.API.Migrations
                     b.Navigation("Transaction");
                 });
 
+            modelBuilder.Entity("UnityMicroFund.API.Models.MonthlyProfitDistribution", b =>
+                {
+                    b.HasOne("UnityMicroFund.API.Models.Investment", "Investment")
+                        .WithMany()
+                        .HasForeignKey("InvestmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Investment");
+                });
+
+            modelBuilder.Entity("UnityMicroFund.API.Models.MonthlyProfitDistributionLine", b =>
+                {
+                    b.HasOne("UnityMicroFund.API.Models.Investment", "Investment")
+                        .WithMany()
+                        .HasForeignKey("InvestmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("UnityMicroFund.API.Models.Member", "Member")
+                        .WithMany()
+                        .HasForeignKey("MemberId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("UnityMicroFund.API.Models.MonthlyProfitDistribution", "Distribution")
+                        .WithMany("Lines")
+                        .HasForeignKey("MonthlyProfitDistributionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("UnityMicroFund.API.Models.WalletEntry", "WalletEntry")
+                        .WithMany()
+                        .HasForeignKey("WalletEntryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Distribution");
+
+                    b.Navigation("Investment");
+
+                    b.Navigation("Member");
+
+                    b.Navigation("WalletEntry");
+                });
+
             modelBuilder.Entity("UnityMicroFund.API.Models.ProfitDistribution", b =>
                 {
                     b.HasOne("UnityMicroFund.API.Models.Investment", "Investment")
@@ -2294,6 +2539,11 @@ namespace UnityMicroFund.API.Migrations
                     b.Navigation("MemberInvestments");
 
                     b.Navigation("MemberTransactionMaps");
+                });
+
+            modelBuilder.Entity("UnityMicroFund.API.Models.MonthlyProfitDistribution", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("UnityMicroFund.API.Models.Transaction", b =>

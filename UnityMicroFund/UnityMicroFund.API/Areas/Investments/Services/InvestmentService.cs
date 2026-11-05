@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Areas.Investments.DTOs;
 using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Infrastructure.ExceptionHandling;
+using UnityMicroFund.API.Infrastructure.Finance;
 using UnityMicroFund.API.Models;
 
 namespace UnityMicroFund.API.Areas.Investments.Services;
@@ -126,6 +127,11 @@ public class InvestmentService : IInvestmentService
         if (dto.MaintenanceAccountId.HasValue)
             await EnsureAccountExistsAsync(dto.MaintenanceAccountId.Value, cancellationToken);
 
+        var payoutMode = string.IsNullOrWhiteSpace(dto.ProfitPayoutMode)
+            ? ProfitPayoutMode.OnCompletion
+            : ParseEnum<ProfitPayoutMode>(dto.ProfitPayoutMode, "profit payout mode");
+        var monthlyRate = ValidatePayoutMode(payoutMode, dto.MonthlyProfitRate);
+
         var investment = new Investment
         {
             Id = Guid.NewGuid(),
@@ -145,6 +151,8 @@ public class InvestmentService : IInvestmentService
             // the arithmetic of a project that has already been agreed.
             MaintenancePercentage = maintenancePercentage,
             MaintenanceAccountId = dto.MaintenanceAccountId,
+            ProfitPayoutMode = payoutMode,
+            MonthlyProfitRate = monthlyRate,
             DateInvested = dto.DateInvested,
             MaturityDate = dto.MaturityDate,
             DurationMonths = ResolveDuration(dto.DurationMonths, dto.DateInvested, dto.MaturityDate),
@@ -233,6 +241,15 @@ public class InvestmentService : IInvestmentService
         }
         if (dto.TargetGrossProfit.HasValue)
             investment.TargetGrossProfit = dto.TargetGrossProfit.Value;
+        if (!string.IsNullOrWhiteSpace(dto.ProfitPayoutMode) || dto.MonthlyProfitRate.HasValue)
+        {
+            var payoutMode = string.IsNullOrWhiteSpace(dto.ProfitPayoutMode)
+                ? investment.ProfitPayoutMode
+                : ParseEnum<ProfitPayoutMode>(dto.ProfitPayoutMode, "profit payout mode");
+            investment.ProfitPayoutMode = payoutMode;
+            investment.MonthlyProfitRate = ValidatePayoutMode(
+                payoutMode, dto.MonthlyProfitRate ?? investment.MonthlyProfitRate);
+        }
         if (dto.DateInvested.HasValue)
             investment.DateInvested = dto.DateInvested.Value;
         if (dto.MaturityDate.HasValue)
@@ -324,6 +341,10 @@ public class InvestmentService : IInvestmentService
         if (investment == null) return null;
 
         var fileUrls = investment.Documents.Select(d => d.FileUrl).ToList();
+        if (!string.IsNullOrWhiteSpace(investment.CoverImageUrl))
+        {
+            fileUrls.Add(investment.CoverImageUrl);
+        }
 
         // Partners and documents cascade; MemberInvestments has no cascade configured,
         // so remove those explicitly.
@@ -656,6 +677,44 @@ public class InvestmentService : IInvestmentService
             }
     };
 
+    public async Task<InvestmentCoverImageChangeDto?> SetCoverImageAsync(
+        Guid investmentId,
+        string? fileUrl,
+        string? modifiedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var investment = await _context.Investments
+            .FirstOrDefaultAsync(i => i.Id == investmentId, cancellationToken);
+
+        if (investment == null) return null;
+
+        var previous = investment.CoverImageUrl;
+        investment.CoverImageUrl = fileUrl;
+        investment.LastModifiedBy = modifiedBy;
+        investment.LastModifiedAt = DateTime.UtcNow;
+        investment.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+
+        var refreshed = await GetInvestmentByIdAsync(investmentId, cancellationToken);
+        return refreshed == null ? null : new InvestmentCoverImageChangeDto(previous, refreshed);
+    }
+
+    public async Task<string?> GetCoverImageFileUrlAsync(Guid investmentId, CancellationToken cancellationToken = default) =>
+        await _context.Investments
+            .AsNoTracking()
+            .Where(i => i.Id == investmentId)
+            .Select(i => i.CoverImageUrl)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    /// <summary>
+    /// Routed through the API for the same hosting reason as documents (see ToDto below).
+    /// The stored file name changes on every upload, so it doubles as a cache-buster.
+    /// </summary>
+    private static string? ToCoverImageApiUrl(Investment investment) =>
+        string.IsNullOrWhiteSpace(investment.CoverImageUrl)
+            ? null
+            : $"/api/investments/{investment.Id}/cover-image?v={Uri.EscapeDataString(Path.GetFileNameWithoutExtension(investment.CoverImageUrl))}";
+
     private static InvestmentDocumentDto ToDto(InvestmentDocument d) => new()
     {
         Id = d.Id,
@@ -670,6 +729,22 @@ public class InvestmentService : IInvestmentService
         UploadedBy = d.UploadedBy,
         UploadedAt = d.UploadedAt
     };
+
+    /// <summary>
+    /// A Monthly project needs a positive default rate; other modes do not use one, so it
+    /// is cleared to keep a stale rate from suggesting the project is paid monthly.
+    /// </summary>
+    private static decimal? ValidatePayoutMode(ProfitPayoutMode mode, decimal? monthlyRate)
+    {
+        if (mode != ProfitPayoutMode.Monthly) return null;
+
+        if (monthlyRate is null or <= 0m || monthlyRate > 100m)
+        {
+            throw new ValidationException("A monthly profit project needs a monthly profit rate greater than 0 and at most 100%.");
+        }
+
+        return monthlyRate;
+    }
 
     private async Task EnsureAccountExistsAsync(Guid accountId, CancellationToken cancellationToken)
     {
@@ -748,22 +823,10 @@ public class InvestmentService : IInvestmentService
             .Sum(s => s.SharesPurchased);
 
         var interimProfitTotal = investment.InterimProfits.Sum(p => p.Amount);
-        var totalProjectCost = investment.ProjectCosts.Sum(pc => pc.Amount);
-
-        // Total Returns = profit earned to date on top of the principal, so interim/occasional
-        // profits recorded during the project raise the return value and percentage.
-        // Profit already received back above the principal, plus accrued interim profit, net of costs.
-        var receivedProfit = Math.Max(0m, (investment.ActualGrossProfit ?? 0m) - investment.PrincipalAmount);
-        var totalProfit = receivedProfit + interimProfitTotal - totalProjectCost;
-
-        // The principal is recovered at maturity, so the project is worth at least the principal
-        // plus any profit earned so far (never shown below principal before it is realized).
-        var effectiveCurrentValue = investment.PrincipalAmount + Math.Max(0m, totalProfit);
-
-        var returnAmount = effectiveCurrentValue - investment.PrincipalAmount;
-        var returnPercentage = investment.PrincipalAmount > 0
-            ? (returnAmount / investment.PrincipalAmount) * 100
-            : 0;
+        var totalProjectCost = investment.TotalProjectCost;
+        var effectiveCurrentValue = InvestmentValuation.GetEffectiveCurrentValue(investment);
+        var returnAmount = InvestmentValuation.GetReturnAmount(investment);
+        var returnPercentage = InvestmentValuation.GetReturnPercentage(investment);
 
         var activeSubs = investment.Subscriptions
             .Where(s => s.Status == ShareSubscriptionStatus.Active)
@@ -813,6 +876,8 @@ public class InvestmentService : IInvestmentService
                     UpdatedAt = pc.UpdatedAt
                 }).ToList(),
             MaintenancePercentage = investment.MaintenancePercentage,
+            ProfitPayoutMode = investment.ProfitPayoutMode.ToString(),
+            MonthlyProfitRate = investment.MonthlyProfitRate,
             MaintenanceAmount = investment.MaintenanceAmount,
             MaintenanceAccountId = investment.MaintenanceAccountId,
             NetProfit = investment.NetProfit,
@@ -825,6 +890,7 @@ public class InvestmentService : IInvestmentService
             Status = investment.Status.ToString(),
             CertificateNumber = investment.CertificateNumber,
             ReferenceNumber = investment.ReferenceNumber,
+            CoverImageUrl = ToCoverImageApiUrl(investment),
             InvestorMemberId = investment.InvestorMemberId,
             InvestorName = investment.InvestorMember?.Name,
             WitnessMemberId = investment.WitnessMemberId,

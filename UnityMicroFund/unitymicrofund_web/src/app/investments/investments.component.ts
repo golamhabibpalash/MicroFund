@@ -5,7 +5,13 @@ import { RouterModule } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { StatCardComponent } from '../shared/components/stat-card/stat-card.component';
 import { PageHeaderComponent } from '../shared/components/page-header/page-header.component';
-import { Investment, InvestmentService } from '../core/services/investment.service';
+import {
+  COVER_IMAGE_MAX_BYTES,
+  COVER_IMAGE_TYPES,
+  DEFAULT_INVESTMENT_COVER,
+  Investment,
+  InvestmentService,
+} from '../core/services/investment.service';
 import { ToastService } from '../core/services/toast.service';
 import { InvestmentFormComponent } from './investment-form.component';
 import { InvestmentManageComponent } from './investment-manage.component';
@@ -355,7 +361,9 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     <!-- View Investment Modal -->
     <div class="modal-overlay" *ngIf="showViewModal" (click)="closeViewModal()">
       <div class="modal-content vmodal" (click)="$event.stopPropagation()">
-        <div class="vmodal-hero" *ngIf="selectedInvestment">
+        <div class="vmodal-hero" *ngIf="selectedInvestment" [class.has-custom-cover]="!!selectedInvestment.coverImageUrl">
+          <div class="vmodal-hero-bg" [style.background-image]="'url(' + coverImageSrc(selectedInvestment) + ')'"></div>
+          <div class="vmodal-hero-shade"></div>
           <div class="vmodal-hero-top">
             <span class="vmodal-type" [ngClass]="selectedInvestment.type.toLowerCase()">
               <span class="material-icons">{{ getTypeIcon(selectedInvestment.type) }}</span>
@@ -364,6 +372,19 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
             <span class="vmodal-status" [ngClass]="statusClass(selectedInvestment.status)">
               {{ selectedInvestment.status }}
             </span>
+            <ng-container *ngIf="isAdmin">
+              <input #coverInput type="file" hidden accept="image/jpeg,image/png,image/webp"
+                     (change)="onCoverSelected($event, selectedInvestment)" />
+              <button type="button" class="vmodal-cover-btn" [disabled]="isCoverUploading"
+                      (click)="coverInput.click()" title="Upload a cover image (JPG, PNG or WebP, max 5MB)">
+                <span class="material-icons">{{ isCoverUploading ? 'hourglass_top' : 'add_photo_alternate' }}</span>
+                <span class="vmodal-cover-label">{{ selectedInvestment.coverImageUrl ? 'Change cover' : 'Add cover' }}</span>
+              </button>
+              <button type="button" class="vmodal-cover-btn icon-only" *ngIf="selectedInvestment.coverImageUrl"
+                      [disabled]="isCoverUploading" (click)="removeCover(selectedInvestment)" title="Remove cover image">
+                <span class="material-icons">hide_image</span>
+              </button>
+            </ng-container>
             <button class="vmodal-close" (click)="closeViewModal()" title="Close">
               <span class="material-icons">close</span>
             </button>
@@ -411,6 +432,10 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
               <div class="def" *ngIf="selectedInvestment.maturityDate">
                 <dt>Maturity Date</dt>
                 <dd>{{ selectedInvestment.maturityDate | date:'mediumDate' }}</dd>
+              </div>
+              <div class="def">
+                <dt>Profit Payout</dt>
+                <dd>{{ payoutLabel(selectedInvestment) }}</dd>
               </div>
               <div class="def" *ngIf="selectedInvestment.totalShares">
                 <dt>Total Shares</dt>
@@ -869,8 +894,21 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
 
     /* ==== Investment detail (view) modal ==== */
     .vmodal { max-width: 760px; max-height: 90vh; display: flex; flex-direction: column; border-radius: var(--radius-xl, 16px); overflow: hidden; box-shadow: var(--shadow-xl, 0 8px 32px rgba(0,0,0,0.18)); }
-    .vmodal-hero { flex-shrink: 0; padding: 24px 28px 20px; color: #fff; background: linear-gradient(135deg, var(--color-navy, #0f172a) 0%, #134e4a 100%); }
-    .vmodal-hero-top { display: flex; align-items: center; gap: 10px; }
+    .vmodal-hero { position: relative; isolation: isolate; overflow: hidden; flex-shrink: 0; min-height: 280px; display: flex; flex-direction: column; padding: 24px 28px 20px; color: #fff; background: linear-gradient(135deg, var(--color-navy, #0f172a) 0%, #134e4a 100%); }
+    .vmodal-hero > :not(.vmodal-hero-bg):not(.vmodal-hero-shade) { position: relative; z-index: 1; }
+    .vmodal-hero-bg { position: absolute; inset: 0; z-index: 0; background-size: cover; background-position: center; transform: scale(1.04); animation: vmodal-cover-in .6s ease-out both; }
+    /* Darkens the image for text legibility: strongest at the bottom where the KPIs sit. */
+    .vmodal-hero-shade { position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, rgba(11,18,32,0.55) 0%, rgba(11,18,32,0.35) 38%, rgba(11,18,32,0.88) 100%); }
+    .vmodal-hero.has-custom-cover .vmodal-hero-shade { background: linear-gradient(180deg, rgba(11,18,32,0.6) 0%, rgba(11,18,32,0.4) 38%, rgba(11,18,32,0.92) 100%); }
+    @keyframes vmodal-cover-in { from { opacity: 0; transform: scale(1.1); } to { opacity: 1; transform: scale(1.04); } }
+    .vmodal-hero .vmodal-title { margin-top: auto; padding-top: 28px; text-shadow: 0 2px 12px rgba(0,0,0,0.35); }
+    .vmodal-hero .kpi { background: rgba(15,23,42,0.45); border-color: rgba(255,255,255,0.14); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+    .vmodal-cover-btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.22); background: rgba(15,23,42,0.45); color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: background .2s; }
+    .vmodal-cover-btn:hover:not(:disabled) { background: rgba(15,23,42,0.7); }
+    .vmodal-cover-btn:disabled { opacity: .6; cursor: progress; }
+    .vmodal-cover-btn.icon-only { padding: 0; width: 32px; justify-content: center; }
+    .vmodal-cover-btn .material-icons { font-size: 17px; }
+    .vmodal-hero-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .vmodal-type { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; background: rgba(255,255,255,0.14); color: #fff; }
     .vmodal-type .material-icons { font-size: 15px; }
     .vmodal-status { margin-left: auto; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(255,255,255,0.18); color: #fff; }
@@ -936,6 +974,10 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
       .investments-table { min-width: 600px; }
     }
     @media (max-width: 576px) {
+      .vmodal-hero { min-height: 240px; padding: 18px 18px 16px; }
+      .vmodal-cover-label { display: none; }
+      .vmodal-cover-btn { padding: 0; width: 32px; justify-content: center; }
+      .vmodal-kpis { grid-template-columns: repeat(2, 1fr); }
       .investments-wrapper { padding: 16px; }
       .stat-card { padding: 16px; }
       .stat-card .stat-value { font-size: 20px; }
@@ -970,6 +1012,8 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
   investBalances: { memberId: string; memberName: string }[] = [];
   investAgreementAccepted = false;
   isInvesting = false;
+
+  isCoverUploading = false;
 
   showDeleteModal = false;
   deletingInvestment: Investment | null = null;
@@ -1202,6 +1246,85 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
   closeViewModal() {
     this.showViewModal = false;
     this.selectedInvestment = null;
+  }
+
+  payoutLabel(investment: Investment): string {
+    switch (investment.profitPayoutMode) {
+      case 'Monthly':
+        return `Monthly · ${investment.monthlyProfitRate ?? 0}% / month`;
+      case 'ProjectBased':
+        return 'Project-based (on profit entry)';
+      default:
+        return 'At completion';
+    }
+  }
+
+  /** The project's own cover, or the built-in professional default. */
+  coverImageSrc(investment: Investment): string {
+    return investment.coverImageUrl || DEFAULT_INVESTMENT_COVER;
+  }
+
+  onCoverSelected(event: Event, investment: Investment) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    if (!COVER_IMAGE_TYPES.includes(file.type)) {
+      this.toast.error('Please choose a JPG, PNG or WebP image.');
+      return;
+    }
+    if (file.size > COVER_IMAGE_MAX_BYTES) {
+      this.toast.error('Cover image must be 5MB or smaller.');
+      return;
+    }
+
+    this.isCoverUploading = true;
+    this.investmentService
+      .uploadCoverImage(investment.id, file)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: updated => {
+          this.applyInvestmentUpdate(updated);
+          this.isCoverUploading = false;
+          this.toast.success('Cover image updated.');
+          this.cdr.detectChanges();
+        },
+        error: err => {
+          this.isCoverUploading = false;
+          this.toast.error(err?.error?.message || 'Could not upload the cover image.');
+          this.cdr.detectChanges();
+        },
+      });
+  }
+
+  removeCover(investment: Investment) {
+    this.isCoverUploading = true;
+    this.investmentService
+      .deleteCoverImage(investment.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: updated => {
+          this.applyInvestmentUpdate(updated);
+          this.isCoverUploading = false;
+          this.toast.success('Cover image removed.');
+          this.cdr.detectChanges();
+        },
+        error: err => {
+          this.isCoverUploading = false;
+          this.toast.error(err?.error?.message || 'Could not remove the cover image.');
+          this.cdr.detectChanges();
+        },
+      });
+  }
+
+  /** Swaps a refreshed investment into the open detail view and the list behind it. */
+  private applyInvestmentUpdate(updated: Investment) {
+    if (this.selectedInvestment?.id === updated.id) {
+      this.selectedInvestment = updated;
+    }
+    this.investments = this.investments.map(i => (i.id === updated.id ? updated : i));
+    this.applyFilters();
   }
 
   editInvestment(investment: Investment) {

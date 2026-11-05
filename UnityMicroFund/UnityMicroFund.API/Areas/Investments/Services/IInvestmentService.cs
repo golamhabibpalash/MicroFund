@@ -26,6 +26,15 @@ public interface IInvestmentService
 
     Task<InvestmentDocumentDto?> AddDocumentAsync(Guid investmentId, InvestmentDocumentDto document, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Sets (or, with a null fileUrl, clears) the cover image. Returns null when the
+    /// investment does not exist.
+    /// </summary>
+    Task<InvestmentCoverImageChangeDto?> SetCoverImageAsync(Guid investmentId, string? fileUrl, string? modifiedBy, CancellationToken cancellationToken = default);
+
+    /// <summary>Stored cover image path, or null when the investment has none (or does not exist).</summary>
+    Task<string?> GetCoverImageFileUrlAsync(Guid investmentId, CancellationToken cancellationToken = default);
+
     /// <summary>Returns the deleted document's file URL, or null when not found.</summary>
     Task<string?> DeleteDocumentAsync(Guid investmentId, Guid documentId, CancellationToken cancellationToken = default);
 }

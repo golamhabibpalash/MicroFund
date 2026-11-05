@@ -22,7 +22,8 @@ public class AppDbContext : DbContext
         nameof(Account), nameof(AccountLedgerEntry), nameof(Transaction), nameof(GroupSetting), nameof(ParamBusConfig),
         nameof(InvestmentPartner), nameof(InvestmentNominee), nameof(InvestmentDocument),
         nameof(WalletEntry), nameof(ShareSubscription), nameof(ProfitDistribution),
-        nameof(InvestmentProjectCost), nameof(InvestmentMaintenanceDistribution)
+        nameof(InvestmentProjectCost), nameof(InvestmentMaintenanceDistribution),
+        nameof(MonthlyProfitDistribution), nameof(MonthlyProfitDistributionLine)
     };
 
     // httpContextAccessor is optional so design-time tooling (dotnet ef) can still construct the context.
@@ -64,6 +65,8 @@ public class AppDbContext : DbContext
     public DbSet<InvestmentInterimProfit> InvestmentInterimProfits { get; set; }
     public DbSet<InvestmentProjectCost> InvestmentProjectCosts { get; set; }
     public DbSet<InvestmentMaintenanceDistribution> InvestmentMaintenanceDistributions { get; set; }
+    public DbSet<MonthlyProfitDistribution> MonthlyProfitDistributions { get; set; }
+    public DbSet<MonthlyProfitDistributionLine> MonthlyProfitDistributionLines { get; set; }
     public DbSet<AppVersion> AppVersions { get; set; }
     public DbSet<AppVersionChange> AppVersionChanges { get; set; }
 
@@ -187,7 +190,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.ProfileImageUrl)
                   .HasConversion(
                       v => v,
-                      v => v.Replace("/assets/member/", "/api/profile/image/"));
+                      v => v == null ? v : v.Replace("/assets/member/", "/api/profile/image/"));
 
             entity.HasOne(m => m.User)
                   .WithOne(u => u.Member)
@@ -209,6 +212,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.UndistributedRemainder).HasPrecision(18, 2);
             entity.Property(e => e.Type).HasConversion<string>();
             entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.ProfitPayoutMode).HasConversion<string>().HasMaxLength(20);
 
             entity.HasOne(e => e.MaintenanceAccount)
                   .WithMany()
@@ -379,6 +383,62 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<MonthlyProfitDistribution>(entity =>
+        {
+            entity.Property(e => e.Rate).HasPrecision(9, 6);
+            entity.Property(e => e.TotalInvestmentAmount).HasPrecision(18, 2);
+            entity.Property(e => e.TotalProfitAmount).HasPrecision(18, 2);
+            entity.Property(e => e.TotalPaidAmount).HasPrecision(18, 2);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.Type).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.GrossProfitAmount).HasPrecision(18, 2);
+            entity.Property(e => e.MaintenancePercentage).HasPrecision(5, 2);
+            entity.Property(e => e.MaintenanceAmount).HasPrecision(18, 2);
+            entity.Property(e => e.UndistributedRemainder).HasPrecision(18, 2);
+
+            // No longer unique per month: one project must never be paid twice for the
+            // same month (enforced per project in the service), but a project that starts
+            // mid-month can still get its own batch for a month that already has one.
+            entity.HasIndex(e => new { e.Type, e.Year, e.Month });
+
+            entity.HasOne(e => e.Investment)
+                  .WithMany()
+                  .HasForeignKey(e => e.InvestmentId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<MonthlyProfitDistributionLine>(entity =>
+        {
+            entity.Property(e => e.InvestmentAmount).HasPrecision(18, 2);
+            entity.Property(e => e.Rate).HasPrecision(9, 6);
+            entity.Property(e => e.ProfitAmount).HasPrecision(18, 2);
+            entity.Property(e => e.HeldDays).HasPrecision(5, 2);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
+
+            entity.HasIndex(e => new { e.MonthlyProfitDistributionId, e.MemberId, e.InvestmentId }).IsUnique();
+            entity.HasIndex(e => e.WalletEntryId).IsUnique();
+
+            entity.HasOne(e => e.Distribution)
+                  .WithMany(d => d.Lines)
+                  .HasForeignKey(e => e.MonthlyProfitDistributionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Member)
+                  .WithMany()
+                  .HasForeignKey(e => e.MemberId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Investment)
+                  .WithMany()
+                  .HasForeignKey(e => e.InvestmentId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.WalletEntry)
+                  .WithMany()
+                  .HasForeignKey(e => e.WalletEntryId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
         modelBuilder.Entity<MemberTransactionMap>(entity =>
         {
             entity.HasIndex(e => new { e.MemberId, e.TransactionId }).IsUnique();
@@ -411,7 +471,14 @@ public class AppDbContext : DbContext
         {
             entity.Property(e => e.Balance).HasPrecision(18, 2);
             entity.Property(e => e.AccountType).HasConversion<string>();
+            entity.Property(e => e.Category)
+                  .HasConversion<string>()
+                  .HasMaxLength(20)
+                  .HasDefaultValue(AccountCategory.Asset);
+            entity.Property(e => e.Code).HasMaxLength(20);
             entity.HasIndex(e => e.Name).IsUnique();
+            entity.HasIndex(e => e.Code).IsUnique();
+            entity.HasIndex(e => e.Category);
         });
 
         modelBuilder.Entity<AccountLedgerEntry>(entity =>

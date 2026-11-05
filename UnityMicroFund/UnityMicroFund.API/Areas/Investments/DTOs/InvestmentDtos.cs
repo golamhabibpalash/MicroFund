@@ -89,6 +89,12 @@ public class InvestmentPartnerDto
     public string? NomineeContact { get; set; }
 }
 
+/// <summary>
+/// Result of setting or clearing a cover image: the stored path that was replaced (so the
+/// caller can delete the old file) and the refreshed investment.
+/// </summary>
+public record InvestmentCoverImageChangeDto(string? PreviousFileUrl, InvestmentResponseDto Investment);
+
 public class InvestmentDocumentDto
 {
     public Guid Id { get; set; }
@@ -145,6 +151,16 @@ public class CreateInvestmentDto
 
     [Range(0, 100, ErrorMessage = "Maintenance percentage must be between 0 and 100.")]
     public decimal? MaintenancePercentage { get; set; }
+
+    /// <summary>
+    /// Enum name of <see cref="UnityMicroFund.API.Models.ProfitPayoutMode"/>:
+    /// "OnCompletion", "Monthly" or "ProjectBased".
+    /// </summary>
+    public string? ProfitPayoutMode { get; set; }
+
+    /// <summary>Default monthly profit % (required when ProfitPayoutMode is Monthly).</summary>
+    [Range(0, 100, ErrorMessage = "Monthly profit rate must be between 0 and 100.")]
+    public decimal? MonthlyProfitRate { get; set; }
 
     /// <summary>The organisation account that receives this project's maintenance amount.</summary>
     public Guid? MaintenanceAccountId { get; set; }
@@ -231,6 +247,16 @@ public class UpdateInvestmentDto
     [Range(0, 100, ErrorMessage = "Maintenance percentage must be between 0 and 100.")]
     public decimal? MaintenancePercentage { get; set; }
 
+    /// <summary>
+    /// Enum name of <see cref="UnityMicroFund.API.Models.ProfitPayoutMode"/>:
+    /// "OnCompletion", "Monthly" or "ProjectBased".
+    /// </summary>
+    public string? ProfitPayoutMode { get; set; }
+
+    /// <summary>Default monthly profit % (required when ProfitPayoutMode is Monthly).</summary>
+    [Range(0, 100, ErrorMessage = "Monthly profit rate must be between 0 and 100.")]
+    public decimal? MonthlyProfitRate { get; set; }
+
     /// <summary>The organisation account that receives this project's maintenance amount.</summary>
     public Guid? MaintenanceAccountId { get; set; }
 
@@ -292,6 +318,8 @@ public class InvestmentResponseDto
 
     public decimal? TargetGrossProfit { get; set; }
     public decimal? ActualGrossProfit { get; set; }
+    public string ProfitPayoutMode { get; set; } = "OnCompletion";
+    public decimal? MonthlyProfitRate { get; set; }
     public decimal MaintenancePercentage { get; set; }
     public decimal? MaintenanceAmount { get; set; }
     public Guid? MaintenanceAccountId { get; set; }
@@ -328,6 +356,12 @@ public class InvestmentResponseDto
     public string Status { get; set; } = string.Empty;
     public string? CertificateNumber { get; set; }
     public string? ReferenceNumber { get; set; }
+
+    /// <summary>
+    /// API-routed URL of the project's cover image, or null when none is set. Carries a
+    /// version query so browsers refetch after the image is replaced.
+    /// </summary>
+    public string? CoverImageUrl { get; set; }
 
     public Guid? InvestorMemberId { get; set; }
     public string? InvestorName { get; set; }

@@ -376,6 +376,119 @@ public class InvestmentsController : ControllerBase
         return NoContent();
     }
 
+    private const long MaxCoverImageSize = 5 * 1024 * 1024;
+
+    private static readonly Dictionary<string, string> CoverImageTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [".jpg"] = "image/jpeg",
+        [".jpeg"] = "image/jpeg",
+        [".png"] = "image/png",
+        [".webp"] = "image/webp"
+    };
+
+    /// <summary>
+    /// Uploads (or replaces) the project's cover image, shown as the background of the
+    /// investment details view. The previous file is removed from disk.
+    /// </summary>
+    [HttpPost("{id}/cover-image")]
+    [Authorize(Roles = "Admin,Manager")]
+    [RequestSizeLimit(MaxCoverImageSize + 64 * 1024)]
+    public async Task<IActionResult> UploadCoverImage(Guid id, IFormFile file, CancellationToken cancellationToken)
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { message = "No image uploaded" });
+        }
+
+        if (file.Length > MaxCoverImageSize)
+        {
+            return BadRequest(new { message = "Cover image exceeds the 5MB limit" });
+        }
+
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        // Check the declared content type as well as the extension ("image/jpg" is a
+        // non-standard alias some browsers still send).
+        var declaredType = string.Equals(file.ContentType, "image/jpg", StringComparison.OrdinalIgnoreCase)
+            ? "image/jpeg"
+            : file.ContentType;
+        if (!CoverImageTypes.TryGetValue(extension, out var expectedType)
+            || !string.Equals(declaredType, expectedType, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { message = "Invalid image type. Allowed: jpg, jpeg, png, webp" });
+        }
+
+        var uploadsFolder = GetDocumentsPath();
+        Directory.CreateDirectory(uploadsFolder);
+
+        var storedName = $"cover_{id}_{DateTime.UtcNow:yyyyMMddHHmmssfff}{extension}";
+        var storedUrl = $"/assets/investment/{storedName}";
+
+        await using (var stream = new FileStream(Path.Combine(uploadsFolder, storedName), FileMode.Create))
+        {
+            await file.CopyToAsync(stream, cancellationToken);
+        }
+
+        var change = await _investmentService.SetCoverImageAsync(id, storedUrl, GetCurrentUserName(), cancellationToken);
+        if (change == null)
+        {
+            TryDeleteFile(storedUrl);
+            return NotFound(new { message = "Investment not found" });
+        }
+
+        if (!string.IsNullOrWhiteSpace(change.PreviousFileUrl))
+        {
+            TryDeleteFile(change.PreviousFileUrl);
+        }
+
+        return Ok(change.Investment);
+    }
+
+    [HttpDelete("{id}/cover-image")]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> DeleteCoverImage(Guid id, CancellationToken cancellationToken)
+    {
+        var change = await _investmentService.SetCoverImageAsync(id, null, GetCurrentUserName(), cancellationToken);
+        if (change == null)
+        {
+            return NotFound(new { message = "Investment not found" });
+        }
+
+        if (!string.IsNullOrWhiteSpace(change.PreviousFileUrl))
+        {
+            TryDeleteFile(change.PreviousFileUrl);
+        }
+
+        return Ok(change.Investment);
+    }
+
+    /// <summary>
+    /// Streams the cover image. Anonymous for the same reason as DownloadDocument: it is
+    /// loaded by a plain &lt;img&gt;/CSS background, which cannot send the Authorization header.
+    /// </summary>
+    [HttpGet("{id}/cover-image")]
+    [AllowAnonymous]
+    [ResponseCache(Duration = 86400, Location = ResponseCacheLocation.Any)]
+    public async Task<IActionResult> GetCoverImage(Guid id, CancellationToken cancellationToken)
+    {
+        var fileUrl = await _investmentService.GetCoverImageFileUrlAsync(id, cancellationToken);
+        var fileName = string.IsNullOrWhiteSpace(fileUrl) ? null : Path.GetFileName(fileUrl);
+        if (fileName == null)
+        {
+            return NotFound(new { message = "No cover image" });
+        }
+
+        var filePath = Path.GetFullPath(Path.Combine(GetDocumentsPath(), fileName));
+        if (!System.IO.File.Exists(filePath))
+        {
+            return NotFound(new { message = "Cover image not found on disk" });
+        }
+
+        var contentType = CoverImageTypes.TryGetValue(Path.GetExtension(fileName), out var type)
+            ? type
+            : "application/octet-stream";
+        return PhysicalFile(filePath, contentType);
+    }
+
     private string GetDocumentsPath() =>
         _configuration["Uploads:InvestmentDocumentsPath"]
         ?? Path.Combine(_environment.ContentRootPath, "..", "uploads", "investment");

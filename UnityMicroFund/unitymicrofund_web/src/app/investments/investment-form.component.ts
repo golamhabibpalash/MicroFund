@@ -13,7 +13,10 @@ import {
 import { Subject, forkJoin, of, takeUntil } from 'rxjs';
 import { catchError, filter } from 'rxjs/operators';
 import {
+  COVER_IMAGE_MAX_BYTES,
+  COVER_IMAGE_TYPES,
   CreateInvestmentRequest,
+  DEFAULT_INVESTMENT_COVER,
   INVESTMENT_STATUSES,
   INVESTMENT_TYPES,
   Investment,
@@ -21,6 +24,8 @@ import {
   InvestmentService,
   InvestmentStatusName,
   InvestmentTypeName,
+  PROFIT_PAYOUT_MODES,
+  ProfitPayoutMode,
 } from '../core/services/investment.service';
 import { ToastService } from '../core/services/toast.service';
 import { ConfirmationService } from '../shared/confirmation/confirmation.service';
@@ -179,6 +184,21 @@ function partnerNomineeNidValidator(group: AbstractControl): ValidationErrors | 
                   <option *ngFor="let s of selectableStatuses" [value]="s">{{ s }}</option>
                 </select>
                 <span class="field-hint" *ngIf="isEditMode">Status is changed from the project's lifecycle panel.</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Profit Payout</label>
+                <select formControlName="profitPayoutMode">
+                  <option *ngFor="let m of payoutModes" [ngValue]="m.value">{{ m.label }}</option>
+                </select>
+                <span class="field-hint">{{ payoutModeHint }}</span>
+              </div>
+              <div class="form-group" *ngIf="form.get('profitPayoutMode')?.value === 'Monthly'">
+                <label>Monthly Profit Rate (%) *</label>
+                <input type="number" formControlName="monthlyProfitRate" min="0.01" max="100" step="0.01" placeholder="e.g. 1.5" />
+                <span class="field-error" *ngIf="showError('monthlyProfitRate')">Required for monthly payout: greater than 0, at most 100.</span>
+                <span class="field-hint" *ngIf="!showError('monthlyProfitRate')">% of each holding paid every month. Can be adjusted per month when running a batch.</span>
               </div>
             </div>
             <div class="form-row">
@@ -362,6 +382,28 @@ function partnerNomineeNidValidator(group: AbstractControl): ValidationErrors | 
             </div>
 
             <div class="form-group">
+              <label>Cover Image</label>
+              <div class="cover-picker">
+                <div class="cover-preview" [class.is-default]="!coverPreviewUrl"
+                     [style.background-image]="'url(' + (coverPreviewUrl || defaultCover) + ')'">
+                  <span class="cover-badge" *ngIf="!coverPreviewUrl">Default background</span>
+                </div>
+                <div class="cover-actions">
+                  <input #coverFileInput type="file" hidden accept="image/jpeg,image/png,image/webp"
+                         (change)="onCoverFileSelected($event)" />
+                  <button type="button" class="btn-link" (click)="coverFileInput.click()">
+                    <span class="material-icons">add_photo_alternate</span>
+                    {{ coverPreviewUrl ? 'Replace image' : 'Upload image' }}
+                  </button>
+                  <button type="button" class="btn-link danger" *ngIf="coverPreviewUrl" (click)="clearCover()">
+                    <span class="material-icons">hide_image</span> Use default
+                  </button>
+                  <span class="field-hint">Shown as the background of the investment details view. JPG, PNG or WebP, up to 5MB. A wide (16:9) photo works best.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
               <label>Supporting Documents</label>
               <input
                 type="file"
@@ -441,6 +483,12 @@ function partnerNomineeNidValidator(group: AbstractControl): ValidationErrors | 
     .partner-index { font-size: 13px; font-weight: 600; color: #555; }
     .btn-link { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; color: #667eea; font-size: 13px; font-weight: 500; cursor: pointer; padding: 0; }
     .btn-icon-danger { background: none; border: none; color: #e74c3c; cursor: pointer; padding: 2px; display: inline-flex; }
+    .cover-picker { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .cover-preview { position: relative; width: 240px; aspect-ratio: 16 / 7; border-radius: 10px; background-size: cover; background-position: center; background-color: #0f172a; border: 1px solid #e5e7eb; overflow: hidden; flex-shrink: 0; }
+    .cover-preview::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 40%, rgba(11,18,32,0.55)); }
+    .cover-badge { position: absolute; left: 8px; bottom: 8px; z-index: 1; font-size: 11px; font-weight: 600; color: #fff; background: rgba(15,23,42,0.6); padding: 3px 8px; border-radius: 999px; }
+    .cover-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; flex: 1; min-width: 200px; }
+    .btn-link.danger { color: #e74c3c; }
     .file-list { list-style: none; margin: 12px 0 0 0; padding: 0; }
     .file-list li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
     .file-name { flex: 1; color: #333; text-decoration: none; word-break: break-all; }
@@ -475,6 +523,15 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
   accounts: BankAccount[] = [];
   pendingFiles: File[] = [];
   existingDocuments: InvestmentDocument[] = [];
+
+  readonly defaultCover = DEFAULT_INVESTMENT_COVER;
+  /** New cover chosen in this form, uploaded after the record is saved. */
+  pendingCover: File | null = null;
+  /** True when the user asked to drop the project's existing cover. */
+  removeExistingCover = false;
+  /** What the preview shows: a local blob for a pending file, else the saved cover. */
+  coverPreviewUrl: string | null = null;
+  private coverObjectUrl: string | null = null;
   isSubmitting = false;
 
   /** Set when the API rejects a duplicate certificate/reference number. */
@@ -483,6 +540,12 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
 
   readonly investmentTypes = INVESTMENT_TYPES;
   readonly investmentStatuses = INVESTMENT_STATUSES;
+  readonly payoutModes = PROFIT_PAYOUT_MODES;
+
+  get payoutModeHint(): string {
+    const mode = this.form?.get('profitPayoutMode')?.value as ProfitPayoutMode;
+    return PROFIT_PAYOUT_MODES.find(m => m.value === mode)?.hint ?? '';
+  }
 
   /** New projects always start as Draft and are published via the lifecycle panel,
    *  so members never see (or buy into) a project that hasn't been circulated.
@@ -522,8 +585,45 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.revokeCoverObjectUrl();
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  onCoverFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    if (!COVER_IMAGE_TYPES.includes(file.type)) {
+      this.toast.error('Please choose a JPG, PNG or WebP image.');
+      return;
+    }
+    if (file.size > COVER_IMAGE_MAX_BYTES) {
+      this.toast.error('Cover image must be 5MB or smaller.');
+      return;
+    }
+
+    this.revokeCoverObjectUrl();
+    this.pendingCover = file;
+    this.removeExistingCover = false;
+    this.coverObjectUrl = URL.createObjectURL(file);
+    this.coverPreviewUrl = this.coverObjectUrl;
+  }
+
+  clearCover(): void {
+    this.revokeCoverObjectUrl();
+    this.pendingCover = null;
+    this.removeExistingCover = !!this.investment?.coverImageUrl;
+    this.coverPreviewUrl = null;
+  }
+
+  private revokeCoverObjectUrl(): void {
+    if (this.coverObjectUrl) {
+      URL.revokeObjectURL(this.coverObjectUrl);
+      this.coverObjectUrl = null;
+    }
   }
 
   asGroup(control: AbstractControl): FormGroup {
@@ -654,6 +754,8 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
         maximumSharesPerMember: [null as number | null, Validators.min(1)],
         maintenancePercentage: [null as number | null, [Validators.min(0), Validators.max(100)]],
         maintenanceAccountId: [null as string | null],
+        profitPayoutMode: ['OnCompletion' as ProfitPayoutMode],
+        monthlyProfitRate: [null as number | null],
         targetGrossProfit: [null as number | null, Validators.min(0)],
         dateInvested: ['', Validators.required],
         maturityDate: [''],
@@ -669,6 +771,17 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
       },
       { validators: [maturityAfterStartValidator, participantsDistinctValidator] },
     );
+
+    // The monthly rate is only meaningful (and then required) for the Monthly payout.
+    const rate = this.form.get('monthlyProfitRate')!;
+    this.form.get('profitPayoutMode')!.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((mode: ProfitPayoutMode) => {
+        rate.setValidators(mode === 'Monthly'
+          ? [Validators.required, Validators.min(0.000001), Validators.max(100)]
+          : null);
+        rate.updateValueAndValidity({ emitEvent: false });
+      });
   }
 
   private createPartnerGroup(): FormGroup {
@@ -705,6 +818,8 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
       maximumSharesPerMember: investment.maximumSharesPerMember ?? null,
       maintenancePercentage: investment.maintenancePercentage ?? null,
       maintenanceAccountId: investment.maintenanceAccountId ?? null,
+      profitPayoutMode: investment.profitPayoutMode ?? 'OnCompletion',
+      monthlyProfitRate: investment.monthlyProfitRate ?? null,
       targetGrossProfit: investment.targetGrossProfit ?? null,
       dateInvested: this.toDateInput(investment.dateInvested),
       maturityDate: this.toDateInput(investment.maturityDate),
@@ -743,6 +858,7 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
     this.partners.push(group);
 
     this.existingDocuments = [...investment.documents];
+    this.coverPreviewUrl = investment.coverImageUrl ?? null;
   }
 
   private toRequest(): CreateInvestmentRequest {
@@ -759,6 +875,8 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
       maximumSharesPerMember: v.maximumSharesPerMember ? Number(v.maximumSharesPerMember) : null,
       maintenancePercentage: v.maintenancePercentage != null ? Number(v.maintenancePercentage) : null,
       maintenanceAccountId: v.maintenanceAccountId ?? null,
+      profitPayoutMode: v.profitPayoutMode ?? 'OnCompletion',
+      monthlyProfitRate: v.profitPayoutMode === 'Monthly' && v.monthlyProfitRate != null ? Number(v.monthlyProfitRate) : null,
       targetGrossProfit: v.targetGrossProfit ? Number(v.targetGrossProfit) : null,
       // date inputs give a bare yyyy-MM-dd; send it as a UTC instant so the day
       // does not shift when the API echoes it back.
@@ -797,7 +915,7 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
    */
   private uploadPendingFiles(saved: Investment): void {
     if (this.pendingFiles.length === 0) {
-      this.finish(saved);
+      this.applyCoverChange(saved);
       return;
     }
 
@@ -816,13 +934,39 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
         if (results.some(r => r === null)) {
           this.toast.warning('The investment was saved, but some documents failed to upload.');
         }
-        this.finish(saved);
+        this.applyCoverChange(saved);
       });
+  }
+
+  /** Uploads or removes the cover after save; like documents, a failure keeps the record. */
+  private applyCoverChange(saved: Investment): void {
+    const change$ = this.pendingCover
+      ? this.investmentService.uploadCoverImage(saved.id, this.pendingCover)
+      : this.removeExistingCover
+        ? this.investmentService.deleteCoverImage(saved.id)
+        : null;
+
+    if (!change$) {
+      this.finish(saved);
+      return;
+    }
+
+    change$
+      .pipe(
+        catchError(() => {
+          this.toast.warning('The investment was saved, but the cover image could not be updated.');
+          return of(saved);
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe(updated => this.finish(updated));
   }
 
   private finish(saved: Investment): void {
     this.isSubmitting = false;
     this.pendingFiles = [];
+    this.pendingCover = null;
+    this.removeExistingCover = false;
     this.toast.success(this.isEditMode ? 'Investment updated.' : 'Investment created.');
     this.saved.emit(saved);
   }

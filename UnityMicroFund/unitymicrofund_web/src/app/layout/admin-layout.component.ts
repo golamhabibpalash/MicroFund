@@ -30,6 +30,7 @@ const NAV_MODULES: NavModule[] = [
     icon: 'account_balance_wallet',
     children: [
       { label: 'Investments',  route: '/investments', icon: 'trending_up' },
+      { label: 'Profit Distribution', route: '/monthly-profits', icon: 'payments', roles: ['Admin'] },
       { label: 'My Wallet',    route: '/wallet',      icon: 'account_balance_wallet' },
       { label: 'Transactions', route: '/payments',    icon: 'payments' },
       { label: 'Withdraw',     route: '/withdraw',    icon: 'output' },
@@ -517,6 +518,7 @@ export class AdminLayoutComponent implements OnInit {
     const map: Record<string, string> = {
       '/dashboard': 'Dashboard',
       '/investments': 'Investments',
+      '/monthly-profits': 'Profit Distribution',
       '/wallet': 'My Wallet',
       '/payments': 'Transactions',
       '/withdraw': 'Withdraw',

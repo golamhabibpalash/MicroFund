@@ -23,6 +23,20 @@ public enum InvestmentType
 ///   Cancelled is reachable from Draft / OpenForSubscription / FullySubscribed only,
 ///   and refunds every subscriber.
 /// </summary>
+/// <summary>
+/// How a project's profit reaches its shareholders.
+///   OnCompletion  - only through the end-of-project settlement (the original flow).
+///   Monthly       - a fixed monthly % of each holding, paid through monthly batches.
+///   ProjectBased  - open-ended: the admin enters a realised profit amount whenever it
+///                   arrives, and it is split by shares (after maintenance).
+/// </summary>
+public enum ProfitPayoutMode
+{
+    OnCompletion,
+    Monthly,
+    ProjectBased
+}
+
 public enum InvestmentStatus
 {
     Draft,
@@ -128,6 +142,16 @@ public class Investment
     [Column(TypeName = "decimal(18,2)")]
     public decimal? NetProfit { get; set; }
 
+    /// <summary>Which periodic profit flow (if any) this project is paid through.</summary>
+    public ProfitPayoutMode ProfitPayoutMode { get; set; } = ProfitPayoutMode.OnCompletion;
+
+    /// <summary>
+    /// Default monthly profit rate (% of each holding per month) for Monthly projects.
+    /// A monthly batch may override it for a single month.
+    /// </summary>
+    [Column(TypeName = "decimal(9,6)")]
+    public decimal? MonthlyProfitRate { get; set; }
+
     /// <summary>Accumulated project costs, stored as individual records. The running total is the sum.</summary>
     [NotMapped]
     public decimal TotalProjectCost =>
@@ -175,6 +199,14 @@ public class Investment
 
     [MaxLength(100)]
     public string? ReferenceNumber { get; set; }
+
+    /// <summary>
+    /// Stored path (/assets/investment/cover_...) of the optional cover/background image
+    /// shown on the investment details view. Served to clients through
+    /// GET api/investments/{id}/cover-image.
+    /// </summary>
+    [MaxLength(500)]
+    public string? CoverImageUrl { get; set; }
 
     // --- Mandatory participants (nullable in the schema so pre-existing projects
     // migrate cleanly; required by the create DTO and service validation). ---
