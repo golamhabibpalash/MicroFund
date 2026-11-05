@@ -109,6 +109,9 @@ connect.lock/
 # Database / Data
 # ----------------------
 
+# Local database backups (never commit production data)
+DB_Backup/
+
 *.mdf
 *.ldf
 *.sqlite
