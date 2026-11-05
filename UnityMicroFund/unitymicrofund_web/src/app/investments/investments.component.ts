@@ -515,7 +515,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
                 <div class="vrow-avatar">{{ getInitials(m.memberName) }}</div>
                 <div class="vrow-main">
                   <span class="vrow-name">{{ m.memberName }}</span>
-                  <span class="vrow-meta">{{ m.sharePercentage.toFixed(2) }}% share</span>
+                  <span class="vrow-meta"><ng-container *ngIf="m.sharesOwned">{{ m.sharesOwned }} share{{ m.sharesOwned === 1 ? '' : 's' }} &middot; </ng-container>{{ m.sharePercentage | number:'1.2-2' }}%</span>
                 </div>
                 <span class="vrow-value">{{ formatCurrency(m.shareValue) }}</span>
               </div>

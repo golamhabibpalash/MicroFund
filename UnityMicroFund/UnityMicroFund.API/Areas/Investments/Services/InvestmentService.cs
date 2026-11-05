@@ -291,14 +291,20 @@ public class InvestmentService : IInvestmentService
             }
         }
 
-        // Member share values track the investment's current value.
+        // Holdings are derived from purchased shares, not from the project's current value.
+        // Only rows backed by real purchases are re-derived; legacy equal-split rows
+        // (SharesOwned == 0) are left untouched.
         var memberInvestments = await _context.MemberInvestments
-            .Where(mi => mi.InvestmentId == id)
+            .Where(mi => mi.InvestmentId == id && mi.SharesOwned > 0)
             .ToListAsync(cancellationToken);
 
+        var totalShares = investment.TotalShares ?? 0;
         foreach (var mi in memberInvestments)
         {
-            mi.ShareValue = (investment.CurrentValue * mi.SharePercentage) / 100;
+            mi.SharePercentage = totalShares > 0
+                ? Math.Round((decimal)mi.SharesOwned / totalShares * 100m, 6)
+                : 0m;
+            mi.ShareValue = mi.AmountInvested;
         }
 
         await _context.SaveChangesAsync(cancellationToken);
@@ -671,6 +677,67 @@ public class InvestmentService : IInvestmentService
             throw new NotFoundException("Maintenance account not found.");
     }
 
+    /// <summary>
+    /// Builds the per-member holding list from the share purchases themselves, the
+    /// source of truth, rather than from the stored MemberInvestment rollup, whose
+    /// SharePercentage / ShareValue could drift (e.g. an edit used to rewrite them
+    /// from CurrentValue). Refunded (Cancelled) purchases are excluded; Settled ones
+    /// still count, as the member owned them for the life of the project.
+    /// </summary>
+    private static List<MemberInvestmentDto> BuildMemberHoldings(Investment investment, int totalShares)
+    {
+        var names = investment.MemberInvestments
+            .GroupBy(mi => mi.MemberId)
+            .ToDictionary(g => g.Key, g => g.First().Member?.Name ?? "Unknown");
+
+        var purchased = investment.Subscriptions
+            .Where(s => s.Status != ShareSubscriptionStatus.Cancelled)
+            .GroupBy(s => s.MemberId)
+            .Select(g => new
+            {
+                MemberId = g.Key,
+                Shares = g.Sum(s => s.SharesPurchased),
+                Amount = g.Sum(s => s.AmountPaid)
+            })
+            .ToList();
+
+        var denominator = totalShares > 0 ? totalShares : purchased.Sum(p => p.Shares);
+
+        var members = purchased
+            .Select(p => new MemberInvestmentDto
+            {
+                MemberId = p.MemberId,
+                MemberName = names.GetValueOrDefault(p.MemberId, "Unknown"),
+                SharesOwned = p.Shares,
+                SharePercentage = denominator > 0
+                    ? Math.Round((decimal)p.Shares / denominator * 100m, 6)
+                    : 0m,
+                ShareValue = p.Amount
+            })
+            .ToList();
+
+        // Legacy projects created with an equal split (no share purchases behind them)
+        // have nothing else to show, so keep their stored values.
+        if (members.Count == 0)
+        {
+            members = investment.MemberInvestments
+                .Select(mi => new MemberInvestmentDto
+                {
+                    MemberId = mi.MemberId,
+                    MemberName = mi.Member?.Name ?? "Unknown",
+                    SharesOwned = mi.SharesOwned,
+                    SharePercentage = mi.SharePercentage,
+                    ShareValue = mi.ShareValue
+                })
+                .ToList();
+        }
+
+        return members
+            .OrderByDescending(m => m.SharesOwned)
+            .ThenBy(m => m.MemberName)
+            .ToList();
+    }
+
     private static InvestmentResponseDto MapToDto(Investment investment)
     {
         var totalShares = investment.TotalShares ?? 0;
@@ -768,13 +835,7 @@ public class InvestmentService : IInvestmentService
             CreatedAt = investment.CreatedAt,
             LastModifiedBy = investment.LastModifiedBy,
             LastModifiedAt = investment.LastModifiedAt,
-            Members = investment.MemberInvestments.Select(mi => new MemberInvestmentDto
-            {
-                MemberId = mi.MemberId,
-                MemberName = mi.Member?.Name ?? "Unknown",
-                SharePercentage = mi.SharePercentage,
-                ShareValue = mi.ShareValue
-            }).ToList(),
+            Members = BuildMemberHoldings(investment, totalShares),
             Partners = investment.Partners.Select(ToDto).ToList(),
             Documents = investment.Documents.Select(ToDto).ToList(),
             InterimProfits = investment.InterimProfits

@@ -49,6 +49,7 @@ export const INVESTMENT_STATUS_LABELS: Record<InvestmentStatusName, string> = {
 export interface MemberInvestment {
   memberId: string;
   memberName: string;
+  sharesOwned: number;
   sharePercentage: number;
   shareValue: number;
 }

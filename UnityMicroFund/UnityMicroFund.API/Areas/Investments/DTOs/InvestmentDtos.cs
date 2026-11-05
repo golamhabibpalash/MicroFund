@@ -361,7 +361,9 @@ public class MemberInvestmentDto
 {
     public Guid MemberId { get; set; }
     public string MemberName { get; set; } = string.Empty;
+    public int SharesOwned { get; set; }
     public decimal SharePercentage { get; set; }
+    /// <summary>Amount the member actually paid for their shares.</summary>
     public decimal ShareValue { get; set; }
 }
 
