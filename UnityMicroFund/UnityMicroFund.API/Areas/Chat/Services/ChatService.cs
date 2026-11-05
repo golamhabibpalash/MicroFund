@@ -15,6 +15,7 @@ public interface IChatService
     Task<List<ChatMessageDto>> GetMessagesAsync(Guid roomId, Guid memberId, int skip = 0, int take = 50);
     Task MarkAsReadAsync(Guid roomId, Guid memberId);
     Task<List<ChatRoomDto>> GetOrCreateIndividualChatAsync(Guid member1Id, Guid member2Id);
+    Task<bool> IsRoomMemberAsync(Guid roomId, Guid memberId);
 }
 
 public class ChatService : IChatService
@@ -150,6 +151,14 @@ public class ChatService : IChatService
             IsRead = message.IsRead,
             CreatedAt = message.CreatedAt
         };
+    }
+
+    public async Task<bool> IsRoomMemberAsync(Guid roomId, Guid memberId)
+    {
+        if (memberId == Guid.Empty) return false;
+        return await _context.ChatRoomMembers
+            .AsNoTracking()
+            .AnyAsync(m => m.ChatRoomId == roomId && m.MemberId == memberId);
     }
 
     public async Task<List<ChatMessageDto>> GetMessagesAsync(Guid roomId, Guid memberId, int skip = 0, int take = 50)

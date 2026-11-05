@@ -81,6 +81,13 @@ public class ParamBusConfigController : ControllerBase
     [AllowAnonymous]
     public IActionResult GetLogo(string filename)
     {
+        // Strip any directory parts so the name cannot escape the uploads folder.
+        filename = Path.GetFileName(filename);
+        if (string.IsNullOrEmpty(filename))
+        {
+            return NotFound();
+        }
+
         var filePath = Path.Combine(GetOrganizationUploadsFolder(), filename);
         if (!System.IO.File.Exists(filePath))
         {

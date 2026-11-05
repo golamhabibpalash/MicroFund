@@ -6,6 +6,8 @@ public interface ITransactionService
 {
     Task<IEnumerable<TransactionResponseDto>> GetTransactionsAsync(TransactionFilterDto filter, Guid? userId = null, bool isAdmin = false);
     Task<TransactionResponseDto?> GetTransactionByIdAsync(Guid id);
+    /// <summary>Same visibility rule as the transaction list for non-admin users.</summary>
+    Task<bool> CanViewTransactionAsync(Guid id, Guid userId);
     Task<TransactionResponseDto> CreateTransactionAsync(CreateTransactionDto dto, Guid userId);
     Task<TransactionResponseDto?> UpdateTransactionAsync(Guid id, UpdateTransactionDto dto, Guid userId, bool isAdmin = false);
     Task<TransactionResponseDto?> ApproveTransactionAsync(Guid id, ApproveTransactionDto dto, Guid approvedByUserId);

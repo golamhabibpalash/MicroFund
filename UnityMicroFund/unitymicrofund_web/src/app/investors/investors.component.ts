@@ -8,6 +8,7 @@ import { UserService } from '../core/services/user';
 import { ChangeDetectorRef } from '@angular/core';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
+import { escapeStringFields } from '../shared/utils/escape-html';
 
 interface Member {
   id: string;
@@ -937,7 +938,11 @@ export class InvestorsComponent implements OnInit {
     });
   }
 
-  downloadProfile(member: Member) {
+  downloadProfile(rawMember: Member) {
+    // Every text field below is member-controlled. The document opens as a blob: URL,
+    // which shares this app's origin (and its localStorage token), so unescaped values
+    // would let a crafted name or address run script in an admin's session.
+    const member = escapeStringFields(rawMember);
     const htmlContent = `
 <!DOCTYPE html>
 <html>

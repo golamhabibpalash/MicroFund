@@ -1,6 +1,9 @@
 using System.Text;
 using System.Runtime.InteropServices;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -14,6 +17,7 @@ using UnityMicroFund.API.Areas.Contributions.Services;
 using UnityMicroFund.API.Areas.Dashboard.Services;
 using UnityMicroFund.API.Areas.Investments.Services;
 using UnityMicroFund.API.Areas.Members.Services;
+using UnityMicroFund.API.Areas.MonthlyProfits.Services;
 using UnityMicroFund.API.Areas.OCR.Services;
 using UnityMicroFund.API.Areas.Settings.Services;
 using UnityMicroFund.API.Areas.Transactions.Services;
@@ -96,6 +100,34 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddAuthorization();
+
+// nginx runs on the same host and forwards the real client IP; trust it (loopback proxy
+// only, the default) so rate limiting and audit logs see clients rather than 127.0.0.1.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
+
+// Brute-force protection for the anonymous auth endpoints (login, registration, social
+// login, password reset). Applied per endpoint with [EnableRateLimiting(RateLimitPolicies.Auth)].
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new { message = "Too many attempts. Please wait a minute and try again." }, cancellationToken);
+    };
+    options.AddPolicy(RateLimitPolicies.Auth, httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
 
 builder.Services.AddCors(options =>
 {
@@ -184,6 +216,8 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IActivityLogService, ActivityLogService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IAccountLedgerService, AccountLedgerService>();
+builder.Services.AddScoped<IFinancialStatementService, FinancialStatementService>();
+builder.Services.AddScoped<IMonthlyProfitDistributionService, MonthlyProfitDistributionService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IOcrService, OcrService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
@@ -209,6 +243,8 @@ builder.Services.AddSignalR()
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
+
 app.UseGlobalExceptionHandler();
 
 app.UseCors("AllowAll");
@@ -222,6 +258,7 @@ app.UseSwaggerUI(c =>
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 app.UseActivityLogging();
 
 var contentTypeProvider = new FileExtensionContentTypeProvider();

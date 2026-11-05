@@ -5,6 +5,7 @@ using UnityMicroFund.API.Areas.Auth.Models;
 using UnityMicroFund.API.Areas.Settings.DTOs;
 using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Data;
+using UnityMicroFund.API.Infrastructure.Helpers;
 using UnityMicroFund.API.Models;
 
 namespace UnityMicroFund.API.Areas.Settings.Services;
@@ -735,10 +736,5 @@ public class RolesService : IRolesService
         _ => ""
     };
 
-    private static string HashPassword(string password)
-    {
-        using var sha256 = SHA256.Create();
-        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-        return Convert.ToBase64String(hashedBytes);
-    }
+    private static string HashPassword(string password) => PasswordHashing.Hash(password);
 }

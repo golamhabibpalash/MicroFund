@@ -82,6 +82,13 @@ public class ProfileController : ControllerBase
             ? configPath
             : Path.Combine(_environment.ContentRootPath, "..", "uploads", "member");
 
+        // Strip any directory parts so the name cannot escape the uploads folder.
+        filename = Path.GetFileName(filename);
+        if (string.IsNullOrEmpty(filename))
+        {
+            return NotFound();
+        }
+
         var filePath = Path.Combine(uploadsFolder, filename);
 
         if (!System.IO.File.Exists(filePath))

@@ -13,6 +13,7 @@ using UnityMicroFund.API.Areas.Logging.Services;
 using UnityMicroFund.API.Areas.Tasks.Services;
 using UnityMicroFund.API.Data;
 using UnityMicroFund.API.Infrastructure.Email;
+using UnityMicroFund.API.Infrastructure.Helpers;
 using UnityMicroFund.API.Infrastructure.Sms;
 using UnityMicroFund.API.Models;
 
@@ -203,6 +204,22 @@ public class AuthService : IAuthService
             return null;
         }
 
+        // Verify the password before revealing anything about the account (approval or
+        // active status), so an email alone cannot be used to probe accounts.
+        if (string.IsNullOrEmpty(user.PasswordHash)
+            || !PasswordHashing.Verify(dto.Password ?? string.Empty, user.PasswordHash, out var needsRehash))
+        {
+            return null;
+        }
+
+        // Transparently upgrade legacy unsalted SHA-256 hashes on successful login.
+        if (needsRehash)
+        {
+            user.PasswordHash = PasswordHashing.Hash(dto.Password!);
+            user.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
         var isAdmin = string.Equals(user.Email, _adminSettings.Email, StringComparison.OrdinalIgnoreCase);
 
         // Upgrade known admin users so they bypass member registration
@@ -253,12 +270,6 @@ public class AuthService : IAuthService
             };
         }
         
-        // Check password
-        if (string.IsNullOrEmpty(user.PasswordHash) || string.IsNullOrEmpty(dto.Password) || !VerifyPassword(dto.Password, user.PasswordHash))
-        {
-            return null;
-        }
-
         return await GenerateAuthResponseAsync(user);
     }
 
@@ -767,7 +778,7 @@ public class AuthService : IAuthService
             return false;
         }
 
-        var valid = record.CodeHash == HashPassword(dto.Code);
+        var valid = VerifyPassword(dto.Code ?? string.Empty, record.CodeHash);
         if (valid)
         {
             record.IsVerified = true;
@@ -790,8 +801,28 @@ public class AuthService : IAuthService
         }
 
         var record = await GetActiveResetCodeAsync(user.Id, method);
-        if (record == null || record.CodeHash != HashPassword(dto.Code))
+        if (record == null)
         {
+            return false;
+        }
+
+        // A code not yet verified through VerifyResetCodeAsync counts as a guess here too;
+        // otherwise this endpoint could brute-force the 6-digit code directly, bypassing
+        // the attempt limit. (A verified code only got that way by passing the limit.)
+        if (!record.IsVerified)
+        {
+            record.AttemptCount++;
+            if (record.AttemptCount > MaxResetAttempts)
+            {
+                record.ConsumedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return false;
+            }
+        }
+
+        if (!VerifyPassword(dto.Code ?? string.Empty, record.CodeHash))
+        {
+            await _context.SaveChangesAsync();
             return false;
         }
 
@@ -962,17 +993,9 @@ public class AuthService : IAuthService
         return member.IsActive ? "active" : "pending";
     }
 
-    private static string HashPassword(string password)
-    {
-        using var sha256 = SHA256.Create();
-        var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-        return Convert.ToBase64String(hashedBytes);
-    }
+    private static string HashPassword(string password) => PasswordHashing.Hash(password);
 
-    private static bool VerifyPassword(string password, string hash)
-    {
-        return HashPassword(password) == hash;
-    }
+    private static bool VerifyPassword(string password, string hash) => PasswordHashing.Verify(password, hash);
 }
 
 internal class FacebookUserInfo

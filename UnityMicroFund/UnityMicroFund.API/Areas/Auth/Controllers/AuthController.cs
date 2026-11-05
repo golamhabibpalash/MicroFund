@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using UnityMicroFund.API.Areas.Auth.DTOs;
 using UnityMicroFund.API.Areas.Auth.Services;
 using UnityMicroFund.API.Areas.Profile.DTOs;
+using UnityMicroFund.API.Infrastructure.Helpers;
 
 namespace UnityMicroFund.API.Areas.Auth.Controllers;
 
@@ -20,6 +22,7 @@ public class AuthController : ControllerBase
         _profileService = profileService;
     }
 
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     {
@@ -31,6 +34,7 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     [HttpPost("register-with-member")]
     public async Task<IActionResult> RegisterWithMember([FromBody] RegisterWithMemberDto dto)
     {
@@ -42,6 +46,7 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
@@ -64,6 +69,7 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     [HttpPost("google-login")]
     public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginDto dto)
     {
@@ -75,6 +81,7 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     [HttpPost("facebook-login")]
     public async Task<IActionResult> FacebookLogin([FromBody] FacebookLoginDto dto)
     {
@@ -86,6 +93,7 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
     {
@@ -104,6 +112,7 @@ public class AuthController : ControllerBase
         };
     }
 
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     [HttpPost("verify-reset-code")]
     public async Task<IActionResult> VerifyResetCode([FromBody] VerifyResetCodeDto dto)
     {
@@ -111,6 +120,7 @@ public class AuthController : ControllerBase
         return Ok(new { valid });
     }
 
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
     {
@@ -141,6 +151,7 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
     {
@@ -236,26 +247,5 @@ public class AuthController : ControllerBase
             return NotFound();
         }
         return Ok(new { message = "Profile image updated successfully" });
-    }
-
-    [HttpPost("seed-admin")]
-    public async Task<IActionResult> SeedAdmin()
-    {
-        using var sha256 = System.Security.Cryptography.SHA256.Create();
-        var hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes("Admin@123"));
-        var passwordHash = Convert.ToBase64String(hashBytes);
-
-        var existingUser = await _authService.GetUserByEmailAsync("admin@unitymicrofund.com");
-        if (existingUser != null)
-        {
-            existingUser.PasswordHash = passwordHash;
-            existingUser.IsApproved = true;
-            existingUser.IsActive = true;
-            existingUser.Role = UnityMicroFund.API.Models.UserRole.Admin;
-            await _authService.UpdateUserAsync(existingUser);
-            return Ok(new { message = "Admin user updated successfully" });
-        }
-
-        return Ok(new { message = "Admin user already exists, password updated" });
     }
 }

@@ -57,7 +57,11 @@ Prettier is configured (`.prettierrc`) but there is no lint/format script.
 
 ### API — Feature-based Areas
 
-Feature code lives in `Areas/<Feature>/` with `Controllers/`, `Services/`, `DTOs/` (plus `Models/`, `Interfaces/` where used). Areas: `Accounts`, `Audit`, `Auth`, `CashOut`, `Chat`, `Contributions`, `Dashboard`, `Investments`, `Logging`, `Members`, `OCR`, `Profile`, `Settings`, `Tasks`, `Transactions`, `Versioning`. Shared code: `Data/AppDbContext.cs`, `Infrastructure/` (Authorization, Configuration, Email, Sms, ExceptionHandling, Logging, Middleware, Helpers).
+Feature code lives in `Areas/<Feature>/` with `Controllers/`, `Services/`, `DTOs/` (plus `Models/`, `Interfaces/` where used). Areas: `Accounts`, `Audit`, `Auth`, `CashOut`, `Chat`, `Contributions`, `Dashboard`, `Investments`, `Logging`, `Members`, `MonthlyProfits`, `OCR`, `Profile`, `Settings`, `Tasks`, `Transactions`, `Versioning`. Shared code: `Data/AppDbContext.cs`, `Infrastructure/` (Authorization, Configuration, Email, Sms, ExceptionHandling, Finance, Logging, Middleware, Helpers).
+
+**Investment math** (total profit, effective current value, return %) is centralized in `Infrastructure/Finance/InvestmentValuation.cs`; reuse it from Dashboard/Investments/Accounts services rather than re-deriving the formulas.
+
+**Rate limiting:** sensitive auth endpoints opt in with `[EnableRateLimiting(RateLimitPolicies.Auth)]` (policy registered in `Program.cs`, name in `Infrastructure/Helpers/RateLimitPolicies.cs`).
 
 **Key rules:**
 - Controllers are thin — all business logic belongs in Services

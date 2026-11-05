@@ -6,6 +6,7 @@ namespace UnityMicroFund.API.Areas.OCR.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class OcrController : ControllerBase
 {
     private readonly IOcrService _ocrService;
@@ -51,7 +52,7 @@ public class OcrController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "OCR processing failed");
-            return StatusCode(500, new { message = "OCR processing failed", error = ex.Message });
+            return StatusCode(500, new { message = "OCR processing failed" });
         }
     }
 }

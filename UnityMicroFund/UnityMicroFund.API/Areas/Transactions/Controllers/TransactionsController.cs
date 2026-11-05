@@ -38,6 +38,13 @@ public class TransactionsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetTransaction(Guid id)
     {
+        var (userId, isAdminOrManager) = GetCaller();
+        if (!isAdminOrManager && !await _transactionService.CanViewTransactionAsync(id, userId))
+        {
+            // Same response as a missing record, so IDs of other members' transactions are not confirmed.
+            return NotFound(new { message = "Transaction not found" });
+        }
+
         var transaction = await _transactionService.GetTransactionByIdAsync(id);
         if (transaction == null)
         {
@@ -45,6 +52,19 @@ public class TransactionsController : ControllerBase
         }
         return Ok(transaction);
     }
+
+    private (Guid UserId, bool IsAdminOrManager) GetCaller()
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Guid.Empty.ToString());
+        var userRole = User.FindFirstValue(ClaimTypes.Role) ?? User.FindFirstValue("role") ?? string.Empty;
+        var isAdminOrManager = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) ||
+                               userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+        return (userId, isAdminOrManager);
+    }
+
+    /// <summary>Same rule as editing: only the creator or an Admin/Manager may change a transaction.</summary>
+    private static bool CanModify(TransactionResponseDto transaction, Guid userId, bool isAdminOrManager)
+        => isAdminOrManager || transaction.CreatedById == userId;
 
     [HttpPost]
     public async Task<IActionResult> CreateTransaction([FromBody] CreateTransactionDto dto)
@@ -125,6 +145,17 @@ public class TransactionsController : ControllerBase
     {
         try
         {
+            var (userId, isAdminOrManager) = GetCaller();
+            var existing = await _transactionService.GetTransactionByIdAsync(id);
+            if (existing == null)
+            {
+                return NotFound(new { message = "Transaction not found" });
+            }
+            if (!CanModify(existing, userId, isAdminOrManager))
+            {
+                return StatusCode(403, new { message = "You can only delete your own pending transactions" });
+            }
+
             var result = await _transactionService.DeleteTransactionAsync(id);
             if (!result)
             {
@@ -197,10 +228,24 @@ public class TransactionsController : ControllerBase
                 return NotFound(new { message = "Transaction not found" });
             }
 
+            var (userId, isAdminOrManager) = GetCaller();
+            if (!CanModify(transaction, userId, isAdminOrManager))
+            {
+                return StatusCode(403, new { message = "You can only upload receipts for your own transactions" });
+            }
+
+            // The receipt is the evidence an approval was based on; members cannot swap it afterwards.
+            if (!isAdminOrManager && !string.Equals(transaction.ApprovalStatus, "Pending", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "The receipt of a processed transaction cannot be changed" });
+            }
+
             var uploadsFolder = Path.Combine(_environment.ContentRootPath, "..", "unitymicrofund_web", "src", "assets", "paymentReceipt");
             Directory.CreateDirectory(uploadsFolder);
 
-            var fileName = $"{transaction.TransferFrom}_{DateTime.UtcNow:yyyyMMddHHmmss}{extension}";
+            // Server-generated name only. It used to embed TransferFrom (free text typed by
+            // the member), which allowed "../" path traversal and broke on names like "bKash/Nagad".
+            var fileName = $"{transaction.Id:N}_{DateTime.UtcNow:yyyyMMddHHmmssfff}{extension}";
             var filePath = Path.Combine(uploadsFolder, fileName);
 
             using (var stream = new FileStream(filePath, FileMode.Create))
@@ -213,9 +258,9 @@ public class TransactionsController : ControllerBase
 
             return Ok(new { receiptUrl });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return BadRequest(new { message = $"Failed to upload receipt: {ex.Message}" });
+            return BadRequest(new { message = "Failed to upload receipt. Please try again." });
         }
     }
 

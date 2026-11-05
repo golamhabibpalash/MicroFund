@@ -249,6 +249,14 @@ public class TransactionService : ITransactionService
         return value;
     }
 
+    public async Task<bool> CanViewTransactionAsync(Guid id, Guid userId)
+    {
+        return await _context.Transactions
+            .AsNoTracking()
+            .AnyAsync(t => t.Id == id
+                && (t.CreatedById == userId || t.MemberTransactionMaps.Any(m => m.MemberId == userId)));
+    }
+
     public async Task<TransactionResponseDto?> GetTransactionByIdAsync(Guid id)
     {
         var transaction = await _context.Transactions

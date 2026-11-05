@@ -16,8 +16,16 @@ public class ChatHub : Hub
         _chatService = chatService;
     }
 
+    // Every room operation checks membership: room IDs reach the client, and without
+    // this any authenticated user could listen to or post into rooms (including private
+    // one-to-one chats) they do not belong to.
     public async Task JoinRoom(string roomId)
-        => await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+    {
+        if (!Guid.TryParse(roomId, out var id) || !await _chatService.IsRoomMemberAsync(id, GetCachedMemberId()))
+            throw new HubException("You are not a member of this chat room.");
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, id.ToString());
+    }
 
     public async Task LeaveRoom(string roomId)
         => await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomId);
@@ -25,14 +33,17 @@ public class ChatHub : Hub
     public async Task SendMessage(SendMessageDto dto)
     {
         var memberId = GetCachedMemberId();
+        if (!await _chatService.IsRoomMemberAsync(dto.ChatRoomId, memberId))
+            throw new HubException("You are not a member of this chat room.");
+
         var message = await _chatService.SendMessageAsync(dto, memberId);
         await Clients.Group(dto.ChatRoomId.ToString()).SendAsync("ReceiveMessage", message);
     }
 
     public async Task MarkRead(string roomId)
     {
-        var memberId = GetCachedMemberId();
-        await _chatService.MarkAsReadAsync(Guid.Parse(roomId), memberId);
+        if (!Guid.TryParse(roomId, out var id)) return;
+        await _chatService.MarkAsReadAsync(id, GetCachedMemberId());
     }
 
     public override async Task OnConnectedAsync()
