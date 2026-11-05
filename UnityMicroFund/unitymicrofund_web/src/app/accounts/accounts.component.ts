@@ -5,6 +5,7 @@ import { RouterModule, Router, NavigationEnd } from '@angular/router';
 import {
   AccountService, Account, CreateAccountRequest, UpdateAccountRequest,
   AccountLedgerEntry, AccountLedgerRequest, AccountsSummary, AccountEntryDirection,
+  AccountCategory,
 } from '../core/services/account';
 import { ToastService } from '../core/services/toast.service';
 import { UserService } from '../core/services/user';
@@ -12,11 +13,12 @@ import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { BdtCurrencyPipe } from '../shared/pipes/bdt-currency.pipe';
 import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
+import { FinancialStatementsComponent } from './financial-statements.component';
 
 @Component({
   selector: 'app-accounts',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, BdtCurrencyPipe, DraggableModalDirective],
+  imports: [CommonModule, FormsModule, RouterModule, BdtCurrencyPipe, DraggableModalDirective, FinancialStatementsComponent],
   template: `
     <div class="accounts-wrapper">
       <header class="top-header">
@@ -99,7 +101,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
             <thead>
               <tr>
                 <th>Account</th>
-                <th>Type</th>
+                <th>Category / Type</th>
                 <th>Bank</th>
                 <th class="num">Balance</th>
                 <th class="num">Transactions</th>
@@ -110,6 +112,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
               <tr *ngFor="let account of filteredAccounts">
                 <td class="name-cell">
                   <div class="name-row">
+                    <span class="account-code" *ngIf="account.code">{{ account.code }}</span>
                     <strong>{{ account.name }}</strong>
                     <span class="status-badge" [class.active]="account.isActive" [class.inactive]="!account.isActive">
                       {{ account.isActive ? 'Active' : 'Inactive' }}
@@ -118,9 +121,14 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
                   <span class="description" *ngIf="account.description">{{ account.description }}</span>
                 </td>
                 <td>
-                  <span class="account-type-badge" [ngClass]="getAccountTypeClass(account.accountType)">
-                    {{ formatAccountType(account.accountType) }}
-                  </span>
+                  <div class="type-stack">
+                    <span class="category-badge" [ngClass]="getCategoryClass(account.category)">
+                      {{ account.category }}
+                    </span>
+                    <span class="account-type-badge" [ngClass]="getAccountTypeClass(account.accountType)">
+                      {{ formatAccountType(account.accountType) }}
+                    </span>
+                  </div>
                 </td>
                 <td>
                   <div class="bank-cell">
@@ -168,14 +176,22 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
         <div class="accounts-grid" *ngIf="viewMode === 'card'">
           <div class="account-card" *ngFor="let account of filteredAccounts">
             <div class="card-header">
-              <div class="account-type-badge" [ngClass]="getAccountTypeClass(account.accountType)">
-                {{ formatAccountType(account.accountType) }}
+              <div class="type-stack">
+                <span class="category-badge" [ngClass]="getCategoryClass(account.category)">
+                  {{ account.category }}
+                </span>
+                <span class="account-type-badge" [ngClass]="getAccountTypeClass(account.accountType)">
+                  {{ formatAccountType(account.accountType) }}
+                </span>
               </div>
               <span class="status-badge" [class.active]="account.isActive" [class.inactive]="!account.isActive">
                 {{ account.isActive ? 'Active' : 'Inactive' }}
               </span>
             </div>
-            <h3 class="account-name">{{ account.name }}</h3>
+            <h3 class="account-name">
+              <span class="account-code" *ngIf="account.code">{{ account.code }}</span>
+              {{ account.name }}
+            </h3>
             <p class="account-balance">{{ account.balance | bdtCurrency }}</p>
             
             <div class="banking-details" *ngIf="account.bankName">
@@ -388,6 +404,8 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
           </div>
         </div>
       </div>
+
+      <app-financial-statements></app-financial-statements>
     </div>
 
     <!-- Ledger entry modal -->
@@ -467,6 +485,23 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
               <div class="form-group">
                 <label>Account Name *</label>
                 <input type="text" [(ngModel)]="formData.name" name="name" required />
+              </div>
+              <div class="form-group">
+                <label>Account Code</label>
+                <input type="text" [(ngModel)]="formData.code" name="code" maxlength="20"
+                       placeholder="Auto-generated" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Accounting Category *</label>
+                <select [(ngModel)]="formData.category" name="category" required>
+                  <option value="Asset">Asset</option>
+                  <option value="Liability">Liability</option>
+                  <option value="Equity">Equity</option>
+                  <option value="Income">Income</option>
+                  <option value="Expense">Expense</option>
+                </select>
               </div>
               <div class="form-group">
                 <label>Account Type *</label>
@@ -776,6 +811,14 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .account-type-badge.investment { background: #f3e5f5; color: #9c27b0; }
     .account-type-badge.emergency { background: #ffebee; color: #e74c3c; }
     .account-type-badge.other { background: #eceff1; color: #607d8b; }
+    .type-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+    .category-badge { padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; }
+    .category-badge.cat-asset { background: #ccfbf1; color: #0f766e; }
+    .category-badge.cat-liability { background: #fee2e2; color: #b91c1c; }
+    .category-badge.cat-equity { background: #ede9fe; color: #6d28d9; }
+    .category-badge.cat-income { background: #dcfce7; color: #15803d; }
+    .category-badge.cat-expense { background: #ffedd5; color: #c2410c; }
+    .account-code { display: inline-block; padding: 1px 6px; border-radius: 4px; background: #f0fdfa; color: #0f766e; font-family: monospace; font-size: 11px; font-weight: 700; }
     .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
     .status-badge.active { background: #e8f5e9; color: #27ae60; }
     .status-badge.inactive { background: #ffebee; color: #e74c3c; }
@@ -932,6 +975,10 @@ export class AccountsComponent implements OnInit, OnDestroy {
     return type.toLowerCase().replace('fund', '').replace('account', '');
   }
 
+  getCategoryClass(category: AccountCategory): string {
+    return `cat-${category.toLowerCase()}`;
+  }
+
   formatAccountType(type: string): string {
     return type.replace(/([A-Z])/g, ' $1').trim();
   }
@@ -944,6 +991,8 @@ export class AccountsComponent implements OnInit, OnDestroy {
       this.filteredAccounts = this.accounts.filter(a =>
         a.name.toLowerCase().includes(term) ||
         a.accountType.toLowerCase().includes(term) ||
+        a.category.toLowerCase().includes(term) ||
+        (a.code && a.code.toLowerCase().includes(term)) ||
         a.bankName?.toLowerCase().includes(term) ||
         a.accountNumber?.includes(term)
       );
@@ -955,6 +1004,8 @@ export class AccountsComponent implements OnInit, OnDestroy {
       name: '',
       description: '',
       accountType: '',
+      code: '',
+      category: 'Asset' as AccountCategory,
       initialBalance: 0,
       isActive: true,
       bankName: '',
@@ -1222,6 +1273,8 @@ export class AccountsComponent implements OnInit, OnDestroy {
       name: account.name,
       description: account.description,
       accountType: account.accountType,
+      code: account.code ?? '',
+      category: account.category as AccountCategory,
       initialBalance: account.balance,
       isActive: account.isActive,
       bankName: account.bankName,
@@ -1244,7 +1297,7 @@ export class AccountsComponent implements OnInit, OnDestroy {
   }
 
   saveAccount() {
-    if (!this.formData.name || !this.formData.accountType) {
+    if (!this.formData.name || !this.formData.accountType || !this.formData.category) {
       this.toastService.warning('Please fill in required fields');
       return;
     }

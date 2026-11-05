@@ -2,11 +2,16 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+export type AccountCategory = 'Asset' | 'Liability' | 'Equity' | 'Income' | 'Expense';
+
 export interface Account {
   id: string;
   name: string;
   description?: string;
   accountType: string;
+  code?: string | null;
+  category: AccountCategory;
+  normalBalance: 'Debit' | 'Credit';
   balance: number;
   bankName?: string;
   accountHolderName?: string;
@@ -29,6 +34,8 @@ export interface CreateAccountRequest {
   name: string;
   description?: string;
   accountType: string;
+  category?: AccountCategory;
+  code?: string;
   initialBalance?: number;
   bankName?: string;
   accountHolderName?: string;
@@ -44,6 +51,8 @@ export interface UpdateAccountRequest {
   name?: string;
   description?: string;
   accountType?: string;
+  category?: AccountCategory;
+  code?: string;
   isActive?: boolean;
   bankName?: string;
   accountHolderName?: string;
@@ -89,6 +98,43 @@ export interface AccountsSummary {
   totalExpenses: number;
   totalOtherIncome: number;
   availableBalance: number;
+  totalAssetBalance: number;
+  totalLiabilityBalance: number;
+  totalEquityBalance: number;
+  totalIncomeBalance: number;
+  totalExpenseBalance: number;
+}
+
+export interface StatementLine {
+  label: string;
+  code?: string | null;
+  amount: number;
+  detail?: string | null;
+}
+
+export interface BalanceSheet {
+  asOf: string;
+  assets: StatementLine[];
+  totalAssets: number;
+  liabilities: StatementLine[];
+  totalLiabilities: number;
+  equity: StatementLine[];
+  totalEquity: number;
+  totalLiabilitiesAndEquity: number;
+  isBalanced: boolean;
+  investmentsUnderManagement: number;
+  note: string;
+}
+
+export interface IncomeStatement {
+  from: string;
+  to: string;
+  income: StatementLine[];
+  totalIncome: number;
+  expenses: StatementLine[];
+  totalExpenses: number;
+  netIncome: number;
+  note: string;
 }
 
 @Injectable({
@@ -121,6 +167,17 @@ export class AccountService {
 
   getSummary(): Observable<AccountsSummary> {
     return this.http.get<AccountsSummary>(`${this.apiUrl}/summary`);
+  }
+
+  getBalanceSheet(): Observable<BalanceSheet> {
+    return this.http.get<BalanceSheet>(`${this.apiUrl}/balance-sheet`);
+  }
+
+  getIncomeStatement(from?: string, to?: string): Observable<IncomeStatement> {
+    let params = '';
+    if (from) params += `${params ? '&' : '?'}from=${from}`;
+    if (to) params += `${params ? '&' : '?'}to=${to}`;
+    return this.http.get<IncomeStatement>(`${this.apiUrl}/income-statement${params}`);
   }
 
   getLedger(filters?: { direction?: AccountEntryDirection; accountId?: string }): Observable<AccountLedgerEntry[]> {

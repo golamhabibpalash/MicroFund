@@ -19,6 +19,14 @@ public class Account
     [Required]
     public AccountType AccountType { get; set; }
 
+    /// <summary>Chart-of-accounts code, unique across all accounts. Generated when omitted.</summary>
+    [MaxLength(20)]
+    public string? Code { get; set; }
+
+    /// <summary>Accounting category used by the balance sheet and income statement.</summary>
+    [Required]
+    public AccountCategory Category { get; set; } = AccountCategory.Asset;
+
     [Required]
     [Column(TypeName = "decimal(18,2)")]
     public decimal Balance { get; set; }

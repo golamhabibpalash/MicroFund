@@ -192,6 +192,15 @@ public class AccountLedgerService : IAccountLedgerService
         // AvailableBalance = funding + profits - cost (expenses).
         var availableBalance = totalPoolAmount + totalInvestmentNetProfit - totalExpenses;
 
+        var categoryTotals = await _context.Accounts
+            .AsNoTracking()
+            .GroupBy(a => a.Category)
+            .Select(g => new { Category = g.Key, Total = g.Sum(a => a.Balance) })
+            .ToListAsync(cancellationToken);
+
+        decimal CategoryTotal(AccountCategory category) =>
+            categoryTotals.FirstOrDefault(x => x.Category == category)?.Total ?? 0m;
+
         return new AccountsSummaryDto
         {
             TotalAccounts = totalAccounts,
@@ -201,7 +210,12 @@ public class AccountLedgerService : IAccountLedgerService
             TotalInvestmentNetProfit = totalInvestmentNetProfit,
             TotalExpenses = totalExpenses,
             TotalOtherIncome = totalOtherIncome,
-            AvailableBalance = availableBalance
+            AvailableBalance = availableBalance,
+            TotalAssetBalance = CategoryTotal(AccountCategory.Asset),
+            TotalLiabilityBalance = CategoryTotal(AccountCategory.Liability),
+            TotalEquityBalance = CategoryTotal(AccountCategory.Equity),
+            TotalIncomeBalance = CategoryTotal(AccountCategory.Income),
+            TotalExpenseBalance = CategoryTotal(AccountCategory.Expense)
         };
     }
 

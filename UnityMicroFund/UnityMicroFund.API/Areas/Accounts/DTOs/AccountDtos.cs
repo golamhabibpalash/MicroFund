@@ -15,6 +15,13 @@ public class CreateAccountDto
     [Required]
     public string AccountType { get; set; } = string.Empty;
 
+    /// <summary>Asset, Liability, Equity, Income or Expense. Defaults to Asset.</summary>
+    public string? Category { get; set; }
+
+    /// <summary>Optional chart-of-accounts code. Generated automatically when omitted.</summary>
+    [MaxLength(20)]
+    public string? Code { get; set; }
+
     [Range(0, double.MaxValue)]
     public decimal InitialBalance { get; set; }
 
@@ -52,6 +59,13 @@ public class UpdateAccountDto
     public string? Description { get; set; }
 
     public string? AccountType { get; set; }
+
+    /// <summary>Asset, Liability, Equity, Income or Expense.</summary>
+    public string? Category { get; set; }
+
+    /// <summary>Optional chart-of-accounts code. Omit to keep the current code.</summary>
+    [MaxLength(20)]
+    public string? Code { get; set; }
 
     public bool? IsActive { get; set; }
 
@@ -153,6 +167,21 @@ public class AccountsSummaryDto
     public decimal TotalExpenses { get; set; }
     public decimal TotalOtherIncome { get; set; }
     public decimal AvailableBalance { get; set; }
+
+    /// <summary>Sum of balances of accounts whose category is Asset.</summary>
+    public decimal TotalAssetBalance { get; set; }
+
+    /// <summary>Sum of balances of accounts whose category is Liability.</summary>
+    public decimal TotalLiabilityBalance { get; set; }
+
+    /// <summary>Sum of balances of accounts whose category is Equity.</summary>
+    public decimal TotalEquityBalance { get; set; }
+
+    /// <summary>Sum of balances of accounts whose category is Income.</summary>
+    public decimal TotalIncomeBalance { get; set; }
+
+    /// <summary>Sum of balances of accounts whose category is Expense.</summary>
+    public decimal TotalExpenseBalance { get; set; }
 }
 
 public class AccountResponseDto
@@ -161,6 +190,9 @@ public class AccountResponseDto
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string AccountType { get; set; } = string.Empty;
+    public string? Code { get; set; }
+    public string Category { get; set; } = string.Empty;
+    public string NormalBalance { get; set; } = string.Empty;
     public decimal Balance { get; set; }
     public string? BankName { get; set; }
     public string? AccountHolderName { get; set; }
@@ -177,4 +209,57 @@ public class AccountResponseDto
     public decimal TotalFunded { get; set; }
     public decimal TotalRefunded { get; set; }
     public int TransactionCount { get; set; }
+}
+
+/// <summary>One line in a financial statement section.</summary>
+public class StatementLineDto
+{
+    public string Label { get; set; } = string.Empty;
+    public string? Code { get; set; }
+    public decimal Amount { get; set; }
+    public string? Detail { get; set; }
+}
+
+/// <summary>
+/// Derived statement of financial position. Account balances are current (the system
+/// does not store historical balance snapshots), so the report is as of "now".
+/// </summary>
+public class BalanceSheetDto
+{
+    public DateTime AsOf { get; set; }
+    public List<StatementLineDto> Assets { get; set; } = new();
+    public decimal TotalAssets { get; set; }
+    public List<StatementLineDto> Liabilities { get; set; } = new();
+    public decimal TotalLiabilities { get; set; }
+    public List<StatementLineDto> Equity { get; set; } = new();
+    public decimal TotalEquity { get; set; }
+    public decimal TotalLiabilitiesAndEquity { get; set; }
+    public bool IsBalanced { get; set; }
+
+    /// <summary>
+    /// Current value of non-cancelled investments, shown for information only. It is not
+    /// added to assets because the existing cash ledger does not reduce a funding account
+    /// when investment shares are purchased; adding both would double count.
+    /// </summary>
+    public decimal InvestmentsUnderManagement { get; set; }
+
+    public string Note { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Derived income statement for a period. Income comes from settled investment profit,
+/// maintenance income and the manual income ledger; expenses come from the manual expense
+/// ledger. Income/Expense category account balances are not added again to avoid double
+/// counting.
+/// </summary>
+public class IncomeStatementDto
+{
+    public DateTime From { get; set; }
+    public DateTime To { get; set; }
+    public List<StatementLineDto> Income { get; set; } = new();
+    public decimal TotalIncome { get; set; }
+    public List<StatementLineDto> Expenses { get; set; } = new();
+    public decimal TotalExpenses { get; set; }
+    public decimal NetIncome { get; set; }
+    public string Note { get; set; } = string.Empty;
 }

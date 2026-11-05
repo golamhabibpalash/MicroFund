@@ -14,13 +14,17 @@ public class AccountService : IAccountService
         _context = context;
     }
 
-    public async Task<IEnumerable<AccountResponseDto>> GetAccountsAsync(string? search = null, bool? isActive = null)
+    public async Task<IEnumerable<AccountResponseDto>> GetAccountsAsync(
+        string? search = null, bool? isActive = null, AccountCategory? category = null)
     {
-        var query = _context.Accounts.AsQueryable();
+        var query = _context.Accounts.AsNoTracking().AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            query = query.Where(a => a.Name.Contains(search) || (a.Description != null && a.Description.Contains(search)));
+            query = query.Where(a =>
+                a.Name.Contains(search) ||
+                (a.Code != null && a.Code.Contains(search)) ||
+                (a.Description != null && a.Description.Contains(search)));
         }
 
         if (isActive.HasValue)
@@ -28,9 +32,15 @@ public class AccountService : IAccountService
             query = query.Where(a => a.IsActive == isActive.Value);
         }
 
+        if (category.HasValue)
+        {
+            query = query.Where(a => a.Category == category.Value);
+        }
+
         var accounts = await query
             .Include(a => a.Transactions)
-            .OrderBy(a => a.Name)
+            .OrderBy(a => a.Code)
+            .ThenBy(a => a.Name)
             .ToListAsync();
 
         return accounts.Select(MapToDto);
@@ -39,6 +49,7 @@ public class AccountService : IAccountService
     public async Task<AccountResponseDto?> GetAccountByIdAsync(Guid id)
     {
         var account = await _context.Accounts
+            .AsNoTracking()
             .Include(a => a.Transactions)
             .FirstOrDefaultAsync(a => a.Id == id);
 
@@ -47,14 +58,26 @@ public class AccountService : IAccountService
 
     public async Task<AccountResponseDto> CreateAccountAsync(CreateAccountDto dto, string userId)
     {
-        if (!Enum.TryParse<AccountType>(dto.AccountType, true, out var accountType))
+        if (!Enum.TryParse<AccountType>(dto.AccountType, true, out var accountType)
+            || !Enum.IsDefined(accountType))
         {
             throw new ArgumentException("Invalid account type");
         }
 
+        var category = ParseCategory(dto.Category, AccountCategory.Asset);
+
         if (await _context.Accounts.AnyAsync(a => a.Name == dto.Name))
         {
             throw new ArgumentException("An account with this name already exists");
+        }
+
+        var code = string.IsNullOrWhiteSpace(dto.Code)
+            ? await GenerateCodeAsync(category)
+            : dto.Code.Trim();
+
+        if (await _context.Accounts.AnyAsync(a => a.Code == code))
+        {
+            throw new ArgumentException("An account with this code already exists");
         }
 
         var account = new Account
@@ -62,6 +85,8 @@ public class AccountService : IAccountService
             Name = dto.Name,
             Description = dto.Description,
             AccountType = accountType,
+            Category = category,
+            Code = code,
             Balance = dto.InitialBalance,
             BankName = dto.BankName,
             AccountHolderName = dto.AccountHolderName,
@@ -92,10 +117,29 @@ public class AccountService : IAccountService
 
         if (!string.IsNullOrWhiteSpace(dto.Name)) account.Name = dto.Name;
         if (dto.Description != null) account.Description = dto.Description;
-        if (!string.IsNullOrWhiteSpace(dto.AccountType) && Enum.TryParse<AccountType>(dto.AccountType, true, out var accountType))
+        if (!string.IsNullOrWhiteSpace(dto.AccountType)
+            && Enum.TryParse<AccountType>(dto.AccountType, true, out var accountType)
+            && Enum.IsDefined(accountType))
         {
             account.AccountType = accountType;
         }
+
+        if (!string.IsNullOrWhiteSpace(dto.Category))
+        {
+            account.Category = ParseCategory(dto.Category, account.Category);
+        }
+
+        if (!string.IsNullOrWhiteSpace(dto.Code))
+        {
+            var code = dto.Code.Trim();
+            if (await _context.Accounts.AnyAsync(a => a.Id != id && a.Code == code))
+            {
+                throw new ArgumentException("An account with this code already exists");
+            }
+
+            account.Code = code;
+        }
+
         if (dto.IsActive.HasValue) account.IsActive = dto.IsActive.Value;
         if (dto.BankName != null) account.BankName = dto.BankName;
         if (dto.AccountHolderName != null) account.AccountHolderName = dto.AccountHolderName;
@@ -168,6 +212,9 @@ public class AccountService : IAccountService
             Name = a.Name,
             Description = a.Description,
             AccountType = a.AccountType.ToString(),
+            Code = a.Code,
+            Category = a.Category.ToString(),
+            NormalBalance = a.Category is AccountCategory.Asset or AccountCategory.Expense ? "Debit" : "Credit",
             Balance = a.Balance,
             BankName = a.BankName,
             AccountHolderName = a.AccountHolderName,
@@ -185,5 +232,54 @@ public class AccountService : IAccountService
             TotalRefunded = totalRefunded,
             TransactionCount = a.Transactions.Count
         };
+    }
+
+    private static AccountCategory ParseCategory(string? value, AccountCategory fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return fallback;
+        }
+
+        if (!Enum.TryParse<AccountCategory>(value, ignoreCase: true, out var category)
+            || !Enum.IsDefined(category))
+        {
+            throw new ArgumentException("Invalid account category. Use Asset, Liability, Equity, Income or Expense.");
+        }
+
+        return category;
+    }
+
+    private async Task<string> GenerateCodeAsync(AccountCategory category)
+    {
+        var prefix = category switch
+        {
+            AccountCategory.Asset => "1",
+            AccountCategory.Liability => "2",
+            AccountCategory.Equity => "3",
+            AccountCategory.Income => "4",
+            AccountCategory.Expense => "5",
+            _ => "9"
+        };
+
+        var codes = await _context.Accounts
+            .AsNoTracking()
+            .Where(a => a.Code != null && a.Code.StartsWith(prefix))
+            .Select(a => a.Code!)
+            .ToListAsync();
+
+        var numericCodes = codes
+            .Select(c => int.TryParse(c, out var n) ? n : 0)
+            .Where(n => n > 0)
+            .ToHashSet();
+
+        var baseCode = int.Parse(prefix + "000");
+        var next = numericCodes.Count == 0 ? baseCode : numericCodes.Max() + 1;
+        while (numericCodes.Contains(next))
+        {
+            next += 1;
+        }
+
+        return next.ToString();
     }
 }

@@ -13,21 +13,25 @@ public class AccountsController : ControllerBase
 {
     private readonly IAccountService _accountService;
     private readonly IAccountLedgerService _ledgerService;
+    private readonly IFinancialStatementService _statementService;
 
-    public AccountsController(IAccountService accountService, IAccountLedgerService ledgerService)
+    public AccountsController(
+        IAccountService accountService,
+        IAccountLedgerService ledgerService,
+        IFinancialStatementService statementService)
     {
         _accountService = accountService;
         _ledgerService = ledgerService;
+        _statementService = statementService;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAccounts(
         [FromQuery] string? search = null,
-        [FromQuery] bool? isActive = null)
+        [FromQuery] bool? isActive = null,
+        [FromQuery] AccountCategory? category = null)
     {
-        Console.WriteLine($"GetAccounts called - search: {search}, isActive: {isActive}");
-        var accounts = await _accountService.GetAccountsAsync(search, isActive);
-        Console.WriteLine($"Returning {accounts.Count()} accounts");
+        var accounts = await _accountService.GetAccountsAsync(search, isActive, category);
         return Ok(accounts);
     }
 
@@ -43,7 +47,7 @@ public class AccountsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateAccount([FromBody] CreateAccountDto dto)
     {
         try
@@ -73,7 +77,7 @@ public class AccountsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateAccount(Guid id, [FromBody] UpdateAccountDto dto)
     {
         try
@@ -100,6 +104,17 @@ public class AccountsController : ControllerBase
     [HttpGet("summary")]
     public async Task<IActionResult> GetSummary(CancellationToken cancellationToken)
         => Ok(await _ledgerService.GetSummaryAsync(cancellationToken));
+
+    [HttpGet("balance-sheet")]
+    public async Task<IActionResult> GetBalanceSheet(CancellationToken cancellationToken)
+        => Ok(await _statementService.GetBalanceSheetAsync(cancellationToken));
+
+    [HttpGet("income-statement")]
+    public async Task<IActionResult> GetIncomeStatement(
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        CancellationToken cancellationToken)
+        => Ok(await _statementService.GetIncomeStatementAsync(from, to, cancellationToken));
 
     [HttpGet("ledger")]
     public async Task<IActionResult> GetLedger(
@@ -133,7 +148,7 @@ public class AccountsController : ControllerBase
             : NotFound(new { message = "Ledger entry not found" });
 
     [HttpDelete("{id}")]
-    [Authorize]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> DeleteAccount(Guid id)
     {
         try

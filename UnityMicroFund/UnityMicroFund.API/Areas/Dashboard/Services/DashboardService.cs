@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using UnityMicroFund.API.Areas.Dashboard.DTOs;
 using UnityMicroFund.API.Data;
+using UnityMicroFund.API.Infrastructure.Finance;
 using UnityMicroFund.API.Models;
 
 namespace UnityMicroFund.API.Areas.Dashboard.Services;
@@ -35,10 +36,16 @@ public class DashboardService : IDashboardService
             .Where(c => c.Month == currentMonth && c.Year == currentYear)
             .CountAsync();
 
-        var activeInvestments = await _context.Investments.CountAsync();
+        var investments = await _context.Investments
+            .AsNoTracking()
+            .Include(i => i.InterimProfits)
+            .Include(i => i.ProjectCosts)
+            .ToListAsync();
 
-        var totalPrincipal = await _context.Investments.SumAsync(i => i.PrincipalAmount);
-        var totalCurrentValue = await _context.Investments.SumAsync(i => i.CurrentValue);
+        var activeInvestments = investments.Count;
+
+        var totalPrincipal = investments.Sum(i => i.PrincipalAmount);
+        var totalCurrentValue = investments.Sum(InvestmentValuation.GetEffectiveCurrentValue);
         var totalReturns = totalCurrentValue - totalPrincipal;
         var returnPercentage = totalPrincipal > 0 ? (totalReturns / totalPrincipal) * 100 : 0;
 
