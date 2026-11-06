@@ -229,7 +229,7 @@ public class UsersController : ControllerBase
         await _context.SaveChangesAsync();
 
         if (isApproved)
-            _ = _emailService.SendUserApprovedEmailAsync(user.Email, user.Name);
+            await _emailService.SendUserApprovedEmailAsync(user.Email, user.Name);
 
         var message = user.IsApproved ? "User approved successfully" : "User unapproved successfully";
 

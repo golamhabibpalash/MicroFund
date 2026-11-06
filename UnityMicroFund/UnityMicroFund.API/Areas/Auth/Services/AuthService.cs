@@ -90,7 +90,7 @@ public class AuthService : IAuthService
 
         foreach (var admin in admins)
         {
-            _ = _emailService.SendNewRegistrationEmailAsync(admin.Email, admin.Name, user.Name, user.Email);
+            await _emailService.SendNewRegistrationEmailAsync(admin.Email, admin.Name, user.Name, user.Email);
         }
 
         return new AuthResponseDto
@@ -178,7 +178,7 @@ public class AuthService : IAuthService
 
             foreach (var admin in admins)
             {
-                _ = _emailService.SendNewRegistrationEmailAsync(admin.Email, admin.Name, user.Name, user.Email);
+                await _emailService.SendNewRegistrationEmailAsync(admin.Email, admin.Name, user.Name, user.Email);
             }
 
             await transaction.CommitAsync();
@@ -604,7 +604,7 @@ public class AuthService : IAuthService
 
             foreach (var admin in admins)
             {
-                _ = _emailService.SendNewRegistrationEmailAsync(admin.Email, admin.Name, user.Name, user.Email);
+                await _emailService.SendNewRegistrationEmailAsync(admin.Email, admin.Name, user.Name, user.Email);
             }
 
             await transaction.CommitAsync();
