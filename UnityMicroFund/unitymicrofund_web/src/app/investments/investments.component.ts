@@ -19,6 +19,29 @@ import { InvestmentManageComponent } from './investment-manage.component';
 import { UserService } from '../core/services/user';
 import { DraggableModalDirective } from '../shared/directives/draggable-modal.directive';
 
+/** Running projects first, then those awaiting settlement, then finished ones. */
+const STATUS_SORT_GROUP: Record<string, number> = {
+  OpenForSubscription: 0,
+  FullySubscribed: 0,
+  Active: 0,
+  Draft: 0,
+  Completed: 1,
+  ProfitDistributed: 1,
+  Closed: 2,
+  Cancelled: 3,
+};
+
+const timeOf = (value?: string | null): number => (value ? new Date(value).getTime() || 0 : 0);
+
+/** Groups by lifecycle stage; within a stage the latest investment comes first. */
+function compareInvestments(a: Investment, b: Investment): number {
+  return (
+    (STATUS_SORT_GROUP[a.status] ?? 0) - (STATUS_SORT_GROUP[b.status] ?? 0) ||
+    timeOf(b.dateInvested) - timeOf(a.dateInvested) ||
+    timeOf(b.createdAt) - timeOf(a.createdAt)
+  );
+}
+
 @Component({
   selector: 'app-investments',
   standalone: true,
@@ -1134,8 +1157,8 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
         inv.description?.toLowerCase().includes(term)
       );
     }
-    
-    this.filteredInvestments = data;
+
+    this.filteredInvestments = data.sort(compareInvestments);
   }
 
   formatCurrency(value: number): string {
