@@ -63,7 +63,8 @@ public class InterimProfitService : IInterimProfitService
                 ProfitDate = p.ProfitDate,
                 Remarks = p.Remarks,
                 CreatedBy = p.CreatedBy,
-                CreatedAt = p.CreatedAt
+                CreatedAt = p.CreatedAt,
+                ProfitDistributionId = p.ProfitDistributionId
             })
             .ToListAsync(cancellationToken);
     }
@@ -77,6 +78,12 @@ public class InterimProfitService : IInterimProfitService
         if (entry == null)
         {
             return false;
+        }
+
+        if (entry.ProfitDistributionId.HasValue)
+        {
+            throw new ValidationException(
+                "This income has already been distributed to shareholders and can no longer be removed.");
         }
 
         var investment = await _context.Investments
@@ -101,6 +108,7 @@ public class InterimProfitService : IInterimProfitService
         ProfitDate = p.ProfitDate,
         Remarks = p.Remarks,
         CreatedBy = p.CreatedBy,
-        CreatedAt = p.CreatedAt
+        CreatedAt = p.CreatedAt,
+        ProfitDistributionId = p.ProfitDistributionId
     };
 }

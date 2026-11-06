@@ -22,26 +22,24 @@ public interface IMonthlyProfitDistributionService
         Guid id,
         CancellationToken cancellationToken = default);
 
-    Task<MonthlyProfitDistributionDto> CreateAsync(
+    /// <summary>
+    /// Processes the project's undistributed income and expenses for the period: creates the
+    /// investor lines, locks the entries and posts maintenance. Investors are paid by PayAsync.
+    /// </summary>
+    Task<MonthlyProfitDistributionDto> ProcessAsync(
         CreateMonthlyProfitDistributionDto dto,
         string? actionedBy,
         CancellationToken cancellationToken = default);
 
-    Task<MonthlyProfitDistributionDto?> UpdateAsync(
-        Guid id,
-        UpdateMonthlyProfitDistributionDto dto,
-        string? actionedBy,
-        CancellationToken cancellationToken = default);
-
-    Task<bool> DeleteAsync(
+    /// <summary>
+    /// Undoes a processed distribution that has no payments yet: releases its entries and
+    /// reverses the maintenance posting. Returns false when it does not exist.
+    /// </summary>
+    Task<bool> CancelAsync(
         Guid id,
         CancellationToken cancellationToken = default);
 
-    Task<MonthlyProfitDistributionDto> DistributeAsync(
-        Guid id,
-        string? actionedBy,
-        CancellationToken cancellationToken = default);
-
+    /// <summary>Disburses profit to one investor line, or to every pending line.</summary>
     Task<MonthlyProfitDistributionDto> PayAsync(
         Guid id,
         Guid? lineId,

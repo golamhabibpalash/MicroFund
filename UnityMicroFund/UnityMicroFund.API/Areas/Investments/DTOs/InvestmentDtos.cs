@@ -158,10 +158,6 @@ public class CreateInvestmentDto
     /// </summary>
     public string? ProfitPayoutMode { get; set; }
 
-    /// <summary>Default monthly profit % (required when ProfitPayoutMode is Monthly).</summary>
-    [Range(0, 100, ErrorMessage = "Monthly profit rate must be between 0 and 100.")]
-    public decimal? MonthlyProfitRate { get; set; }
-
     /// <summary>The organisation account that receives this project's maintenance amount.</summary>
     public Guid? MaintenanceAccountId { get; set; }
 
@@ -253,10 +249,6 @@ public class UpdateInvestmentDto
     /// </summary>
     public string? ProfitPayoutMode { get; set; }
 
-    /// <summary>Default monthly profit % (required when ProfitPayoutMode is Monthly).</summary>
-    [Range(0, 100, ErrorMessage = "Monthly profit rate must be between 0 and 100.")]
-    public decimal? MonthlyProfitRate { get; set; }
-
     /// <summary>The organisation account that receives this project's maintenance amount.</summary>
     public Guid? MaintenanceAccountId { get; set; }
 
@@ -319,7 +311,6 @@ public class InvestmentResponseDto
     public decimal? TargetGrossProfit { get; set; }
     public decimal? ActualGrossProfit { get; set; }
     public string ProfitPayoutMode { get; set; } = "OnCompletion";
-    public decimal? MonthlyProfitRate { get; set; }
     public decimal MaintenancePercentage { get; set; }
     public decimal? MaintenanceAmount { get; set; }
     public Guid? MaintenanceAccountId { get; set; }
@@ -389,6 +380,8 @@ public class InterimProfitDto
     public string? Remarks { get; set; }
     public string? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
+    /// <summary>Set once a periodic profit distribution has paid this entry out; it is then locked.</summary>
+    public Guid? ProfitDistributionId { get; set; }
 }
 
 public class MemberInvestmentDto
@@ -412,6 +405,8 @@ public class InvestmentProjectCostDto
     public string? CreatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    /// <summary>Set once a periodic profit distribution has paid this entry out; it is then locked.</summary>
+    public Guid? ProfitDistributionId { get; set; }
 }
 
 public class CreateProjectCostDto

@@ -42,4 +42,14 @@ public class InvestmentProjectCost
     public DateTime CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>
+    /// The periodic profit distribution that paid this entry out, once that distribution
+    /// is finalized. Linked entries are excluded from later distributions and from the
+    /// final settlement, and can no longer be edited or removed.
+    /// </summary>
+    public Guid? ProfitDistributionId { get; set; }
+
+    [ForeignKey(nameof(ProfitDistributionId))]
+    public virtual MonthlyProfitDistribution? ProfitDistribution { get; set; }
 }

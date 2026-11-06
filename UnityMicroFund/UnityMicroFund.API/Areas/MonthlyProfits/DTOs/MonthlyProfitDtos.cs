@@ -3,18 +3,13 @@ using System.ComponentModel.DataAnnotations;
 namespace UnityMicroFund.API.Areas.MonthlyProfits.DTOs;
 
 /// <summary>
-/// Input for both batch types. Every batch belongs to exactly one project.
-///   Monthly      - InvestmentId, Year, Month and optionally Rate (defaults to the
-///                  project's monthly profit rate).
-///   ProjectBased - InvestmentId, ProfitAmount and ProfitDate.
+/// Selects what to process for one project. The project's payout type decides the period:
+///   Monthly      - Year and Month (the whole calendar month).
+///   ProjectBased - PeriodEnd (everything recorded up to that day). Defaults to today.
 /// </summary>
 public class CalculateMonthlyProfitDto
 {
-    /// <summary>"Monthly" (default) or "ProjectBased".</summary>
-    [MaxLength(20)]
-    public string? Type { get; set; }
-
-    /// <summary>The project the profit belongs to.</summary>
+    [Required]
     public Guid? InvestmentId { get; set; }
 
     [Range(2000, 2100)]
@@ -23,38 +18,11 @@ public class CalculateMonthlyProfitDto
     [Range(1, 12)]
     public int? Month { get; set; }
 
-    /// <summary>Monthly only: rate for this month. Null uses the project's default rate.</summary>
-    [Range(0.000001, 100)]
-    public decimal? Rate { get; set; }
-
-    /// <summary>ProjectBased only: realised profit to distribute (before maintenance).</summary>
-    [Range(0.01, 999999999999)]
-    public decimal? ProfitAmount { get; set; }
-
-    /// <summary>ProjectBased only: when the profit was realised. Defaults to today.</summary>
-    public DateTime? ProfitDate { get; set; }
+    public DateTime? PeriodEnd { get; set; }
 }
 
 public class CreateMonthlyProfitDistributionDto : CalculateMonthlyProfitDto
 {
-    [MaxLength(1000)]
-    public string? Notes { get; set; }
-}
-
-/// <summary>Recalculates a draft. The project and period of a batch cannot change.</summary>
-public class UpdateMonthlyProfitDistributionDto
-{
-    /// <summary>Monthly: new rate for the month.</summary>
-    [Range(0.000001, 100)]
-    public decimal? Rate { get; set; }
-
-    /// <summary>ProjectBased: new profit amount.</summary>
-    [Range(0.01, 999999999999)]
-    public decimal? ProfitAmount { get; set; }
-
-    /// <summary>ProjectBased: new profit date.</summary>
-    public DateTime? ProfitDate { get; set; }
-
     [MaxLength(1000)]
     public string? Notes { get; set; }
 }
@@ -69,12 +37,9 @@ public class MonthlyProfitLineDto
     public decimal InvestmentAmount { get; set; }
     public int SharesOwned { get; set; }
 
-    /// <summary>Project-based: share of the project's total shares, in %.</summary>
+    /// <summary>Share of the project's total shares, in %.</summary>
     public decimal? OwnershipPercentage { get; set; }
 
-    public decimal Rate { get; set; }
-    public decimal? HeldDays { get; set; }
-    public int? DaysInPeriod { get; set; }
     public decimal ProfitAmount { get; set; }
     public string Status { get; set; } = string.Empty;
     public Guid? WalletEntryId { get; set; }
@@ -82,33 +47,48 @@ public class MonthlyProfitLineDto
     public string? PaidBy { get; set; }
 }
 
+/// <summary>An income or expense entry that feeds a distribution.</summary>
+public class ProfitLedgerEntryDto
+{
+    public Guid Id { get; set; }
+    public DateTime Date { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+}
+
 public class MonthlyProfitPreviewDto
 {
     public string Type { get; set; } = string.Empty;
+    public Guid InvestmentId { get; set; }
+    public string InvestmentName { get; set; } = string.Empty;
     public int Year { get; set; }
     public int Month { get; set; }
-    public decimal? Rate { get; set; }
-    public DateTime PeriodStart { get; set; }
     public DateTime PeriodEnd { get; set; }
-    public int? DaysInPeriod { get; set; }
 
-    // Project-based breakdown
-    public Guid? InvestmentId { get; set; }
-    public string? InvestmentName { get; set; }
-    public DateTime? ProfitDate { get; set; }
-    public decimal? GrossProfitAmount { get; set; }
-    public decimal? MaintenancePercentage { get; set; }
-    public decimal? MaintenanceAmount { get; set; }
-    public decimal? InvestorProfitPool { get; set; }
-    public decimal? UndistributedRemainder { get; set; }
-    public int? TotalShares { get; set; }
-    public int? SoldShares { get; set; }
+    public decimal IncomeAmount { get; set; }
+    public decimal ExpenseAmount { get; set; }
+    public decimal NetProfitAmount { get; set; }
+    public decimal MaintenancePercentage { get; set; }
+    public decimal MaintenanceAmount { get; set; }
+    public decimal InvestorProfitPool { get; set; }
+    public decimal UndistributedRemainder { get; set; }
+    public int TotalShares { get; set; }
+    public int SoldShares { get; set; }
     public bool MaintenanceAccountConfigured { get; set; }
 
     public decimal TotalInvestmentAmount { get; set; }
     public decimal TotalProfitAmount { get; set; }
     public int EligibleMemberCount { get; set; }
     public int LineCount { get; set; }
+
+    /// <summary>False when there is nothing to distribute (see <see cref="Message"/>).</summary>
+    public bool CanProcess { get; set; }
+
+    /// <summary>Why nothing can be distributed, when <see cref="CanProcess"/> is false.</summary>
+    public string? Message { get; set; }
+
+    public List<ProfitLedgerEntryDto> IncomeEntries { get; set; } = new();
+    public List<ProfitLedgerEntryDto> ExpenseEntries { get; set; } = new();
     public List<MonthlyProfitLineDto> Lines { get; set; } = new();
     public List<string> Warnings { get; set; } = new();
 }
@@ -117,20 +97,21 @@ public class MonthlyProfitDistributionSummaryDto
 {
     public Guid Id { get; set; }
     public string Type { get; set; } = string.Empty;
-    public int Year { get; set; }
-    public int Month { get; set; }
-    public decimal? Rate { get; set; }
     public Guid? InvestmentId { get; set; }
 
-    /// <summary>The batch's project (or, for older multi-project monthly batches, the first one).</summary>
+    /// <summary>The distribution's project (or, for legacy multi-project batches, the first one).</summary>
     public string InvestmentName { get; set; } = string.Empty;
-    public DateTime? ProfitDate { get; set; }
-    public decimal? GrossProfitAmount { get; set; }
+    public List<string> ProjectNames { get; set; } = new();
+    public int ProjectCount { get; set; }
+    public int Year { get; set; }
+    public int Month { get; set; }
+    public DateTime? PeriodEnd { get; set; }
+    public decimal IncomeAmount { get; set; }
+    public decimal ExpenseAmount { get; set; }
+    public decimal? NetProfitAmount { get; set; }
     public decimal? MaintenancePercentage { get; set; }
     public decimal? MaintenanceAmount { get; set; }
     public decimal? UndistributedRemainder { get; set; }
-    public List<string> ProjectNames { get; set; } = new();
-    public int ProjectCount { get; set; }
     public string? Notes { get; set; }
     public string Status { get; set; } = string.Empty;
     public string PaymentStatus { get; set; } = string.Empty;
@@ -154,6 +135,10 @@ public class MonthlyProfitDistributionDto : MonthlyProfitDistributionSummaryDto
 {
     public List<MonthlyProfitLineDto> Lines { get; set; } = new();
     public List<MonthlyProfitTransactionDto> Transactions { get; set; } = new();
+
+    /// <summary>The income and expense entries this distribution paid out.</summary>
+    public List<ProfitLedgerEntryDto> IncomeEntries { get; set; } = new();
+    public List<ProfitLedgerEntryDto> ExpenseEntries { get; set; } = new();
 }
 
 public class MonthlyProfitTransactionDto
@@ -174,33 +159,35 @@ public class PayMonthlyProfitDto
     public Guid? LineId { get; set; }
 }
 
-/// <summary>A project configured for periodic profit, for the create dialogs.</summary>
+/// <summary>A project on a periodic payout, for the overview and the process dialog.</summary>
 public class ProfitEligibleProjectDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string ProfitPayoutMode { get; set; } = string.Empty;
-    public decimal? MonthlyProfitRate { get; set; }
     public int? TotalShares { get; set; }
     public int SoldShares { get; set; }
     public decimal TotalInvested { get; set; }
     public decimal MaintenancePercentage { get; set; }
     public bool MaintenanceAccountConfigured { get; set; }
     public DateTime DateInvested { get; set; }
-    public DateTime? MaturityDate { get; set; }
 
-    /// <summary>True when the project can be paid now (it is Active).</summary>
+    /// <summary>True when the project can be processed now (it is Active).</summary>
     public bool CanDistribute { get; set; }
 
+    /// <summary>Income and expenses recorded but not yet distributed (all dates).</summary>
+    public decimal PendingIncome { get; set; }
+    public decimal PendingExpense { get; set; }
+
     /// <summary>
-    /// Monthly projects: the period a new batch should default to - the month after the
-    /// latest monthly batch, or the project's start month - never later than this month.
+    /// Monthly projects: the month a new distribution should default to - the month after
+    /// the latest one, or the first month with holdings - never later than this month.
     /// </summary>
     public int? NextYear { get; set; }
     public int? NextMonth { get; set; }
 
-    /// <summary>Latest batch this project appeared in, e.g. "October 2026" or "05 Nov 2026".</summary>
+    /// <summary>Latest distribution, e.g. "October 2026" or "up to 05 Nov 2026".</summary>
     public string? LastDistributionLabel { get; set; }
     public decimal TotalDistributed { get; set; }
 }

@@ -130,7 +130,6 @@ public class InvestmentService : IInvestmentService
         var payoutMode = string.IsNullOrWhiteSpace(dto.ProfitPayoutMode)
             ? ProfitPayoutMode.OnCompletion
             : ParseEnum<ProfitPayoutMode>(dto.ProfitPayoutMode, "profit payout mode");
-        var monthlyRate = ValidatePayoutMode(payoutMode, dto.MonthlyProfitRate);
 
         var investment = new Investment
         {
@@ -152,7 +151,6 @@ public class InvestmentService : IInvestmentService
             MaintenancePercentage = maintenancePercentage,
             MaintenanceAccountId = dto.MaintenanceAccountId,
             ProfitPayoutMode = payoutMode,
-            MonthlyProfitRate = monthlyRate,
             DateInvested = dto.DateInvested,
             MaturityDate = dto.MaturityDate,
             DurationMonths = ResolveDuration(dto.DurationMonths, dto.DateInvested, dto.MaturityDate),
@@ -241,15 +239,8 @@ public class InvestmentService : IInvestmentService
         }
         if (dto.TargetGrossProfit.HasValue)
             investment.TargetGrossProfit = dto.TargetGrossProfit.Value;
-        if (!string.IsNullOrWhiteSpace(dto.ProfitPayoutMode) || dto.MonthlyProfitRate.HasValue)
-        {
-            var payoutMode = string.IsNullOrWhiteSpace(dto.ProfitPayoutMode)
-                ? investment.ProfitPayoutMode
-                : ParseEnum<ProfitPayoutMode>(dto.ProfitPayoutMode, "profit payout mode");
-            investment.ProfitPayoutMode = payoutMode;
-            investment.MonthlyProfitRate = ValidatePayoutMode(
-                payoutMode, dto.MonthlyProfitRate ?? investment.MonthlyProfitRate);
-        }
+        if (!string.IsNullOrWhiteSpace(dto.ProfitPayoutMode))
+            investment.ProfitPayoutMode = ParseEnum<ProfitPayoutMode>(dto.ProfitPayoutMode, "profit payout mode");
         if (dto.DateInvested.HasValue)
             investment.DateInvested = dto.DateInvested.Value;
         if (dto.MaturityDate.HasValue)
@@ -730,22 +721,6 @@ public class InvestmentService : IInvestmentService
         UploadedAt = d.UploadedAt
     };
 
-    /// <summary>
-    /// A Monthly project needs a positive default rate; other modes do not use one, so it
-    /// is cleared to keep a stale rate from suggesting the project is paid monthly.
-    /// </summary>
-    private static decimal? ValidatePayoutMode(ProfitPayoutMode mode, decimal? monthlyRate)
-    {
-        if (mode != ProfitPayoutMode.Monthly) return null;
-
-        if (monthlyRate is null or <= 0m || monthlyRate > 100m)
-        {
-            throw new ValidationException("A monthly profit project needs a monthly profit rate greater than 0 and at most 100%.");
-        }
-
-        return monthlyRate;
-    }
-
     private async Task EnsureAccountExistsAsync(Guid accountId, CancellationToken cancellationToken)
     {
         if (!await _context.Accounts.AsNoTracking().AnyAsync(a => a.Id == accountId, cancellationToken))
@@ -873,11 +848,11 @@ public class InvestmentService : IInvestmentService
                     CostDate = pc.CostDate,
                     CreatedBy = pc.CreatedBy,
                     CreatedAt = pc.CreatedAt,
-                    UpdatedAt = pc.UpdatedAt
+                    UpdatedAt = pc.UpdatedAt,
+                    ProfitDistributionId = pc.ProfitDistributionId
                 }).ToList(),
             MaintenancePercentage = investment.MaintenancePercentage,
             ProfitPayoutMode = investment.ProfitPayoutMode.ToString(),
-            MonthlyProfitRate = investment.MonthlyProfitRate,
             MaintenanceAmount = investment.MaintenanceAmount,
             MaintenanceAccountId = investment.MaintenanceAccountId,
             NetProfit = investment.NetProfit,
@@ -914,7 +889,8 @@ public class InvestmentService : IInvestmentService
                     ProfitDate = p.ProfitDate,
                     Remarks = p.Remarks,
                     CreatedBy = p.CreatedBy,
-                    CreatedAt = p.CreatedAt
+                    CreatedAt = p.CreatedAt,
+                    ProfitDistributionId = p.ProfitDistributionId
                 }).ToList()
         };
     }

@@ -78,7 +78,8 @@ public class ProjectCostService : IProjectCostService
                 CostDate = pc.CostDate,
                 CreatedBy = pc.CreatedBy,
                 CreatedAt = pc.CreatedAt,
-                UpdatedAt = pc.UpdatedAt
+                UpdatedAt = pc.UpdatedAt,
+                ProfitDistributionId = pc.ProfitDistributionId
             })
             .ToListAsync(cancellationToken);
     }
@@ -95,6 +96,8 @@ public class ProjectCostService : IProjectCostService
         {
             return null;
         }
+
+        GuardNotDistributed(entry);
 
         entry.Title = dto.Title;
         entry.Amount = dto.Amount;
@@ -120,10 +123,21 @@ public class ProjectCostService : IProjectCostService
         }
 
         await GuardEditableAsync(investmentId, cancellationToken);
+        GuardNotDistributed(entry);
 
         _context.InvestmentProjectCosts.Remove(entry);
         await _context.SaveChangesAsync(cancellationToken);
         return true;
+    }
+
+    /// <summary>An expense already deducted in a finalized profit distribution is part of settled books.</summary>
+    private static void GuardNotDistributed(InvestmentProjectCost entry)
+    {
+        if (entry.ProfitDistributionId.HasValue)
+        {
+            throw new ValidationException(
+                "This expense has already been deducted in a profit distribution and can no longer be changed.");
+        }
     }
 
     private static InvestmentProjectCostDto ToDto(InvestmentProjectCost pc) => new()
@@ -136,6 +150,7 @@ public class ProjectCostService : IProjectCostService
         CostDate = pc.CostDate,
         CreatedBy = pc.CreatedBy,
         CreatedAt = pc.CreatedAt,
-        UpdatedAt = pc.UpdatedAt
+        UpdatedAt = pc.UpdatedAt,
+        ProfitDistributionId = pc.ProfitDistributionId
     };
 }

@@ -385,21 +385,31 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<MonthlyProfitDistribution>(entity =>
         {
-            entity.Property(e => e.Rate).HasPrecision(9, 6);
             entity.Property(e => e.TotalInvestmentAmount).HasPrecision(18, 2);
             entity.Property(e => e.TotalProfitAmount).HasPrecision(18, 2);
             entity.Property(e => e.TotalPaidAmount).HasPrecision(18, 2);
             entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
             entity.Property(e => e.Type).HasConversion<string>().HasMaxLength(20);
-            entity.Property(e => e.GrossProfitAmount).HasPrecision(18, 2);
+            entity.Property(e => e.IncomeAmount).HasPrecision(18, 2);
+            entity.Property(e => e.ExpenseAmount).HasPrecision(18, 2);
+            entity.Property(e => e.NetProfitAmount).HasPrecision(18, 2);
             entity.Property(e => e.MaintenancePercentage).HasPrecision(5, 2);
             entity.Property(e => e.MaintenanceAmount).HasPrecision(18, 2);
             entity.Property(e => e.UndistributedRemainder).HasPrecision(18, 2);
 
-            // No longer unique per month: one project must never be paid twice for the
-            // same month (enforced per project in the service), but a project that starts
-            // mid-month can still get its own batch for a month that already has one.
+            // Per-project rules (one distribution per month, one open draft) are enforced
+            // in the service; this index serves the history filters.
             entity.HasIndex(e => new { e.Type, e.Year, e.Month });
+
+            entity.HasMany(e => e.IncomeEntries)
+                  .WithOne(p => p.ProfitDistribution)
+                  .HasForeignKey(p => p.ProfitDistributionId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.ExpenseEntries)
+                  .WithOne(c => c.ProfitDistribution)
+                  .HasForeignKey(c => c.ProfitDistributionId)
+                  .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.Investment)
                   .WithMany()
@@ -410,9 +420,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<MonthlyProfitDistributionLine>(entity =>
         {
             entity.Property(e => e.InvestmentAmount).HasPrecision(18, 2);
-            entity.Property(e => e.Rate).HasPrecision(9, 6);
             entity.Property(e => e.ProfitAmount).HasPrecision(18, 2);
-            entity.Property(e => e.HeldDays).HasPrecision(5, 2);
             entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
 
             entity.HasIndex(e => new { e.MonthlyProfitDistributionId, e.MemberId, e.InvestmentId }).IsUnique();

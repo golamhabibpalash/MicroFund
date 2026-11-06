@@ -24,11 +24,11 @@ public enum InvestmentType
 ///   and refunds every subscriber.
 /// </summary>
 /// <summary>
-/// How a project's profit reaches its shareholders.
+/// How a project's profit reaches its shareholders. Periodic payouts distribute the
+/// project's recorded income minus its recorded expenses (after maintenance), split by shares.
 ///   OnCompletion  - only through the end-of-project settlement (the original flow).
-///   Monthly       - a fixed monthly % of each holding, paid through monthly batches.
-///   ProjectBased  - open-ended: the admin enters a realised profit amount whenever it
-///                   arrives, and it is split by shares (after maintenance).
+///   Monthly       - processed once per calendar month.
+///   ProjectBased  - processed whenever the admin chooses, up to a chosen date.
 /// </summary>
 public enum ProfitPayoutMode
 {
@@ -144,13 +144,6 @@ public class Investment
 
     /// <summary>Which periodic profit flow (if any) this project is paid through.</summary>
     public ProfitPayoutMode ProfitPayoutMode { get; set; } = ProfitPayoutMode.OnCompletion;
-
-    /// <summary>
-    /// Default monthly profit rate (% of each holding per month) for Monthly projects.
-    /// A monthly batch may override it for a single month.
-    /// </summary>
-    [Column(TypeName = "decimal(9,6)")]
-    public decimal? MonthlyProfitRate { get; set; }
 
     /// <summary>Accumulated project costs, stored as individual records. The running total is the sum.</summary>
     [NotMapped]

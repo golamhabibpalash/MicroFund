@@ -875,9 +875,6 @@ namespace UnityMicroFund.API.Migrations
                     b.Property<int?>("MinimumSharesPerMember")
                         .HasColumnType("int");
 
-                    b.Property<decimal?>("MonthlyProfitRate")
-                        .HasColumnType("decimal(9,6)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1012,6 +1009,9 @@ namespace UnityMicroFund.API.Migrations
                     b.Property<DateTime>("ProfitDate")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<Guid?>("ProfitDistributionId")
+                        .HasColumnType("char(36)");
+
                     b.Property<string>("Remarks")
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
@@ -1019,6 +1019,8 @@ namespace UnityMicroFund.API.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("InvestmentId");
+
+                    b.HasIndex("ProfitDistributionId");
 
                     b.HasIndex("InvestmentId", "ProfitDate");
 
@@ -1190,6 +1192,9 @@ namespace UnityMicroFund.API.Migrations
                     b.Property<Guid>("InvestmentId")
                         .HasColumnType("char(36)");
 
+                    b.Property<Guid?>("ProfitDistributionId")
+                        .HasColumnType("char(36)");
+
                     b.Property<string>("Remarks")
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
@@ -1205,6 +1210,8 @@ namespace UnityMicroFund.API.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("InvestmentId");
+
+                    b.HasIndex("ProfitDistributionId");
 
                     b.ToTable("investment_project_costs");
                 });
@@ -1460,7 +1467,11 @@ namespace UnityMicroFund.API.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
-                    b.Property<decimal?>("GrossProfitAmount")
+                    b.Property<decimal>("ExpenseAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("IncomeAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
@@ -1471,6 +1482,9 @@ namespace UnityMicroFund.API.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<Guid?>("MaintenanceDistributionId")
+                        .HasColumnType("char(36)");
+
                     b.Property<decimal?>("MaintenancePercentage")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
@@ -1478,16 +1492,16 @@ namespace UnityMicroFund.API.Migrations
                     b.Property<int>("Month")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("NetProfitAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)");
 
-                    b.Property<DateTime?>("ProfitDate")
+                    b.Property<DateTime?>("PeriodEnd")
                         .HasColumnType("datetime(6)");
-
-                    b.Property<decimal?>("Rate")
-                        .HasPrecision(9, 6)
-                        .HasColumnType("decimal(9,6)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1525,6 +1539,8 @@ namespace UnityMicroFund.API.Migrations
 
                     b.HasIndex("InvestmentId");
 
+                    b.HasIndex("MaintenanceDistributionId");
+
                     b.HasIndex("Type", "Year", "Month");
 
                     b.ToTable("monthly_profit_distributions");
@@ -1538,13 +1554,6 @@ namespace UnityMicroFund.API.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
-
-                    b.Property<int?>("DaysInPeriod")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("HeldDays")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
 
                     b.Property<decimal>("InvestmentAmount")
                         .HasPrecision(18, 2)
@@ -1579,10 +1588,6 @@ namespace UnityMicroFund.API.Migrations
                     b.Property<decimal>("ProfitAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("Rate")
-                        .HasPrecision(9, 6)
-                        .HasColumnType("decimal(9,6)");
 
                     b.Property<int>("SharesOwned")
                         .HasColumnType("int");
@@ -2229,7 +2234,14 @@ namespace UnityMicroFund.API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("UnityMicroFund.API.Models.MonthlyProfitDistribution", "ProfitDistribution")
+                        .WithMany("IncomeEntries")
+                        .HasForeignKey("ProfitDistributionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Investment");
+
+                    b.Navigation("ProfitDistribution");
                 });
 
             modelBuilder.Entity("UnityMicroFund.API.Models.InvestmentMaintenanceDistribution", b =>
@@ -2288,7 +2300,14 @@ namespace UnityMicroFund.API.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("UnityMicroFund.API.Models.MonthlyProfitDistribution", "ProfitDistribution")
+                        .WithMany("ExpenseEntries")
+                        .HasForeignKey("ProfitDistributionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Investment");
+
+                    b.Navigation("ProfitDistribution");
                 });
 
             modelBuilder.Entity("UnityMicroFund.API.Models.Member", b =>
@@ -2346,7 +2365,13 @@ namespace UnityMicroFund.API.Migrations
                         .HasForeignKey("InvestmentId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("UnityMicroFund.API.Models.InvestmentMaintenanceDistribution", "MaintenanceDistribution")
+                        .WithMany()
+                        .HasForeignKey("MaintenanceDistributionId");
+
                     b.Navigation("Investment");
+
+                    b.Navigation("MaintenanceDistribution");
                 });
 
             modelBuilder.Entity("UnityMicroFund.API.Models.MonthlyProfitDistributionLine", b =>
@@ -2543,6 +2568,10 @@ namespace UnityMicroFund.API.Migrations
 
             modelBuilder.Entity("UnityMicroFund.API.Models.MonthlyProfitDistribution", b =>
                 {
+                    b.Navigation("ExpenseEntries");
+
+                    b.Navigation("IncomeEntries");
+
                     b.Navigation("Lines");
                 });
 

@@ -179,16 +179,19 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
         var totalShares = investment.TotalShares ?? holdings.Sum(h => h.SharesOwned);
         var grossProfit = investment.ActualGrossProfit.Value;
 
-        // Accrued interim profits are included in the investable result, so a project
-        // that paid profit along the way is settled correctly at the end.
+        // Accrued interim profits are included in the investable result. Income already
+        // paid out by a periodic profit distribution is excluded, so it is never paid twice.
         var interimProfitTotal = await _context.InvestmentInterimProfits
-            .Where(p => p.InvestmentId == investmentId)
+            .Where(p => p.InvestmentId == investmentId && p.ProfitDistributionId == null)
             .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
 
         // Project costs (feed, transport, labour, ...) reduce the gross value before
         // any profit is derived. The running total is always the sum of the rows, so
         // there is a single source of truth.
-        var totalProjectCost = investment.ProjectCosts.Sum(pc => pc.Amount);
+        // Expenses already deducted by a periodic distribution are excluded for the same reason.
+        var totalProjectCost = investment.ProjectCosts
+            .Where(pc => pc.ProfitDistributionId == null)
+            .Sum(pc => pc.Amount);
 
         // Confirmed financial model (single source of truth):
         //   fundsAvailable = ActualGrossProfit + interimProfitTotal − totalProjectCost
@@ -350,7 +353,7 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
             .ToListAsync(cancellationToken);
 
         var totalProjectCost = await _context.InvestmentProjectCosts
-            .Where(pc => pc.InvestmentId == investmentId)
+            .Where(pc => pc.InvestmentId == investmentId && pc.ProfitDistributionId == null)
             .SumAsync(pc => (decimal?)pc.Amount, cancellationToken) ?? 0m;
 
         var settlement = new ProfitSettlementDto
@@ -384,7 +387,7 @@ public class InvestmentLifecycleService : IInvestmentLifecycleService
         settlement.TotalInvested = holdings.Sum(h => h.AmountInvested);
         settlement.SharesSold = rows.Sum(r => r.SharesOwned);
         settlement.InterimProfitTotal = await _context.InvestmentInterimProfits
-            .Where(p => p.InvestmentId == investmentId)
+            .Where(p => p.InvestmentId == investmentId && p.ProfitDistributionId == null)
             .SumAsync(p => (decimal?)p.Amount, cancellationToken) ?? 0m;
         settlement.GrossResult = (investment.ActualGrossProfit ?? 0m) + settlement.InterimProfitTotal;
         settlement.ValueAfterCosts = settlement.GrossResult - settlement.TotalProjectCost;

@@ -41,40 +41,24 @@ public class MonthlyProfitDistributionsController : ControllerBase
     {
         var distribution = await _service.GetByIdAsync(id, cancellationToken);
         return distribution == null
-            ? NotFound(new { message = "Monthly profit distribution not found." })
+            ? NotFound(new { message = "Profit distribution not found." })
             : Ok(distribution);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(
+    public async Task<IActionResult> Process(
         [FromBody] CreateMonthlyProfitDistributionDto dto,
         CancellationToken cancellationToken)
     {
-        var distribution = await _service.CreateAsync(dto, GetCurrentUserName(), cancellationToken);
+        var distribution = await _service.ProcessAsync(dto, GetCurrentUserName(), cancellationToken);
         return CreatedAtAction(nameof(GetById), new { id = distribution.Id }, distribution);
     }
 
-    [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(
-        Guid id,
-        [FromBody] UpdateMonthlyProfitDistributionDto dto,
-        CancellationToken cancellationToken)
-    {
-        var distribution = await _service.UpdateAsync(id, dto, GetCurrentUserName(), cancellationToken);
-        return distribution == null
-            ? NotFound(new { message = "Monthly profit distribution not found." })
-            : Ok(distribution);
-    }
-
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
-        => await _service.DeleteAsync(id, cancellationToken)
+    public async Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken)
+        => await _service.CancelAsync(id, cancellationToken)
             ? NoContent()
-            : NotFound(new { message = "Monthly profit distribution not found." });
-
-    [HttpPost("{id:guid}/distribute")]
-    public async Task<IActionResult> Distribute(Guid id, CancellationToken cancellationToken)
-        => Ok(await _service.DistributeAsync(id, GetCurrentUserName(), cancellationToken));
+            : NotFound(new { message = "Profit distribution not found." });
 
     [HttpPost("{id:guid}/pay")]
     public async Task<IActionResult> Pay(

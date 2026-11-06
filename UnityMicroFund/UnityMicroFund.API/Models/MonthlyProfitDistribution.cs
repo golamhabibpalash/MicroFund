@@ -16,22 +16,22 @@ public enum MonthlyProfitPaymentStatus
     Paid
 }
 
-/// <summary>
-/// The two periodic profit flows. See <see cref="ProfitPayoutMode"/> for which projects
-/// take part in each.
-/// </summary>
+/// <summary>The two periodic payout cadences (see <see cref="ProfitPayoutMode"/>).</summary>
 public enum ProfitDistributionType
 {
-    /// <summary>Rate-based: every Monthly project, each at its own monthly %, for one calendar month.</summary>
+    /// <summary>One calendar month of a Monthly project.</summary>
     Monthly,
 
-    /// <summary>Amount-based: one realised profit amount for one ProjectBased project, split by shares.</summary>
+    /// <summary>A ProjectBased project, up to a chosen date.</summary>
     ProjectBased
 }
 
 /// <summary>
-/// A periodic profit distribution batch (draft -> distributed -> paid). The table keeps
-/// its original name; it now holds both monthly and project-based batches.
+/// A periodic profit distribution for one project (draft -> finalized -> disbursed).
+/// It distributes the project's recorded income minus its recorded expenses that have not
+/// been distributed yet, up to <see cref="PeriodEnd"/>; maintenance is taken from that net
+/// profit and the rest is split by shares. Finalizing links the income/expense entries to
+/// this distribution so they are never counted again. The table keeps its original name.
 /// </summary>
 [Table("monthly_profit_distributions")]
 public class MonthlyProfitDistribution
@@ -42,45 +42,47 @@ public class MonthlyProfitDistribution
     [Required]
     public ProfitDistributionType Type { get; set; } = ProfitDistributionType.Monthly;
 
-    /// <summary>Calendar period. For project-based batches this is the month of ProfitDate.</summary>
+    /// <summary>The project. Null only on legacy multi-project monthly batches.</summary>
+    public Guid? InvestmentId { get; set; }
+
+    [ForeignKey(nameof(InvestmentId))]
+    public virtual Investment? Investment { get; set; }
+
+    /// <summary>Calendar period of <see cref="PeriodEnd"/>, kept for filtering and reporting.</summary>
     [Required]
     public int Year { get; set; }
 
     [Required]
     public int Month { get; set; }
 
-    /// <summary>
-    /// Monthly batches: the rate when every project used the same one, otherwise null
-    /// (see each line's Rate). Always null for project-based batches.
-    /// </summary>
-    [Column(TypeName = "decimal(9,6)")]
-    public decimal? Rate { get; set; }
+    /// <summary>Income and expenses dated on or before this day are included.</summary>
+    public DateTime? PeriodEnd { get; set; }
 
-    /// <summary>Project-based batches only: the project the profit belongs to.</summary>
-    public Guid? InvestmentId { get; set; }
-
-    [ForeignKey(nameof(InvestmentId))]
-    public virtual Investment? Investment { get; set; }
-
-    /// <summary>Project-based batches only: when the profit was realised.</summary>
-    public DateTime? ProfitDate { get; set; }
-
-    /// <summary>Project-based batches only: the realised profit amount that was entered.</summary>
     [Column(TypeName = "decimal(18,2)")]
-    public decimal? GrossProfitAmount { get; set; }
+    public decimal IncomeAmount { get; set; }
 
-    /// <summary>Project-based: the project's maintenance % frozen at calculation time.</summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal ExpenseAmount { get; set; }
+
+    /// <summary>Income − expenses: the profit before maintenance.</summary>
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? NetProfitAmount { get; set; }
+
+    /// <summary>The project's maintenance % frozen at calculation time.</summary>
     [Column(TypeName = "decimal(5,2)")]
     public decimal? MaintenancePercentage { get; set; }
 
-    /// <summary>Project-based: organisation share (gross × maintenance %), posted on finalize.</summary>
+    /// <summary>Organisation share (net profit × maintenance %), posted on finalize.</summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal? MaintenanceAmount { get; set; }
 
-    /// <summary>
-    /// Project-based: what stays with the organisation after allocation - the unsold
-    /// shares' portion plus rounding.
-    /// </summary>
+    /// <summary>The maintenance posting made when processed, so a cancellation can reverse it.</summary>
+    public Guid? MaintenanceDistributionId { get; set; }
+
+    [ForeignKey(nameof(MaintenanceDistributionId))]
+    public virtual InvestmentMaintenanceDistribution? MaintenanceDistribution { get; set; }
+
+    /// <summary>What stays with the organisation: the unsold shares' portion plus rounding.</summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal? UndistributedRemainder { get; set; }
 
@@ -90,9 +92,11 @@ public class MonthlyProfitDistribution
     [Required]
     public MonthlyProfitDistributionStatus Status { get; set; } = MonthlyProfitDistributionStatus.Draft;
 
+    /// <summary>Capital held by the shareholders who receive a share.</summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal TotalInvestmentAmount { get; set; }
 
+    /// <summary>Allocated to shareholders.</summary>
     [Column(TypeName = "decimal(18,2)")]
     public decimal TotalProfitAmount { get; set; }
 
@@ -114,6 +118,10 @@ public class MonthlyProfitDistribution
     public DateTime UpdatedAt { get; set; }
 
     public virtual ICollection<MonthlyProfitDistributionLine> Lines { get; set; } = new List<MonthlyProfitDistributionLine>();
+
+    public virtual ICollection<InvestmentInterimProfit> IncomeEntries { get; set; } = new List<InvestmentInterimProfit>();
+
+    public virtual ICollection<InvestmentProjectCost> ExpenseEntries { get; set; } = new List<InvestmentProjectCost>();
 }
 
 [Table("monthly_profit_distribution_lines")]
@@ -152,23 +160,8 @@ public class MonthlyProfitDistributionLine
     [Column(TypeName = "decimal(18,2)")]
     public decimal InvestmentAmount { get; set; }
 
-    /// <summary>Shares held - the allocation basis for project-based batches.</summary>
+    /// <summary>Shares held at the period end - the allocation basis.</summary>
     public int SharesOwned { get; set; }
-
-    /// <summary>Monthly rate applied (monthly batches); 0 for project-based lines.</summary>
-    [Required]
-    [Column(TypeName = "decimal(9,6)")]
-    public decimal Rate { get; set; }
-
-    /// <summary>
-    /// Monthly batches: days the holding was eligible in the month, weighted by amount
-    /// when the member bought in more than once. Equal to DaysInPeriod for a full month.
-    /// </summary>
-    [Column(TypeName = "decimal(5,2)")]
-    public decimal? HeldDays { get; set; }
-
-    /// <summary>Monthly batches: days in the calendar month.</summary>
-    public int? DaysInPeriod { get; set; }
 
     [Required]
     [Column(TypeName = "decimal(18,2)")]

@@ -396,15 +396,15 @@ public class VersioningService : IVersioningService
                 Improvement("Professional default background on the investment details view")
             ]),
 
-        new("1.11.0", new DateTime(2026, 11, 6), "Monthly & project-based profit distribution",
-            "Projects choose how profit is paid: at completion, a monthly %, or whenever a profit amount is entered.",
+        new("1.11.0", new DateTime(2026, 11, 6), "Profit distribution from project books",
+            "Projects can pay profit monthly or any time, from the income and expenses recorded on the project.",
             [
-                Feature("Per-project profit payout setting with a default monthly profit rate"),
-                Feature("Project-based profit: enter a realised amount, split by shares after maintenance"),
-                Feature("Monthly batches use each project's own rate, adjustable per month"),
-                Improvement("Monthly profit is pro-rated by days held for mid-month purchases and project start/maturity"),
-                Improvement("A project can never be paid twice for the same month; late-starting projects can get their own batch"),
-                Improvement("Projects overview on the Profit Distribution page with last payout and totals")
+                Feature("Per-project profit payout: at completion, monthly, or project-based"),
+                Feature("Process Profit: income minus expenses, less maintenance, split among investors by shares"),
+                Feature("Disburse to each investor individually or all at once"),
+                Improvement("Distributed income and expense entries are locked and excluded from the final settlement"),
+                Improvement("Expenses that exceed income carry forward to the next period"),
+                Improvement("A processed distribution can be cancelled until the first investor is paid")
             ])
     ];
 }

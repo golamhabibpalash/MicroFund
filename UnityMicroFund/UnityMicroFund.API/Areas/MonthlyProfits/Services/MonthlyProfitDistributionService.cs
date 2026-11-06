@@ -10,23 +10,24 @@ using UnityMicroFund.API.Models;
 namespace UnityMicroFund.API.Areas.MonthlyProfits.Services;
 
 /// <summary>
-/// Periodic profit distribution for a single project, in two flavours
-/// (see <see cref="ProfitDistributionType"/>):
+/// Periodic profit distribution for one project at a time, driven by the project's own
+/// books rather than a separate calculation:
 ///
-///   Monthly      - for a project whose ProfitPayoutMode is Monthly. Each holding earns
-///                  amountPaid × rate% × daysHeld / daysInMonth. The rate defaults to the
-///                  project's monthly rate and can be adjusted for one month; daysHeld is
-///                  pro-rated for shares bought mid-month or a project starting/maturing
-///                  inside the month. A project is paid at most once per calendar month.
+///   net profit   = income − expenses recorded on the project, not yet distributed,
+///                  dated on or before the period end
+///   maintenance  = net profit × the project's maintenance %  (posted on finalize)
+///   per holder   = floor((net profit − maintenance) × shares / total shares)
 ///
-///   ProjectBased - for a project whose ProfitPayoutMode is ProjectBased (no fixed
-///                  timeline). The admin enters a realised profit amount; the project's
-///                  maintenance % is taken first (posted to its maintenance account on
-///                  finalize), and the rest is split by shares exactly like the final
-///                  settlement: floor(pool × shares / totalShares). Unsold shares' portion
-///                  and rounding stay with the organisation.
+/// Unsold shares' portion and rounding stay with the organisation, exactly like the final
+/// settlement. Expenses that exceed income are not distributed; they stay undistributed and
+/// carry into the next period. Finalizing links every included income/expense entry to the
+/// distribution, so the entry is never counted again (nor by the final settlement) and is
+/// locked against edits.
 ///
-/// Every batch goes Draft (recalculable) -> Distributed (locked) -> Paid (wallets credited).
+/// The project's payout type sets the period: Monthly projects are processed one calendar
+/// month at a time, ProjectBased projects up to any chosen date.
+/// Lifecycle: processed (Distributed: entries locked, maintenance posted) -> Paid once every
+/// investor has been disbursed. A processed distribution with no payments can be cancelled.
 /// </summary>
 public class MonthlyProfitDistributionService : IMonthlyProfitDistributionService
 {
@@ -43,14 +44,9 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
         CalculateMonthlyProfitDto dto,
         CancellationToken cancellationToken = default)
     {
-        var investmentId = dto.InvestmentId
-            ?? throw new ValidationException("Select the project the profit belongs to.");
-
-        return ParseType(dto.Type) == ProfitDistributionType.Monthly
-            ? await BuildMonthlyPreviewAsync(
-                investmentId, RequireYear(dto.Year), RequireMonth(dto.Month), dto.Rate, null, cancellationToken)
-            : await BuildProjectPreviewAsync(
-                investmentId, RequireAmount(dto.ProfitAmount), ResolveProfitDate(dto.ProfitDate), null, cancellationToken);
+        var investment = await LoadInvestmentAsync(dto.InvestmentId, cancellationToken);
+        var periodEnd = ResolvePeriodEnd(investment, dto.Year, dto.Month, dto.PeriodEnd);
+        return await BuildPreviewAsync(investment, periodEnd, cancellationToken);
     }
 
     public async Task<IReadOnlyList<ProfitEligibleProjectDto>> GetEligibleProjectsAsync(
@@ -59,54 +55,41 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
         var investments = await _context.Investments
             .AsNoTracking()
             .Include(i => i.Subscriptions)
+            .Include(i => i.InterimProfits)
+            .Include(i => i.ProjectCosts)
             .Where(i => i.ProfitPayoutMode != ProfitPayoutMode.OnCompletion)
             .OrderBy(i => i.Name)
             .ToListAsync(cancellationToken);
 
         var ids = investments.Select(i => i.Id).ToList();
-        var history = await _context.MonthlyProfitDistributionLines
+        var distributions = await _context.MonthlyProfitDistributions
             .AsNoTracking()
-            .Where(l => ids.Contains(l.InvestmentId))
-            .Select(l => new
-            {
-                l.InvestmentId,
-                l.ProfitAmount,
-                l.Distribution!.Type,
-                l.Distribution.Status,
-                l.Distribution.Year,
-                l.Distribution.Month,
-                l.Distribution.ProfitDate,
-                l.Distribution.CreatedAt
-            })
+            .Where(d => d.InvestmentId != null && ids.Contains(d.InvestmentId.Value))
+            .Select(d => new { d.Id, d.InvestmentId, d.Type, d.Status, d.Year, d.Month, d.PeriodEnd, d.TotalProfitAmount })
             .ToListAsync(cancellationToken);
 
-        var today = DateTime.UtcNow;
+        var currentMonth = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
 
         return investments.Select(i =>
         {
+            var mine = distributions.Where(d => d.InvestmentId == i.Id).ToList();
+            var finalized = mine.Where(d => d.Status != MonthlyProfitDistributionStatus.Draft).ToList();
+            var latest = finalized.OrderByDescending(d => d.PeriodEnd).FirstOrDefault();
             var active = i.Subscriptions.Where(s => s.Status == ShareSubscriptionStatus.Active).ToList();
-            var mine = history.Where(h => h.InvestmentId == i.Id).ToList();
-            var latest = mine
-                .OrderByDescending(h => h.Year).ThenByDescending(h => h.Month)
-                .ThenByDescending(h => h.ProfitDate).ThenByDescending(h => h.CreatedAt)
-                .FirstOrDefault();
 
             int? nextYear = null, nextMonth = null;
             if (i.ProfitPayoutMode == ProfitPayoutMode.Monthly)
             {
-                var latestMonthly = mine
-                    .Where(h => h.Type == ProfitDistributionType.Monthly)
-                    .OrderByDescending(h => h.Year).ThenByDescending(h => h.Month)
+                // The month after the latest distribution; otherwise the first month anyone
+                // held shares (the later of the project start and the first purchase).
+                var lastMonthly = mine
+                    .Where(d => d.Type == ProfitDistributionType.Monthly)
+                    .OrderByDescending(d => d.Year).ThenByDescending(d => d.Month)
                     .FirstOrDefault();
-                // First month anyone actually held shares: the later of the project start
-                // and the first purchase, so the suggestion never lands on an empty month.
-                var firstHeld = active.Count > 0
-                    ? Max(i.DateInvested, active.Min(s => s.PurchasedAt))
-                    : i.DateInvested;
-                var next = latestMonthly != null
-                    ? new DateTime(latestMonthly.Year, latestMonthly.Month, 1).AddMonths(1)
+                var firstHeld = active.Count > 0 ? Max(i.DateInvested, active.Min(s => s.PurchasedAt)) : i.DateInvested;
+                var next = lastMonthly != null
+                    ? new DateTime(lastMonthly.Year, lastMonthly.Month, 1).AddMonths(1)
                     : new DateTime(firstHeld.Year, firstHeld.Month, 1);
-                var currentMonth = new DateTime(today.Year, today.Month, 1);
                 if (next > currentMonth) next = currentMonth;
                 nextYear = next.Year;
                 nextMonth = next.Month;
@@ -118,25 +101,19 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
                 Name = i.Name,
                 Status = i.Status.ToString(),
                 ProfitPayoutMode = i.ProfitPayoutMode.ToString(),
-                MonthlyProfitRate = i.MonthlyProfitRate,
                 TotalShares = i.TotalShares,
                 SoldShares = active.Sum(s => s.SharesPurchased),
                 TotalInvested = active.Sum(s => s.AmountPaid),
                 MaintenancePercentage = i.MaintenancePercentage,
                 MaintenanceAccountConfigured = i.MaintenanceAccountId.HasValue,
                 DateInvested = i.DateInvested,
-                MaturityDate = i.MaturityDate,
                 CanDistribute = i.Status == InvestmentStatus.Active,
+                PendingIncome = i.InterimProfits.Where(p => p.ProfitDistributionId == null).Sum(p => p.Amount),
+                PendingExpense = i.ProjectCosts.Where(c => c.ProfitDistributionId == null).Sum(c => c.Amount),
                 NextYear = nextYear,
                 NextMonth = nextMonth,
-                LastDistributionLabel = latest == null
-                    ? null
-                    : latest.Type == ProfitDistributionType.Monthly
-                        ? $"{MonthName(latest.Month)} {latest.Year}"
-                        : latest.ProfitDate?.ToString("dd MMM yyyy", CultureInfo.InvariantCulture),
-                TotalDistributed = mine
-                    .Where(h => h.Status != MonthlyProfitDistributionStatus.Draft)
-                    .Sum(h => h.ProfitAmount)
+                LastDistributionLabel = latest == null ? null : PeriodLabel(latest.Type, latest.Year, latest.Month, latest.PeriodEnd),
+                TotalDistributed = finalized.Sum(d => d.TotalProfitAmount)
             };
         }).ToList();
     }
@@ -147,19 +124,8 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
         string? type = null,
         CancellationToken cancellationToken = default)
     {
-        MonthlyProfitDistributionStatus? statusFilter = null;
-        if (!string.IsNullOrWhiteSpace(status))
-        {
-            if (!Enum.TryParse<MonthlyProfitDistributionStatus>(status, true, out var parsed)
-                || !Enum.IsDefined(parsed))
-            {
-                throw new ValidationException($"'{status}' is not a valid distribution status.");
-            }
-
-            statusFilter = parsed;
-        }
-
-        ProfitDistributionType? typeFilter = string.IsNullOrWhiteSpace(type) ? null : ParseType(type);
+        var statusFilter = ParseOptionalEnum<MonthlyProfitDistributionStatus>(status, "distribution status");
+        var typeFilter = ParseOptionalEnum<ProfitDistributionType>(type, "distribution type");
 
         var query = _context.MonthlyProfitDistributions
             .AsNoTracking()
@@ -174,7 +140,7 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
         var distributions = await query
             .OrderByDescending(d => d.Year)
             .ThenByDescending(d => d.Month)
-            .ThenByDescending(d => d.ProfitDate)
+            .ThenByDescending(d => d.PeriodEnd)
             .ThenByDescending(d => d.CreatedAt)
             .ToListAsync(cancellationToken);
 
@@ -188,14 +154,31 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
         var distribution = await _context.MonthlyProfitDistributions
             .AsNoTracking()
             .Include(d => d.Investment)
+            .Include(d => d.IncomeEntries)
+            .Include(d => d.ExpenseEntries)
             .Include(d => d.Lines)
                 .ThenInclude(l => l.WalletEntry)
             .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
 
-        return distribution == null ? null : MapDetail(distribution);
+        if (distribution == null) return null;
+
+        var detail = MapDetail(distribution);
+
+        // A legacy draft has not claimed its entries: show the ones it would cover.
+        if (distribution.Status == MonthlyProfitDistributionStatus.Draft
+            && distribution.InvestmentId.HasValue
+            && distribution.PeriodEnd.HasValue)
+        {
+            var (income, expenses) = await LoadPendingEntriesAsync(
+                distribution.InvestmentId.Value, distribution.PeriodEnd.Value, cancellationToken);
+            detail.IncomeEntries = income.Select(ToLedgerEntry).ToList();
+            detail.ExpenseEntries = expenses.Select(ToLedgerEntry).ToList();
+        }
+
+        return detail;
     }
 
-    public async Task<MonthlyProfitDistributionDto> CreateAsync(
+    public async Task<MonthlyProfitDistributionDto> ProcessAsync(
         CreateMonthlyProfitDistributionDto dto,
         string? actionedBy,
         CancellationToken cancellationToken = default)
@@ -203,206 +186,121 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
         await using var tx = await _context.Database.BeginTransactionAsync(
             IsolationLevel.Serializable, cancellationToken);
 
-        var preview = await PreviewAsync(dto, cancellationToken);
-        if (preview.Lines.Count == 0)
+        var investment = await LoadInvestmentAsync(dto.InvestmentId, cancellationToken);
+        var periodEnd = ResolvePeriodEnd(investment, dto.Year, dto.Month, dto.PeriodEnd);
+        var preview = await BuildPreviewAsync(investment, periodEnd, cancellationToken);
+
+        if (!preview.CanProcess)
         {
-            throw new ValidationException(preview.Type == nameof(ProfitDistributionType.Monthly)
-                ? "No shareholder held this project during the selected month."
-                : "This project has no shareholders to distribute to.");
+            throw new ValidationException(preview.Message ?? "There is no profit to distribute.");
         }
 
         var now = DateTime.UtcNow;
         var distribution = new MonthlyProfitDistribution
         {
             Id = Guid.NewGuid(),
-            Status = MonthlyProfitDistributionStatus.Draft,
+            Type = Enum.Parse<ProfitDistributionType>(preview.Type),
+            InvestmentId = investment.Id,
+            Year = preview.Year,
+            Month = preview.Month,
+            PeriodEnd = preview.PeriodEnd,
+            IncomeAmount = preview.IncomeAmount,
+            ExpenseAmount = preview.ExpenseAmount,
+            NetProfitAmount = preview.NetProfitAmount,
+            MaintenancePercentage = preview.MaintenancePercentage,
+            MaintenanceAmount = preview.MaintenanceAmount,
+            UndistributedRemainder = preview.UndistributedRemainder,
+            TotalInvestmentAmount = preview.TotalInvestmentAmount,
+            TotalProfitAmount = preview.TotalProfitAmount,
             Notes = NullIfBlank(dto.Notes),
+            Status = MonthlyProfitDistributionStatus.Distributed,
             CalculatedBy = actionedBy,
             CalculatedAt = now,
+            DistributedBy = actionedBy,
+            DistributedAt = now,
             CreatedAt = now,
             UpdatedAt = now
         };
-        ApplyPreview(distribution, preview);
         distribution.Lines = preview.Lines.Select(l => ToLineEntity(l, distribution.Id, now)).ToList();
-
         _context.MonthlyProfitDistributions.Add(distribution);
+
+        // Claim the entries: from now on they belong to this distribution only.
+        var (income, expenses) = await LoadPendingEntriesAsync(investment.Id, periodEnd, cancellationToken, tracked: true);
+        foreach (var entry in income) entry.ProfitDistributionId = distribution.Id;
+        foreach (var entry in expenses) entry.ProfitDistributionId = distribution.Id;
+
+        // Post the organisation's maintenance share to the project's maintenance account,
+        // exactly as the final settlement does, inside this transaction.
+        if (preview.MaintenanceAmount > 0m && investment.MaintenanceAccountId is Guid accountId)
+        {
+            var account = await _context.Accounts
+                .FirstOrDefaultAsync(a => a.Id == accountId, cancellationToken)
+                ?? throw new ValidationException("The project's maintenance account no longer exists.");
+
+            account.Balance += preview.MaintenanceAmount;
+
+            var posting = new InvestmentMaintenanceDistribution
+            {
+                Id = Guid.NewGuid(),
+                InvestmentId = investment.Id,
+                AccountId = account.Id,
+                Amount = preview.MaintenanceAmount,
+                Percentage = preview.MaintenancePercentage,
+                DisbursedBy = actionedBy,
+                DisbursedAt = now,
+                Remarks = $"Maintenance ({preview.MaintenancePercentage}%) on profit for " +
+                          $"{PeriodLabel(distribution.Type, distribution.Year, distribution.Month, distribution.PeriodEnd)} - {investment.Name}"
+            };
+            _context.InvestmentMaintenanceDistributions.Add(posting);
+            distribution.MaintenanceDistributionId = posting.Id;
+        }
+
         await _context.SaveChangesAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
 
         return (await GetByIdAsync(distribution.Id, cancellationToken))!;
     }
 
-    public async Task<MonthlyProfitDistributionDto?> UpdateAsync(
-        Guid id,
-        UpdateMonthlyProfitDistributionDto dto,
-        string? actionedBy,
-        CancellationToken cancellationToken = default)
-    {
-        await using var tx = await _context.Database.BeginTransactionAsync(
-            IsolationLevel.Serializable, cancellationToken);
-
-        var distribution = await _context.MonthlyProfitDistributions
-            .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
-
-        if (distribution == null) return null;
-
-        if (distribution.Status != MonthlyProfitDistributionStatus.Draft)
-        {
-            throw new ValidationException("Only a draft distribution can be recalculated.");
-        }
-
-        if (!distribution.InvestmentId.HasValue)
-        {
-            throw new ValidationException(
-                "This draft covers several projects and was created before per-project batches. Delete it and create one batch per project.");
-        }
-
-        var preview = distribution.Type == ProfitDistributionType.Monthly
-            ? await BuildMonthlyPreviewAsync(
-                distribution.InvestmentId.Value,
-                distribution.Year,
-                distribution.Month,
-                dto.Rate ?? distribution.Rate,
-                distribution.Id,
-                cancellationToken)
-            : await BuildProjectPreviewAsync(
-                distribution.InvestmentId.Value,
-                dto.ProfitAmount ?? distribution.GrossProfitAmount ?? 0m,
-                dto.ProfitDate.HasValue ? ResolveProfitDate(dto.ProfitDate) : distribution.ProfitDate!.Value,
-                distribution.Id,
-                cancellationToken);
-
-        if (preview.Lines.Count == 0)
-        {
-            throw new ValidationException("The recalculation produced no profit lines.");
-        }
-
-        // Set-based delete so the new lines cannot collide with the old ones on the
-        // (distribution, member, project) unique index.
-        await _context.MonthlyProfitDistributionLines
-            .Where(l => l.MonthlyProfitDistributionId == distribution.Id)
-            .ExecuteDeleteAsync(cancellationToken);
-
-        var now = DateTime.UtcNow;
-        foreach (var line in preview.Lines)
-        {
-            _context.MonthlyProfitDistributionLines.Add(ToLineEntity(line, distribution.Id, now));
-        }
-
-        ApplyPreview(distribution, preview);
-        distribution.Notes = NullIfBlank(dto.Notes);
-        distribution.TotalPaidAmount = 0m;
-        distribution.CalculatedBy = actionedBy;
-        distribution.CalculatedAt = now;
-        distribution.UpdatedAt = now;
-
-        await _context.SaveChangesAsync(cancellationToken);
-        await tx.CommitAsync(cancellationToken);
-
-        return await GetByIdAsync(distribution.Id, cancellationToken);
-    }
-
-    public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        var distribution = await _context.MonthlyProfitDistributions
-            .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
-
-        if (distribution == null) return false;
-
-        if (distribution.Status != MonthlyProfitDistributionStatus.Draft)
-        {
-            throw new ValidationException("Only a draft distribution can be deleted.");
-        }
-
-        _context.MonthlyProfitDistributions.Remove(distribution);
-        await _context.SaveChangesAsync(cancellationToken);
-        return true;
-    }
-
-    public async Task<MonthlyProfitDistributionDto> DistributeAsync(
-        Guid id,
-        string? actionedBy,
-        CancellationToken cancellationToken = default)
+    public async Task<bool> CancelAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var tx = await _context.Database.BeginTransactionAsync(
             IsolationLevel.Serializable, cancellationToken);
 
         var distribution = await _context.MonthlyProfitDistributions
             .Include(d => d.Lines)
-            .Include(d => d.Investment)
-            .FirstOrDefaultAsync(d => d.Id == id, cancellationToken)
-            ?? throw new NotFoundException("Monthly profit distribution not found.");
+            .Include(d => d.IncomeEntries)
+            .Include(d => d.ExpenseEntries)
+            .Include(d => d.MaintenanceDistribution)
+            .FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
 
-        if (distribution.Status != MonthlyProfitDistributionStatus.Draft)
+        if (distribution == null) return false;
+
+        if (distribution.Lines.Any(l => l.Status == MonthlyProfitPaymentStatus.Paid))
         {
-            throw new ValidationException("This distribution has already been finalized.");
+            throw new ValidationException(
+                "Some investors have already been paid from this distribution, so it can no longer be cancelled.");
         }
 
-        if (distribution.Lines.Count == 0)
+        // Release the income/expense entries so they can be processed again.
+        foreach (var entry in distribution.IncomeEntries) entry.ProfitDistributionId = null;
+        foreach (var entry in distribution.ExpenseEntries) entry.ProfitDistributionId = null;
+
+        // Reverse the maintenance posting.
+        if (distribution.MaintenanceDistribution is { } posting)
         {
-            throw new ValidationException("There are no profit lines to distribute.");
+            var account = await _context.Accounts.FirstOrDefaultAsync(a => a.Id == posting.AccountId, cancellationToken);
+            if (account != null) account.Balance -= posting.Amount;
+
+            distribution.MaintenanceDistributionId = null;
+            _context.InvestmentMaintenanceDistributions.Remove(posting);
         }
 
-        if (distribution.Type == ProfitDistributionType.Monthly)
-        {
-            // Another batch may have been finalized for the same project and month since
-            // this draft was calculated - never let a project be paid twice for one month.
-            var investmentIds = distribution.Lines.Select(l => l.InvestmentId).Distinct().ToList();
-            var clash = await _context.MonthlyProfitDistributionLines
-                .AsNoTracking()
-                .Where(l => investmentIds.Contains(l.InvestmentId)
-                         && l.MonthlyProfitDistributionId != distribution.Id
-                         && l.Distribution!.Type == ProfitDistributionType.Monthly
-                         && l.Distribution.Status != MonthlyProfitDistributionStatus.Draft
-                         && l.Distribution.Year == distribution.Year
-                         && l.Distribution.Month == distribution.Month)
-                .Select(l => l.InvestmentName)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (clash != null)
-            {
-                throw new ConflictException(
-                    $"\"{clash}\" has already been paid for {MonthName(distribution.Month)} {distribution.Year}.");
-            }
-        }
-
-        var now = DateTime.UtcNow;
-
-        // Project-based: post the organisation's maintenance share to the project's
-        // maintenance account, exactly as the final settlement does, inside this transaction.
-        if (distribution.Type == ProfitDistributionType.ProjectBased
-            && distribution.MaintenanceAmount is > 0m
-            && distribution.Investment?.MaintenanceAccountId is Guid accountId)
-        {
-            var account = await _context.Accounts
-                .FirstOrDefaultAsync(a => a.Id == accountId, cancellationToken)
-                ?? throw new ValidationException("The project's maintenance account no longer exists.");
-
-            account.Balance += distribution.MaintenanceAmount.Value;
-
-            _context.InvestmentMaintenanceDistributions.Add(new InvestmentMaintenanceDistribution
-            {
-                Id = Guid.NewGuid(),
-                InvestmentId = distribution.Investment.Id,
-                AccountId = account.Id,
-                Amount = distribution.MaintenanceAmount.Value,
-                Percentage = distribution.MaintenancePercentage ?? 0m,
-                DisbursedBy = actionedBy,
-                DisbursedAt = now,
-                Remarks = $"Maintenance ({distribution.MaintenancePercentage}%) on project profit of " +
-                          $"{distribution.ProfitDate:dd MMM yyyy} for {distribution.Investment.Name}"
-            });
-        }
-
-        distribution.Status = MonthlyProfitDistributionStatus.Distributed;
-        distribution.DistributedBy = actionedBy;
-        distribution.DistributedAt = now;
-        distribution.UpdatedAt = now;
+        _context.MonthlyProfitDistributionLines.RemoveRange(distribution.Lines);
+        _context.MonthlyProfitDistributions.Remove(distribution);
 
         await _context.SaveChangesAsync(cancellationToken);
         await tx.CommitAsync(cancellationToken);
-
-        return (await GetByIdAsync(distribution.Id, cancellationToken))!;
+        return true;
     }
 
     public async Task<MonthlyProfitDistributionDto> PayAsync(
@@ -417,16 +315,11 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
         var distribution = await _context.MonthlyProfitDistributions
             .Include(d => d.Lines)
             .FirstOrDefaultAsync(d => d.Id == id, cancellationToken)
-            ?? throw new NotFoundException("Monthly profit distribution not found.");
-
-        if (distribution.Status == MonthlyProfitDistributionStatus.Draft)
-        {
-            throw new ValidationException("Finalize the distribution before paying members.");
-        }
+            ?? throw new NotFoundException("Profit distribution not found.");
 
         if (lineId.HasValue && distribution.Lines.All(l => l.Id != lineId.Value))
         {
-            throw new NotFoundException("Monthly profit line not found.");
+            throw new NotFoundException("Investor line not found.");
         }
 
         var pending = distribution.Lines
@@ -436,21 +329,18 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
 
         if (pending.Count == 0)
         {
-            throw new ValidationException("There is nothing left to pay for this distribution.");
+            throw new ValidationException("Every investor in this distribution has already been paid.");
         }
 
         var now = DateTime.UtcNow;
+        var period = PeriodLabel(distribution.Type, distribution.Year, distribution.Month, distribution.PeriodEnd);
         foreach (var line in pending)
         {
-            var description = distribution.Type == ProfitDistributionType.Monthly
-                ? $"Monthly profit - {MonthName(distribution.Month)} {distribution.Year} - {line.InvestmentName}"
-                : $"Project profit - {line.InvestmentName} - {distribution.ProfitDate:dd MMM yyyy}";
-
             var entry = _wallet.AddEntry(
                 line.MemberId,
                 WalletEntryType.ProfitCredit,
                 line.ProfitAmount,
-                description,
+                $"Profit - {line.InvestmentName} - {period}",
                 actionedBy,
                 investmentId: line.InvestmentId);
 
@@ -475,296 +365,257 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
         return (await GetByIdAsync(distribution.Id, cancellationToken))!;
     }
 
-    // ---------------------------------------------------------------- monthly
+    // ---------------------------------------------------------------- calculation
 
-    private async Task<MonthlyProfitPreviewDto> BuildMonthlyPreviewAsync(
-        Guid investmentId,
-        int year,
-        int month,
-        decimal? rateOverride,
-        Guid? excludeDistributionId,
+    private async Task<MonthlyProfitPreviewDto> BuildPreviewAsync(
+        Investment investment,
+        DateTime periodEnd,
         CancellationToken cancellationToken)
     {
-        ValidatePeriod(year, month);
+        var type = TypeFor(investment);
+        await EnsurePeriodAvailableAsync(investment, type, periodEnd, cancellationToken);
 
-        var today = DateTime.UtcNow;
-        if (year > today.Year || (year == today.Year && month > today.Month))
-        {
-            throw new ValidationException("Monthly profit cannot be calculated for a future month.");
-        }
+        var (income, expenses) = await LoadPendingEntriesAsync(investment.Id, periodEnd, cancellationToken);
+        var incomeAmount = income.Sum(p => p.Amount);
+        var expenseAmount = expenses.Sum(c => c.Amount);
+        var net = incomeAmount - expenseAmount;
 
-        var investment = await _context.Investments
-            .AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Id == investmentId, cancellationToken)
-            ?? throw new NotFoundException("Investment not found.");
-
-        if (investment.ProfitPayoutMode != ProfitPayoutMode.Monthly)
-        {
-            throw new ValidationException(
-                $"\"{investment.Name}\" is not set up for monthly profit. Change its profit payout in the investment form first.");
-        }
-
-        if (investment.Status != InvestmentStatus.Active)
-        {
-            throw new ValidationException(
-                $"Monthly profit can only be calculated while the project is Active (current status: {investment.Status}).");
-        }
-
-        var rate = rateOverride ?? investment.MonthlyProfitRate;
-        if (rate is null or <= 0m || rate > 100m)
-        {
-            throw new ValidationException("Enter a monthly rate greater than 0 and at most 100%.");
-        }
-
-        var existing = await _context.MonthlyProfitDistributions
-            .AsNoTracking()
-            .Where(d => d.Type == ProfitDistributionType.Monthly
-                     && d.Year == year
-                     && d.Month == month
-                     && (!excludeDistributionId.HasValue || d.Id != excludeDistributionId.Value)
-                     && (d.InvestmentId == investmentId || d.Lines.Any(l => l.InvestmentId == investmentId)))
-            .Select(d => new { d.Status })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (existing != null)
-        {
-            throw new ConflictException(existing.Status == MonthlyProfitDistributionStatus.Draft
-                ? $"A draft for {MonthName(month)} {year} already exists for this project. Open it from the history to review or recalculate."
-                : $"{MonthName(month)} {year} has already been distributed for this project.");
-        }
-
-        var daysInMonth = DateTime.DaysInMonth(year, month);
-        var periodStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var periodEnd = new DateTime(year, month, daysInMonth, 23, 59, 59, DateTimeKind.Utc);
-
-        // The project only earns while it is running: from its start date to its maturity.
-        var runFrom = Max(periodStart, investment.DateInvested.Date);
-        var runTo = investment.MaturityDate.HasValue
-            ? Min(periodEnd.Date, investment.MaturityDate.Value.Date)
-            : periodEnd.Date;
-
-        if (runFrom.Date > runTo)
-        {
-            throw new ValidationException(investment.DateInvested.Date > periodEnd
-                ? $"The project starts on {investment.DateInvested:dd MMM yyyy}, after {MonthName(month)} {year}."
-                : $"The project matured on {investment.MaturityDate:dd MMM yyyy}, before {MonthName(month)} {year}.");
-        }
-
-        var subscriptions = await _context.ShareSubscriptions
+        var holdings = await _context.ShareSubscriptions
             .AsNoTracking()
             .Include(s => s.Member)
-            .Where(s => s.InvestmentId == investmentId
+            .Where(s => s.InvestmentId == investment.Id
                      && s.Status == ShareSubscriptionStatus.Active
                      && s.PurchasedAt <= periodEnd)
-            .ToListAsync(cancellationToken);
-
-        var lines = subscriptions
-            .Select(s => new { Sub = s, Days = Math.Max(0, (runTo - Max(runFrom, s.PurchasedAt.Date).Date).Days + 1) })
-            .Where(x => x.Days > 0)
-            .GroupBy(x => x.Sub.MemberId)
-            .Select(g =>
-            {
-                var amount = g.Sum(x => x.Sub.AmountPaid);
-                var rawProfit = g.Sum(x => x.Sub.AmountPaid * rate.Value / 100m * x.Days / daysInMonth);
-                var weightedDays = amount > 0m
-                    ? g.Sum(x => x.Sub.AmountPaid * x.Days) / amount
-                    : g.Max(x => x.Days);
-
-                return new MonthlyProfitLineDto
-                {
-                    Id = Guid.NewGuid(),
-                    MemberId = g.Key,
-                    MemberName = g.First().Sub.Member?.Name ?? "Unknown",
-                    InvestmentId = investment.Id,
-                    InvestmentName = investment.Name,
-                    InvestmentAmount = amount,
-                    SharesOwned = g.Sum(x => x.Sub.SharesPurchased),
-                    Rate = rate.Value,
-                    HeldDays = Math.Round(weightedDays, 2, MidpointRounding.AwayFromZero),
-                    DaysInPeriod = daysInMonth,
-                    ProfitAmount = Round2(rawProfit),
-                    Status = MonthlyProfitPaymentStatus.Pending.ToString()
-                };
-            })
-            .Where(l => l.ProfitAmount > 0m)
-            .OrderBy(l => l.MemberName)
-            .ToList();
-
-        var warnings = new List<string>();
-        if (lines.Any(l => l.HeldDays < l.DaysInPeriod))
-        {
-            warnings.Add("Holdings that were not held for the whole month are pro-rated by days held.");
-        }
-
-        return new MonthlyProfitPreviewDto
-        {
-            Type = nameof(ProfitDistributionType.Monthly),
-            Year = year,
-            Month = month,
-            Rate = rate,
-            PeriodStart = periodStart,
-            PeriodEnd = periodEnd,
-            DaysInPeriod = daysInMonth,
-            InvestmentId = investment.Id,
-            InvestmentName = investment.Name,
-            TotalInvestmentAmount = lines.Sum(l => l.InvestmentAmount),
-            TotalProfitAmount = lines.Sum(l => l.ProfitAmount),
-            EligibleMemberCount = lines.Count,
-            LineCount = lines.Count,
-            Lines = lines,
-            Warnings = warnings
-        };
-    }
-
-    // ---------------------------------------------------------------- project-based
-
-    private async Task<MonthlyProfitPreviewDto> BuildProjectPreviewAsync(
-        Guid investmentId,
-        decimal grossProfit,
-        DateTime profitDate,
-        Guid? excludeDistributionId,
-        CancellationToken cancellationToken)
-    {
-        if (grossProfit <= 0m)
-        {
-            throw new ValidationException("Profit amount must be greater than zero.");
-        }
-
-        var investment = await _context.Investments
-            .AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Id == investmentId, cancellationToken)
-            ?? throw new NotFoundException("Investment not found.");
-
-        if (investment.ProfitPayoutMode != ProfitPayoutMode.ProjectBased)
-        {
-            throw new ValidationException(
-                $"\"{investment.Name}\" is not set up for project-based profit. Change its profit payout in the investment form first.");
-        }
-
-        if (investment.Status != InvestmentStatus.Active)
-        {
-            throw new ValidationException(
-                $"Profit can only be distributed while the project is Active (current status: {investment.Status}).");
-        }
-
-        var dayEnd = profitDate.Date.AddDays(1).AddTicks(-1);
-        var subscriptions = await _context.ShareSubscriptions
-            .AsNoTracking()
-            .Include(s => s.Member)
-            .Where(s => s.InvestmentId == investmentId
-                     && s.Status == ShareSubscriptionStatus.Active
-                     && s.PurchasedAt <= dayEnd)
-            .ToListAsync(cancellationToken);
-
-        var holdings = subscriptions
-            .GroupBy(s => s.MemberId)
+            .GroupBy(s => new { s.MemberId, MemberName = s.Member!.Name })
             .Select(g => new
             {
-                MemberId = g.Key,
-                MemberName = g.First().Member?.Name ?? "Unknown",
+                g.Key.MemberId,
+                g.Key.MemberName,
                 Shares = g.Sum(s => s.SharesPurchased),
                 Amount = g.Sum(s => s.AmountPaid)
             })
             .Where(h => h.Shares > 0)
-            .ToList();
+            .ToListAsync(cancellationToken);
 
         var soldShares = holdings.Sum(h => h.Shares);
         // Same basis as the final settlement: unsold shares belong to the organisation,
-        // so their portion of the pool is not allocated to anyone.
+        // so their portion of the pool is not allocated to any investor.
         var totalShares = Math.Max(investment.TotalShares ?? soldShares, soldShares);
 
-        var maintenancePercentage = investment.MaintenancePercentage;
-        var maintenance = Round2(grossProfit * maintenancePercentage / 100m);
-        var pool = grossProfit - maintenance;
-
-        var lines = totalShares == 0
-            ? new List<MonthlyProfitLineDto>()
-            : holdings.Select(h => new MonthlyProfitLineDto
-                {
-                    Id = Guid.NewGuid(),
-                    MemberId = h.MemberId,
-                    MemberName = h.MemberName,
-                    InvestmentId = investment.Id,
-                    InvestmentName = investment.Name,
-                    InvestmentAmount = h.Amount,
-                    SharesOwned = h.Shares,
-                    OwnershipPercentage = Math.Round((decimal)h.Shares / totalShares * 100m, 4),
-                    Rate = 0m,
-                    ProfitAmount = Floor2(pool * h.Shares / totalShares),
-                    Status = MonthlyProfitPaymentStatus.Pending.ToString()
-                })
-                .Where(l => l.ProfitAmount > 0m)
-                .OrderBy(l => l.MemberName)
-                .ToList();
-
-        var allocated = lines.Sum(l => l.ProfitAmount);
-
-        var warnings = new List<string>();
-        if (maintenance > 0m && !investment.MaintenanceAccountId.HasValue)
+        var preview = new MonthlyProfitPreviewDto
         {
-            warnings.Add("This project has no maintenance account, so the maintenance share will be kept but not posted to any account.");
-        }
-        if (soldShares < totalShares)
-        {
-            warnings.Add($"{totalShares - soldShares} of {totalShares} shares are unsold; their portion stays with the organisation.");
-        }
-
-        var duplicate = await _context.MonthlyProfitDistributions
-            .AsNoTracking()
-            .AnyAsync(d => d.Type == ProfitDistributionType.ProjectBased
-                        && d.InvestmentId == investmentId
-                        && d.ProfitDate == profitDate.Date
-                        && (!excludeDistributionId.HasValue || d.Id != excludeDistributionId.Value),
-                cancellationToken);
-        if (duplicate)
-        {
-            warnings.Add($"Another profit entry for this project is already dated {profitDate:dd MMM yyyy}. Make sure this is not a duplicate.");
-        }
-
-        return new MonthlyProfitPreviewDto
-        {
-            Type = nameof(ProfitDistributionType.ProjectBased),
-            Year = profitDate.Year,
-            Month = profitDate.Month,
-            PeriodStart = profitDate.Date,
-            PeriodEnd = dayEnd,
+            Type = type.ToString(),
             InvestmentId = investment.Id,
             InvestmentName = investment.Name,
-            ProfitDate = profitDate.Date,
-            GrossProfitAmount = grossProfit,
-            MaintenancePercentage = maintenancePercentage,
-            MaintenanceAmount = maintenance,
-            InvestorProfitPool = pool,
-            UndistributedRemainder = pool - allocated,
+            Year = periodEnd.Year,
+            Month = periodEnd.Month,
+            PeriodEnd = periodEnd,
+            IncomeAmount = incomeAmount,
+            ExpenseAmount = expenseAmount,
+            NetProfitAmount = net,
+            MaintenancePercentage = investment.MaintenancePercentage,
             TotalShares = totalShares,
             SoldShares = soldShares,
             MaintenanceAccountConfigured = investment.MaintenanceAccountId.HasValue,
-            TotalInvestmentAmount = lines.Sum(l => l.InvestmentAmount),
-            TotalProfitAmount = allocated,
-            EligibleMemberCount = lines.Count,
-            LineCount = lines.Count,
-            Lines = lines,
-            Warnings = warnings
+            IncomeEntries = income.Select(ToLedgerEntry).ToList(),
+            ExpenseEntries = expenses.Select(ToLedgerEntry).ToList()
         };
+
+        if (income.Count == 0 && expenses.Count == 0)
+        {
+            preview.Message = $"No income or expense has been recorded for this project up to {periodEnd:dd MMM yyyy} " +
+                              "that is not already distributed. Record them on the project first.";
+            return preview;
+        }
+
+        if (net <= 0m)
+        {
+            preview.Message = net == 0m
+                ? "Income and expenses cancel out, so there is no profit to distribute."
+                : $"Expenses exceed income by {-net:N2}, so there is no profit to distribute. " +
+                  "These entries stay undistributed and are carried into the next period.";
+            return preview;
+        }
+
+        if (soldShares == 0)
+        {
+            preview.Message = "No investor held shares in this project by the period end.";
+            return preview;
+        }
+
+        var maintenance = Round2(net * investment.MaintenancePercentage / 100m);
+        var pool = net - maintenance;
+
+        var lines = holdings
+            .Select(h => new MonthlyProfitLineDto
+            {
+                Id = Guid.NewGuid(),
+                MemberId = h.MemberId,
+                MemberName = h.MemberName,
+                InvestmentId = investment.Id,
+                InvestmentName = investment.Name,
+                InvestmentAmount = h.Amount,
+                SharesOwned = h.Shares,
+                OwnershipPercentage = Math.Round((decimal)h.Shares / totalShares * 100m, 4),
+                ProfitAmount = Floor2(pool * h.Shares / totalShares),
+                Status = MonthlyProfitPaymentStatus.Pending.ToString()
+            })
+            .Where(l => l.ProfitAmount > 0m)
+            .OrderByDescending(l => l.SharesOwned)
+            .ThenBy(l => l.MemberName)
+            .ToList();
+
+        var allocated = lines.Sum(l => l.ProfitAmount);
+
+        preview.MaintenanceAmount = maintenance;
+        preview.InvestorProfitPool = pool;
+        preview.UndistributedRemainder = pool - allocated;
+        preview.Lines = lines;
+        preview.LineCount = lines.Count;
+        preview.EligibleMemberCount = lines.Count;
+        preview.TotalInvestmentAmount = lines.Sum(l => l.InvestmentAmount);
+        preview.TotalProfitAmount = allocated;
+        preview.CanProcess = lines.Count > 0;
+
+        if (maintenance > 0m && !investment.MaintenanceAccountId.HasValue)
+        {
+            preview.Warnings.Add("This project has no maintenance account, so the maintenance share will be kept but not posted to any account.");
+        }
+        if (soldShares < totalShares)
+        {
+            preview.Warnings.Add($"{totalShares - soldShares} of {totalShares} shares are unsold; their portion stays with the organisation.");
+        }
+
+        return preview;
+    }
+
+    /// <summary>
+    /// Income and expenses not yet claimed by a finalized distribution, dated on or before
+    /// <paramref name="periodEnd"/>. Earlier undistributed entries are included, so nothing
+    /// recorded late is ever skipped.
+    /// </summary>
+    private async Task<(List<InvestmentInterimProfit> Income, List<InvestmentProjectCost> Expenses)> LoadPendingEntriesAsync(
+        Guid investmentId,
+        DateTime periodEnd,
+        CancellationToken cancellationToken,
+        bool tracked = false)
+    {
+        var dayEnd = periodEnd.Date.AddDays(1).AddTicks(-1);
+
+        var incomeQuery = _context.InvestmentInterimProfits
+            .Where(p => p.InvestmentId == investmentId && p.ProfitDistributionId == null && p.ProfitDate <= dayEnd);
+        var expenseQuery = _context.InvestmentProjectCosts
+            .Where(c => c.InvestmentId == investmentId && c.ProfitDistributionId == null && c.CostDate <= dayEnd);
+
+        if (!tracked)
+        {
+            incomeQuery = incomeQuery.AsNoTracking();
+            expenseQuery = expenseQuery.AsNoTracking();
+        }
+
+        var income = await incomeQuery.OrderBy(p => p.ProfitDate).ToListAsync(cancellationToken);
+        var expenses = await expenseQuery.OrderBy(c => c.CostDate).ToListAsync(cancellationToken);
+        return (income, expenses);
+    }
+
+    /// <summary>
+    /// A Monthly project is processed once per month, and no project can be processed for a
+    /// period earlier than the latest one already processed.
+    /// </summary>
+    private async Task EnsurePeriodAvailableAsync(
+        Investment investment,
+        ProfitDistributionType type,
+        DateTime periodEnd,
+        CancellationToken cancellationToken)
+    {
+        var processed = await _context.MonthlyProfitDistributions
+            .AsNoTracking()
+            .Where(d => d.InvestmentId == investment.Id && d.PeriodEnd != null)
+            .Select(d => new { d.Type, d.Year, d.Month, d.PeriodEnd })
+            .ToListAsync(cancellationToken);
+
+        if (type == ProfitDistributionType.Monthly
+            && processed.Any(d => d.Type == ProfitDistributionType.Monthly && d.Year == periodEnd.Year && d.Month == periodEnd.Month))
+        {
+            throw new ConflictException($"{MonthName(periodEnd.Month)} {periodEnd.Year} has already been processed for this project.");
+        }
+
+        var latest = processed.OrderByDescending(d => d.PeriodEnd).FirstOrDefault();
+        if (latest != null && periodEnd.Date < latest.PeriodEnd!.Value.Date)
+        {
+            throw new ValidationException(
+                $"Profit has already been processed up to {latest.PeriodEnd:dd MMM yyyy}. Choose a later period.");
+        }
+    }
+
+    /// <summary>The project's payout type sets the period: a calendar month, or up to a date.</summary>
+    private static DateTime ResolvePeriodEnd(Investment investment, int? year, int? month, DateTime? periodEnd)
+    {
+        var today = DateTime.UtcNow.Date;
+
+        if (TypeFor(investment) == ProfitDistributionType.Monthly)
+        {
+            if (year is null || month is null)
+            {
+                throw new ValidationException("Select the month to process.");
+            }
+            if (year is < 2000 or > 2100 || month is < 1 or > 12)
+            {
+                throw new ValidationException("Select a valid month.");
+            }
+            if (year > today.Year || (year == today.Year && month > today.Month))
+            {
+                throw new ValidationException("A future month cannot be processed.");
+            }
+
+            var monthEnd = new DateTime(year.Value, month.Value, DateTime.DaysInMonth(year.Value, month.Value), 0, 0, 0, DateTimeKind.Utc);
+            if (monthEnd < investment.DateInvested.Date)
+            {
+                throw new ValidationException($"The project starts on {investment.DateInvested:dd MMM yyyy}, after {MonthName(month.Value)} {year}.");
+            }
+
+            return monthEnd;
+        }
+
+        var date = DateTime.SpecifyKind((periodEnd ?? today).Date, DateTimeKind.Utc);
+
+        // One day of tolerance: the client sends its local date, which can be ahead of UTC.
+        if (date > today.AddDays(1))
+        {
+            throw new ValidationException("The date cannot be in the future.");
+        }
+
+        return date;
+    }
+
+    private async Task<Investment> LoadInvestmentAsync(Guid? investmentId, CancellationToken cancellationToken)
+    {
+        if (!investmentId.HasValue)
+        {
+            throw new ValidationException("Select a project.");
+        }
+
+        var investment = await _context.Investments
+            .AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == investmentId.Value, cancellationToken)
+            ?? throw new NotFoundException("Investment not found.");
+
+        if (investment.ProfitPayoutMode == ProfitPayoutMode.OnCompletion)
+        {
+            throw new ValidationException(
+                $"\"{investment.Name}\" is paid at completion only. To distribute its profit periodically, set its profit payout to Monthly or Project-based in the investment form.");
+        }
+
+        if (investment.Status != InvestmentStatus.Active)
+        {
+            throw new ValidationException(
+                $"Profit can only be processed while the project is Active (current status: {investment.Status}).");
+        }
+
+        return investment;
     }
 
     // ---------------------------------------------------------------- mapping
-
-    private static void ApplyPreview(MonthlyProfitDistribution distribution, MonthlyProfitPreviewDto preview)
-    {
-        distribution.Type = ParseType(preview.Type);
-        distribution.Year = preview.Year;
-        distribution.Month = preview.Month;
-        distribution.Rate = preview.Rate;
-        distribution.InvestmentId = preview.InvestmentId;
-        distribution.ProfitDate = preview.ProfitDate;
-        distribution.GrossProfitAmount = preview.GrossProfitAmount;
-        distribution.MaintenancePercentage = preview.MaintenancePercentage;
-        distribution.MaintenanceAmount = preview.MaintenanceAmount;
-        distribution.UndistributedRemainder = preview.UndistributedRemainder;
-        distribution.TotalInvestmentAmount = preview.TotalInvestmentAmount;
-        distribution.TotalProfitAmount = preview.TotalProfitAmount;
-    }
 
     private static MonthlyProfitDistributionLine ToLineEntity(MonthlyProfitLineDto l, Guid distributionId, DateTime now) => new()
     {
@@ -776,12 +627,25 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
         InvestmentName = l.InvestmentName,
         InvestmentAmount = l.InvestmentAmount,
         SharesOwned = l.SharesOwned,
-        Rate = l.Rate,
-        HeldDays = l.HeldDays,
-        DaysInPeriod = l.DaysInPeriod,
         ProfitAmount = l.ProfitAmount,
         Status = MonthlyProfitPaymentStatus.Pending,
         CreatedAt = now
+    };
+
+    private static ProfitLedgerEntryDto ToLedgerEntry(InvestmentInterimProfit p) => new()
+    {
+        Id = p.Id,
+        Date = p.ProfitDate,
+        Description = string.IsNullOrWhiteSpace(p.Remarks) ? "Income" : p.Remarks,
+        Amount = p.Amount
+    };
+
+    private static ProfitLedgerEntryDto ToLedgerEntry(InvestmentProjectCost c) => new()
+    {
+        Id = c.Id,
+        Date = c.CostDate,
+        Description = string.IsNullOrWhiteSpace(c.Remarks) ? c.Title : $"{c.Title} - {c.Remarks}",
+        Amount = c.Amount
     };
 
     private static MonthlyProfitDistributionDto MapSummary(MonthlyProfitDistribution d)
@@ -793,18 +657,19 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
         {
             Id = d.Id,
             Type = d.Type.ToString(),
-            Year = d.Year,
-            Month = d.Month,
-            Rate = d.Rate,
             InvestmentId = d.InvestmentId,
             InvestmentName = d.Investment?.Name ?? projectNames.FirstOrDefault() ?? string.Empty,
-            ProfitDate = d.ProfitDate,
-            GrossProfitAmount = d.GrossProfitAmount,
+            ProjectNames = projectNames,
+            ProjectCount = projectNames.Count,
+            Year = d.Year,
+            Month = d.Month,
+            PeriodEnd = d.PeriodEnd,
+            IncomeAmount = d.IncomeAmount,
+            ExpenseAmount = d.ExpenseAmount,
+            NetProfitAmount = d.NetProfitAmount,
             MaintenancePercentage = d.MaintenancePercentage,
             MaintenanceAmount = d.MaintenanceAmount,
             UndistributedRemainder = d.UndistributedRemainder,
-            ProjectNames = projectNames,
-            ProjectCount = projectNames.Count,
             Notes = d.Notes,
             Status = d.Status.ToString(),
             PaymentStatus = PaymentStatus(d),
@@ -830,8 +695,8 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
         var detail = MapSummary(d);
 
         detail.Lines = d.Lines
-            .OrderBy(l => l.MemberName)
-            .ThenBy(l => l.InvestmentName)
+            .OrderByDescending(l => l.SharesOwned)
+            .ThenBy(l => l.MemberName)
             .Select(l => new MonthlyProfitLineDto
             {
                 Id = l.Id,
@@ -841,9 +706,6 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
                 InvestmentName = l.InvestmentName,
                 InvestmentAmount = l.InvestmentAmount,
                 SharesOwned = l.SharesOwned,
-                Rate = l.Rate,
-                HeldDays = l.HeldDays,
-                DaysInPeriod = l.DaysInPeriod,
                 ProfitAmount = l.ProfitAmount,
                 Status = l.Status.ToString(),
                 WalletEntryId = l.WalletEntryId,
@@ -869,6 +731,9 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
             })
             .ToList();
 
+        detail.IncomeEntries = d.IncomeEntries.OrderBy(p => p.ProfitDate).Select(ToLedgerEntry).ToList();
+        detail.ExpenseEntries = d.ExpenseEntries.OrderBy(c => c.CostDate).Select(ToLedgerEntry).ToList();
+
         return detail;
     }
 
@@ -881,61 +746,34 @@ public class MonthlyProfitDistributionService : IMonthlyProfitDistributionServic
         return "Pending";
     }
 
-    // ---------------------------------------------------------------- validation & helpers
+    // ---------------------------------------------------------------- helpers
 
-    private static ProfitDistributionType ParseType(string? type)
+    private static ProfitDistributionType TypeFor(Investment investment) =>
+        investment.ProfitPayoutMode == ProfitPayoutMode.Monthly
+            ? ProfitDistributionType.Monthly
+            : ProfitDistributionType.ProjectBased;
+
+    private static string PeriodLabel(ProfitDistributionType type, int year, int month, DateTime? periodEnd) =>
+        type == ProfitDistributionType.Monthly || !periodEnd.HasValue
+            ? $"{MonthName(month)} {year}"
+            : $"up to {periodEnd:dd MMM yyyy}";
+
+    private static TEnum? ParseOptionalEnum<TEnum>(string? value, string label) where TEnum : struct, Enum
     {
-        if (string.IsNullOrWhiteSpace(type)) return ProfitDistributionType.Monthly;
+        if (string.IsNullOrWhiteSpace(value)) return null;
 
-        if (Enum.TryParse<ProfitDistributionType>(type, true, out var parsed) && Enum.IsDefined(parsed))
+        if (Enum.TryParse<TEnum>(value, true, out var parsed) && Enum.IsDefined(parsed))
         {
             return parsed;
         }
 
-        throw new ValidationException($"'{type}' is not a valid distribution type. Use Monthly or ProjectBased.");
-    }
-
-    private static int RequireYear(int? year) =>
-        year ?? throw new ValidationException("Select the year.");
-
-    private static int RequireMonth(int? month) =>
-        month ?? throw new ValidationException("Select the month.");
-
-    private static decimal RequireAmount(decimal? amount) =>
-        amount is > 0m ? amount.Value : throw new ValidationException("Profit amount must be greater than zero.");
-
-    private static DateTime ResolveProfitDate(DateTime? profitDate)
-    {
-        var date = DateTime.SpecifyKind((profitDate ?? DateTime.UtcNow).Date, DateTimeKind.Utc);
-
-        // One day of tolerance: the client sends its local date, which can be ahead of UTC.
-        if (date > DateTime.UtcNow.Date.AddDays(1))
-        {
-            throw new ValidationException("Profit date cannot be in the future.");
-        }
-
-        return date;
-    }
-
-    private static void ValidatePeriod(int year, int month)
-    {
-        if (year is < 2000 or > 2100)
-        {
-            throw new ValidationException("Year must be between 2000 and 2100.");
-        }
-
-        if (month is < 1 or > 12)
-        {
-            throw new ValidationException("Month must be between 1 and 12.");
-        }
+        throw new ValidationException($"'{value}' is not a valid {label}.");
     }
 
     private static string? NullIfBlank(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
-
-    private static DateTime Min(DateTime a, DateTime b) => a < b ? a : b;
 
     private static string MonthName(int month)
         => CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(month);
