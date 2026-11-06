@@ -13,13 +13,20 @@ namespace UnityMicroFund.API.Areas.Investments.Controllers;
 [Authorize]
 public class InvestmentsController : ControllerBase
 {
-    private const long MaxFileSize = 10 * 1024 * 1024;
+    private const long MaxFileSize = 5 * 1024 * 1024;
 
-    private static readonly string[] AllowedExtensions = { ".jpg", ".jpeg", ".png", ".pdf" };
+    private static readonly string[] AllowedExtensions =
+    {
+        ".jpg", ".jpeg", ".png", ".pdf", ".xls", ".xlsx", ".doc", ".docx"
+    };
 
     private static readonly string[] AllowedContentTypes =
     {
-        "image/jpeg", "image/jpg", "image/png", "application/pdf"
+        "image/jpeg", "image/jpg", "image/png", "application/pdf",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     };
 
     private readonly IInvestmentService _investmentService;
@@ -274,20 +281,20 @@ public class InvestmentsController : ControllerBase
 
         if (file.Length > MaxFileSize)
         {
-            return BadRequest(new { message = "File size exceeds the 10MB limit" });
+            return BadRequest(new { message = "File size exceeds the 5MB limit" });
         }
 
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (!AllowedExtensions.Contains(extension))
         {
-            return BadRequest(new { message = "Invalid file type. Allowed: jpg, jpeg, png, pdf" });
+            return BadRequest(new { message = "Invalid file type. Allowed: jpg, jpeg, png, pdf, xls, xlsx, doc, docx" });
         }
 
         // Check the declared content type as well as the extension - an extension
         // alone is trivially renamed.
         if (!AllowedContentTypes.Contains(file.ContentType))
         {
-            return BadRequest(new { message = "Invalid file type. Allowed: jpg, jpeg, png, pdf" });
+            return BadRequest(new { message = "Invalid file type. Allowed: jpg, jpeg, png, pdf, xls, xlsx, doc, docx" });
         }
 
         var uploadsFolder = GetDocumentsPath();

@@ -425,6 +425,12 @@ public class VersioningService : IVersioningService
                 Improvement("Account is shown and required for bKash, Rocket, Nagad, Cash and Other, not only bank receipts"),
                 Fix("Choosing a receipt type in the form now matches the OCR receipt type selection"),
                 Fix("Creating a transaction could show an error even though it was saved")
+            ]),
+        new("1.11.4", new DateTime(2026, 11, 6), "More supporting document types",
+            "Investment supporting documents accept Excel and Word files, with a smaller size limit.",
+            [
+                Feature("Supporting documents can now be Excel (.xls, .xlsx) or Word (.doc, .docx)"),
+                Improvement("Supporting document size limit reduced from 10MB to 5MB")
             ])
     ];
 }

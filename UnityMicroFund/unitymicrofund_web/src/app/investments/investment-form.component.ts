@@ -402,9 +402,9 @@ function partnerNomineeNidValidator(group: AbstractControl): ValidationErrors | 
               <input
                 type="file"
                 multiple
-                accept=".jpg,.jpeg,.png,.pdf"
+                accept=".jpg,.jpeg,.png,.pdf,.xls,.xlsx,.doc,.docx"
                 (change)="onFilesSelected($event)" />
-              <span class="field-hint">JPG, PNG or PDF, up to 10MB each.</span>
+              <span class="field-hint">JPG, PNG, PDF, Excel or Word, up to 5MB each.</span>
 
               <ul class="file-list" *ngIf="pendingFiles.length > 0">
                 <li *ngFor="let f of pendingFiles; let i = index">
@@ -664,10 +664,10 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     if (!input.files) return;
 
-    const maxBytes = 10 * 1024 * 1024;
+    const maxBytes = 5 * 1024 * 1024;
     for (const file of Array.from(input.files)) {
       if (file.size > maxBytes) {
-        this.toast.error(`"${file.name}" exceeds the 10MB limit.`);
+        this.toast.error(`"${file.name}" exceeds the 5MB limit.`);
         continue;
       }
       this.pendingFiles.push(file);
