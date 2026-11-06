@@ -180,8 +180,13 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
                     <td class="right cost-amt">− {{ c.amount | bdtCurrency }}</td>
                     <td>{{ c.remarks || '—' }}</td>
                     <td class="right" *ngIf="canEditCosts">
-                      <button class="btn-link" [disabled]="isWorking" (click)="startEditCost(c)">Edit</button>
-                      <button class="btn-link danger" [disabled]="isWorking" (click)="removeCost(c)">Remove</button>
+                      <ng-container *ngIf="!c.profitDistributionId; else costDistributed">
+                        <button class="btn-link" [disabled]="isWorking" (click)="startEditCost(c)">Edit</button>
+                        <button class="btn-link danger" [disabled]="isWorking" (click)="removeCost(c)">Remove</button>
+                      </ng-container>
+                      <ng-template #costDistributed>
+                        <span class="pill paid" title="Deducted in a profit distribution; locked">Distributed</span>
+                      </ng-template>
                     </td>
                   </tr>
                 </tbody>
@@ -213,7 +218,11 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
                 <label>Remarks</label>
                 <input type="text" maxlength="500" [(ngModel)]="interimRemarks" name="iprem" placeholder="Optional note" />
               </div>
-              <p class="hint">Interim profits are accrued and included in the final settlement. They are not paid out until distribution.</p>
+              <p class="hint" *ngIf="isPeriodicPayout">
+                Recorded income, minus recorded expenses, is paid to shareholders when you process it on the
+                Profit Distribution page. Entries that have been distributed are locked.
+              </p>
+              <p class="hint" *ngIf="!isPeriodicPayout">Interim profits are accrued and included in the final settlement. They are not paid out until distribution.</p>
 
               <table class="data-table" *ngIf="interimProfits.length > 0">
                 <thead>
@@ -224,8 +233,9 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
                     <td>{{ p.profitDate | date: 'mediumDate' }}</td>
                     <td class="right num profit">{{ p.amount | bdtCurrency }}</td>
                     <td>{{ p.remarks || '—' }}</td>
-                    <td>
-                      <button class="btn-link" [disabled]="isWorking" (click)="removeInterimProfit(p.id)">Remove</button>
+                    <td class="right">
+                      <button class="btn-link" *ngIf="!p.profitDistributionId" [disabled]="isWorking" (click)="removeInterimProfit(p.id)">Remove</button>
+                      <span class="pill paid" *ngIf="p.profitDistributionId" title="Paid out in a profit distribution; locked">Distributed</span>
                     </td>
                   </tr>
                 </tbody>
@@ -262,8 +272,8 @@ import { ConfirmationService } from '../shared/confirmation/confirmation.service
               <h5>Distribute Profit</h5>
               <div class="calc">
                 <div><span class="k">Gross received</span><span class="v">{{ investment.actualGrossProfit || 0 | bdtCurrency }}</span></div>
-                <div *ngIf="investment.interimProfitTotal"><span class="k">Accrued interim profit</span><span class="v">{{ investment.interimProfitTotal | bdtCurrency }}</span></div>
-                <div *ngIf="projectCostTotal"><span class="k">Total project costs</span><span class="v minus">− {{ projectCostTotal | bdtCurrency }}</span></div>
+                <div *ngIf="pendingInterimProfitTotal"><span class="k">Undistributed interim profit</span><span class="v">{{ pendingInterimProfitTotal | bdtCurrency }}</span></div>
+                <div *ngIf="pendingProjectCostTotal"><span class="k">Undistributed project costs</span><span class="v minus">− {{ pendingProjectCostTotal | bdtCurrency }}</span></div>
                 <div *ngIf="valueAfterCosts() !== 0"><span class="k">Value after costs</span><span class="v">{{ valueAfterCosts() | bdtCurrency }}</span></div>
                 <div><span class="k">Principal invested</span><span class="v">{{ principalTotal() | bdtCurrency }}</span></div>
 
@@ -521,9 +531,24 @@ export class InvestmentManageComponent implements OnInit, OnDestroy {
     return this.projectCosts.reduce((sum, c) => sum + c.amount, 0);
   }
 
-  /** Gross received + accrued interim profit − project costs. */
+  /** True for projects whose income/expenses are paid out from the Profit Distribution page. */
+  get isPeriodicPayout(): boolean {
+    return this.investment.profitPayoutMode === 'Monthly' || this.investment.profitPayoutMode === 'ProjectBased';
+  }
+
+  /** Income not yet paid out by a periodic profit distribution (the settlement only counts these). */
+  get pendingInterimProfitTotal(): number {
+    return this.interimProfits.filter(p => !p.profitDistributionId).reduce((sum, p) => sum + p.amount, 0);
+  }
+
+  /** Expenses not yet deducted by a periodic profit distribution. */
+  get pendingProjectCostTotal(): number {
+    return this.projectCosts.filter(c => !c.profitDistributionId).reduce((sum, c) => sum + c.amount, 0);
+  }
+
+  /** Gross received + undistributed interim profit − undistributed project costs, as the server settles it. */
   valueAfterCosts(): number {
-    return (this.investment.actualGrossProfit ?? 0) + this.interimProfitTotal - this.projectCostTotal;
+    return (this.investment.actualGrossProfit ?? 0) + this.pendingInterimProfitTotal - this.pendingProjectCostTotal;
   }
 
   /** Total capital collected from investors, used to derive profit. */

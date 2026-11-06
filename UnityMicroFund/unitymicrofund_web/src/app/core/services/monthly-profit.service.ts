@@ -2,12 +2,14 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+/** Monthly: one calendar month. ProjectBased: everything recorded up to a chosen date. */
 export type ProfitDistributionType = 'Monthly' | 'ProjectBased';
-export type MonthlyDistributionStatus = 'Draft' | 'Distributed' | 'Paid';
-export type MonthlyPaymentStatus = 'NotDistributed' | 'Pending' | 'PartiallyPaid' | 'Paid';
-export type MonthlyLineStatus = 'Pending' | 'Paid';
+/** Draft exists only on distributions created before profit was processed from project books. */
+export type ProfitDistributionStatus = 'Draft' | 'Distributed' | 'Paid';
+export type ProfitPaymentStatus = 'NotDistributed' | 'Pending' | 'PartiallyPaid' | 'Paid';
+export type ProfitLineStatus = 'Pending' | 'Paid';
 
-export interface MonthlyProfitLine {
+export interface ProfitLine {
   id: string;
   memberId: string;
   memberName: string;
@@ -16,45 +18,52 @@ export interface MonthlyProfitLine {
   investmentAmount: number;
   sharesOwned: number;
   ownershipPercentage?: number | null;
-  rate: number;
-  /** Monthly: days held in the month (amount-weighted); equals daysInPeriod for a full month. */
-  heldDays?: number | null;
-  daysInPeriod?: number | null;
   profitAmount: number;
-  status: MonthlyLineStatus;
+  status: ProfitLineStatus;
   walletEntryId?: string | null;
   paidAt?: string | null;
   paidBy?: string | null;
 }
 
-export interface MonthlyProfitPreview {
+/** An income or expense entry recorded on the project. */
+export interface ProfitLedgerEntry {
+  id: string;
+  date: string;
+  description: string;
+  amount: number;
+}
+
+export interface ProfitPreview {
   type: ProfitDistributionType;
+  investmentId: string;
+  investmentName: string;
   year: number;
   month: number;
-  rate?: number | null;
-  periodStart: string;
   periodEnd: string;
-  daysInPeriod?: number | null;
-  investmentId?: string | null;
-  investmentName?: string | null;
-  profitDate?: string | null;
-  grossProfitAmount?: number | null;
-  maintenancePercentage?: number | null;
-  maintenanceAmount?: number | null;
-  investorProfitPool?: number | null;
-  undistributedRemainder?: number | null;
-  totalShares?: number | null;
-  soldShares?: number | null;
+  incomeAmount: number;
+  expenseAmount: number;
+  netProfitAmount: number;
+  maintenancePercentage: number;
+  maintenanceAmount: number;
+  investorProfitPool: number;
+  undistributedRemainder: number;
+  totalShares: number;
+  soldShares: number;
   maintenanceAccountConfigured: boolean;
   totalInvestmentAmount: number;
   totalProfitAmount: number;
   eligibleMemberCount: number;
   lineCount: number;
-  lines: MonthlyProfitLine[];
+  /** False when there is nothing to distribute; `message` says why. */
+  canProcess: boolean;
+  message?: string | null;
+  incomeEntries: ProfitLedgerEntry[];
+  expenseEntries: ProfitLedgerEntry[];
+  lines: ProfitLine[];
   warnings: string[];
 }
 
-export interface MonthlyProfitTransaction {
+export interface ProfitTransaction {
   lineId: string;
   walletEntryId: string;
   memberId: string;
@@ -66,24 +75,25 @@ export interface MonthlyProfitTransaction {
   paidBy?: string | null;
 }
 
-export interface MonthlyProfitDistributionSummary {
+export interface ProfitDistributionSummary {
   id: string;
   type: ProfitDistributionType;
-  year: number;
-  month: number;
-  rate?: number | null;
   investmentId?: string | null;
   investmentName: string;
-  profitDate?: string | null;
-  grossProfitAmount?: number | null;
+  projectNames: string[];
+  projectCount: number;
+  year: number;
+  month: number;
+  periodEnd?: string | null;
+  incomeAmount: number;
+  expenseAmount: number;
+  netProfitAmount?: number | null;
   maintenancePercentage?: number | null;
   maintenanceAmount?: number | null;
   undistributedRemainder?: number | null;
-  projectNames: string[];
-  projectCount: number;
   notes?: string | null;
-  status: MonthlyDistributionStatus;
-  paymentStatus: MonthlyPaymentStatus;
+  status: ProfitDistributionStatus;
+  paymentStatus: ProfitPaymentStatus;
   totalInvestmentAmount: number;
   totalProfitAmount: number;
   totalPaidAmount: number;
@@ -100,55 +110,42 @@ export interface MonthlyProfitDistributionSummary {
   updatedAt: string;
 }
 
-export interface MonthlyProfitDistribution extends MonthlyProfitDistributionSummary {
-  lines: MonthlyProfitLine[];
-  transactions: MonthlyProfitTransaction[];
+export interface ProfitDistribution extends ProfitDistributionSummary {
+  lines: ProfitLine[];
+  transactions: ProfitTransaction[];
+  incomeEntries: ProfitLedgerEntry[];
+  expenseEntries: ProfitLedgerEntry[];
 }
 
-/** A project set up for periodic profit (monthly % or project-based amount). */
+/** A project on a periodic payout. */
 export interface ProfitEligibleProject {
   id: string;
   name: string;
   status: string;
-  profitPayoutMode: 'Monthly' | 'ProjectBased';
-  monthlyProfitRate?: number | null;
+  profitPayoutMode: ProfitDistributionType;
   totalShares?: number | null;
   soldShares: number;
   totalInvested: number;
   maintenancePercentage: number;
   maintenanceAccountConfigured: boolean;
   dateInvested: string;
-  maturityDate?: string | null;
   canDistribute: boolean;
-  /** Monthly: the period a new batch should default to (next unpaid month, never in the future). */
+  /** Income and expenses recorded but not yet distributed. */
+  pendingIncome: number;
+  pendingExpense: number;
+  /** Monthly: the month a new distribution should default to. */
   nextYear?: number | null;
   nextMonth?: number | null;
   lastDistributionLabel?: string | null;
   totalDistributed: number;
 }
 
-/** Every batch belongs to one project. */
-export interface CalculateProfitRequest {
-  type: ProfitDistributionType;
+/** Monthly projects use year + month; project-based projects use periodEnd ("up to"). */
+export interface ProcessProfitRequest {
   investmentId: string;
-  /** Monthly */
   year?: number;
   month?: number;
-  /** Monthly: omit to use the project's default monthly rate. */
-  rate?: number | null;
-  /** ProjectBased */
-  profitAmount?: number;
-  profitDate?: string;
-}
-
-export interface CreateProfitDistributionRequest extends CalculateProfitRequest {
-  notes?: string | null;
-}
-
-export interface UpdateProfitDistributionRequest {
-  rate?: number | null;
-  profitAmount?: number | null;
-  profitDate?: string | null;
+  periodEnd?: string;
   notes?: string | null;
 }
 
@@ -160,8 +157,8 @@ export class MonthlyProfitService {
 
   constructor(private http: HttpClient) {}
 
-  preview(request: CalculateProfitRequest): Observable<MonthlyProfitPreview> {
-    return this.http.post<MonthlyProfitPreview>(`${this.apiUrl}/preview`, request);
+  preview(request: ProcessProfitRequest): Observable<ProfitPreview> {
+    return this.http.post<ProfitPreview>(`${this.apiUrl}/preview`, request);
   }
 
   getEligibleProjects(): Observable<ProfitEligibleProject[]> {
@@ -172,37 +169,30 @@ export class MonthlyProfitService {
     year?: number | null,
     status?: string | null,
     type?: string | null,
-  ): Observable<MonthlyProfitDistributionSummary[]> {
+  ): Observable<ProfitDistributionSummary[]> {
     let params = new HttpParams();
     if (year) params = params.set('year', year);
     if (status) params = params.set('status', status);
     if (type) params = params.set('type', type);
-    return this.http.get<MonthlyProfitDistributionSummary[]>(this.apiUrl, { params });
+    return this.http.get<ProfitDistributionSummary[]>(this.apiUrl, { params });
   }
 
-  getById(id: string): Observable<MonthlyProfitDistribution> {
-    return this.http.get<MonthlyProfitDistribution>(`${this.apiUrl}/${id}`);
+  getById(id: string): Observable<ProfitDistribution> {
+    return this.http.get<ProfitDistribution>(`${this.apiUrl}/${id}`);
   }
 
-  create(request: CreateProfitDistributionRequest): Observable<MonthlyProfitDistribution> {
-    return this.http.post<MonthlyProfitDistribution>(this.apiUrl, request);
+  /** Locks the period's income/expenses, posts maintenance and creates the investor lines. */
+  process(request: ProcessProfitRequest): Observable<ProfitDistribution> {
+    return this.http.post<ProfitDistribution>(this.apiUrl, request);
   }
 
-  update(id: string, request: UpdateProfitDistributionRequest): Observable<MonthlyProfitDistribution> {
-    return this.http.put<MonthlyProfitDistribution>(`${this.apiUrl}/${id}`, request);
-  }
-
-  delete(id: string): Observable<void> {
+  /** Undoes a processed distribution that has no disbursements yet. */
+  cancel(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
 
-  distribute(id: string): Observable<MonthlyProfitDistribution> {
-    return this.http.post<MonthlyProfitDistribution>(`${this.apiUrl}/${id}/distribute`, {});
-  }
-
-  pay(id: string, lineId?: string | null): Observable<MonthlyProfitDistribution> {
-    return this.http.post<MonthlyProfitDistribution>(`${this.apiUrl}/${id}/pay`, {
-      lineId: lineId ?? null,
-    });
+  /** Credits one investor (lineId) or every pending investor. */
+  disburse(id: string, lineId?: string | null): Observable<ProfitDistribution> {
+    return this.http.post<ProfitDistribution>(`${this.apiUrl}/${id}/pay`, { lineId: lineId ?? null });
   }
 }

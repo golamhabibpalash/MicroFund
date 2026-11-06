@@ -1251,9 +1251,9 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
   payoutLabel(investment: Investment): string {
     switch (investment.profitPayoutMode) {
       case 'Monthly':
-        return `Monthly · ${investment.monthlyProfitRate ?? 0}% / month`;
+        return 'Monthly (income − expenses)';
       case 'ProjectBased':
-        return 'Project-based (on profit entry)';
+        return 'Project-based (income − expenses)';
       default:
         return 'At completion';
     }

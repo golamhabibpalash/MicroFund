@@ -194,12 +194,6 @@ function partnerNomineeNidValidator(group: AbstractControl): ValidationErrors | 
                 </select>
                 <span class="field-hint">{{ payoutModeHint }}</span>
               </div>
-              <div class="form-group" *ngIf="form.get('profitPayoutMode')?.value === 'Monthly'">
-                <label>Monthly Profit Rate (%) *</label>
-                <input type="number" formControlName="monthlyProfitRate" min="0.01" max="100" step="0.01" placeholder="e.g. 1.5" />
-                <span class="field-error" *ngIf="showError('monthlyProfitRate')">Required for monthly payout: greater than 0, at most 100.</span>
-                <span class="field-hint" *ngIf="!showError('monthlyProfitRate')">% of each holding paid every month. Can be adjusted per month when running a batch.</span>
-              </div>
             </div>
             <div class="form-row">
               <div class="form-group">
@@ -755,7 +749,6 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
         maintenancePercentage: [null as number | null, [Validators.min(0), Validators.max(100)]],
         maintenanceAccountId: [null as string | null],
         profitPayoutMode: ['OnCompletion' as ProfitPayoutMode],
-        monthlyProfitRate: [null as number | null],
         targetGrossProfit: [null as number | null, Validators.min(0)],
         dateInvested: ['', Validators.required],
         maturityDate: [''],
@@ -771,17 +764,6 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
       },
       { validators: [maturityAfterStartValidator, participantsDistinctValidator] },
     );
-
-    // The monthly rate is only meaningful (and then required) for the Monthly payout.
-    const rate = this.form.get('monthlyProfitRate')!;
-    this.form.get('profitPayoutMode')!.valueChanges
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((mode: ProfitPayoutMode) => {
-        rate.setValidators(mode === 'Monthly'
-          ? [Validators.required, Validators.min(0.000001), Validators.max(100)]
-          : null);
-        rate.updateValueAndValidity({ emitEvent: false });
-      });
   }
 
   private createPartnerGroup(): FormGroup {
@@ -819,7 +801,6 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
       maintenancePercentage: investment.maintenancePercentage ?? null,
       maintenanceAccountId: investment.maintenanceAccountId ?? null,
       profitPayoutMode: investment.profitPayoutMode ?? 'OnCompletion',
-      monthlyProfitRate: investment.monthlyProfitRate ?? null,
       targetGrossProfit: investment.targetGrossProfit ?? null,
       dateInvested: this.toDateInput(investment.dateInvested),
       maturityDate: this.toDateInput(investment.maturityDate),
@@ -876,7 +857,6 @@ export class InvestmentFormComponent implements OnInit, OnDestroy {
       maintenancePercentage: v.maintenancePercentage != null ? Number(v.maintenancePercentage) : null,
       maintenanceAccountId: v.maintenanceAccountId ?? null,
       profitPayoutMode: v.profitPayoutMode ?? 'OnCompletion',
-      monthlyProfitRate: v.profitPayoutMode === 'Monthly' && v.monthlyProfitRate != null ? Number(v.monthlyProfitRate) : null,
       targetGrossProfit: v.targetGrossProfit ? Number(v.targetGrossProfit) : null,
       // date inputs give a bare yyyy-MM-dd; send it as a UTC instant so the day
       // does not shift when the API echoes it back.

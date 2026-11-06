@@ -236,7 +236,6 @@ export interface Investment {
   maintenanceAmount?: number | null;
   maintenanceAccountId?: string | null;
   profitPayoutMode?: ProfitPayoutMode;
-  monthlyProfitRate?: number | null;
   netProfit?: number | null;
   undistributedRemainder?: number | null;
   totalInvested?: number;
@@ -288,6 +287,8 @@ export interface InvestmentProjectCost {
   createdBy?: string | null;
   createdAt: string;
   updatedAt?: string | null;
+  /** Set once a profit distribution has deducted this expense; it is then locked. */
+  profitDistributionId?: string | null;
 }
 
 export interface InterimProfit {
@@ -298,6 +299,8 @@ export interface InterimProfit {
   remarks?: string | null;
   createdBy?: string | null;
   createdAt: string;
+  /** Set once a profit distribution has paid this income out; it is then locked. */
+  profitDistributionId?: string | null;
 }
 
 /** How a project's profit reaches shareholders (see the Profit Distribution page). */
@@ -311,13 +314,13 @@ export const PROFIT_PAYOUT_MODES: { value: ProfitPayoutMode; label: string; hint
   },
   {
     value: 'Monthly',
-    label: 'Monthly % payout',
-    hint: 'Shareholders earn a fixed % of their holding every month, paid in monthly batches.',
+    label: 'Monthly payout',
+    hint: "Each month, the project's recorded income minus expenses is distributed to shareholders by shares.",
   },
   {
     value: 'ProjectBased',
-    label: 'Project-based (enter profit amount)',
-    hint: 'No fixed timeline: enter realised profit whenever it arrives; it is split by shares after maintenance.',
+    label: 'Project-based (any time)',
+    hint: "No fixed timeline: the project's recorded income minus expenses is distributed whenever you process it.",
   },
 ];
 
@@ -336,7 +339,6 @@ export interface CreateInvestmentRequest {
   maintenancePercentage?: number | null;
   maintenanceAccountId?: string | null;
   profitPayoutMode?: ProfitPayoutMode;
-  monthlyProfitRate?: number | null;
   targetGrossProfit?: number | null;
   dateInvested: string;
   maturityDate?: string | null;
