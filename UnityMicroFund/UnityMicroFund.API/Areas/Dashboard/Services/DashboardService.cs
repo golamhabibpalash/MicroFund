@@ -25,15 +25,24 @@ public class DashboardService : IDashboardService
 
         var totalMembers = await _context.Members.CountAsync(m => m.IsActive);
 
-        var currentMonth = DateTime.UtcNow.ToString("MMMM");
-        var currentYear = DateTime.UtcNow.Year;
+        // Member contributions are recorded as Fund transactions (the legacy contributions
+        // table is no longer written to). A payment counts in the month it was made, once approved.
+        var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var monthEnd = monthStart.AddMonths(1);
+        var approvedFundsThisMonth = _context.Transactions
+            .AsNoTracking()
+            .Where(t => t.Status == TransactionStatus.Fund
+                        && t.ApprovalStatus == TransactionApprovalStatus.Approved
+                        && (t.TransactionDate ?? t.CreatedAt) >= monthStart
+                        && (t.TransactionDate ?? t.CreatedAt) < monthEnd);
 
-        var monthlyTotal = await _context.Contributions
-            .Where(c => c.Month == currentMonth && c.Year == currentYear)
-            .SumAsync(c => c.Amount);
-
-        var contributionsThisMonth = await _context.Contributions
-            .Where(c => c.Month == currentMonth && c.Year == currentYear)
+        var monthlyTotal = await approvedFundsThisMonth.SumAsync(t => t.Amount);
+        var contributionsThisMonth = await approvedFundsThisMonth.CountAsync();
+        var contributorsThisMonth = await _context.MemberTransactionMaps
+            .AsNoTracking()
+            .Where(m => approvedFundsThisMonth.Any(t => t.Id == m.TransactionId))
+            .Select(m => m.MemberId)
+            .Distinct()
             .CountAsync();
 
         var investments = await _context.Investments
@@ -49,10 +58,14 @@ public class DashboardService : IDashboardService
         var totalReturns = totalCurrentValue - totalPrincipal;
         var returnPercentage = totalPrincipal > 0 ? (totalReturns / totalPrincipal) * 100 : 0;
 
-        var pendingContributions = await _context.Contributions
-            .CountAsync(c => c.Status == ContributionStatus.Pending || c.Status == ContributionStatus.Overdue);
+        var pendingContributions = await _context.Transactions
+            .CountAsync(t => t.Status == TransactionStatus.Fund
+                             && t.ApprovalStatus == TransactionApprovalStatus.Pending);
 
-        var averageContribution = totalMembers > 0 ? monthlyTotal / totalMembers : 0;
+        // Average per investor who actually contributed this month (falls back to per payment
+        // for transactions without a member mapping).
+        var contributorBase = contributorsThisMonth > 0 ? contributorsThisMonth : contributionsThisMonth;
+        var averageContribution = contributorBase > 0 ? Math.Round(monthlyTotal / contributorBase, 2) : 0;
 
         // === Recent Activities (from multiple business sources) ===
         const int recentActivityCount = 10;
@@ -236,14 +249,17 @@ public class DashboardService : IDashboardService
         var monthlyTrend = new MonthlyTrendDto();
         for (int i = 5; i >= 0; i--)
         {
-            var date = DateTime.UtcNow.AddMonths(-i);
-            var monthName = date.ToString("MMM");
-            var year = date.Year;
+            var from = monthStart.AddMonths(-i);
+            var to = from.AddMonths(1);
 
-            monthlyTrend.Labels.Add(monthName);
-            monthlyTrend.Contributions.Add(await _context.Contributions
-                .Where(c => c.Month == date.ToString("MMMM") && c.Year == year && c.Status == ContributionStatus.Paid)
-                .SumAsync(c => c.Amount));
+            monthlyTrend.Labels.Add(from.ToString("MMM"));
+            monthlyTrend.Contributions.Add(await _context.Transactions
+                .AsNoTracking()
+                .Where(t => t.Status == TransactionStatus.Fund
+                            && t.ApprovalStatus == TransactionApprovalStatus.Approved
+                            && (t.TransactionDate ?? t.CreatedAt) >= from
+                            && (t.TransactionDate ?? t.CreatedAt) < to)
+                .SumAsync(t => t.Amount));
         }
 
         return new DashboardStatsDto

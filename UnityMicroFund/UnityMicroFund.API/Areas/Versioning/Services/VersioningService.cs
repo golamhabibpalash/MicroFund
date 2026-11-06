@@ -412,6 +412,12 @@ public class VersioningService : IVersioningService
                 Improvement("Completed, distributed, closed and cancelled projects can no longer be edited"),
                 Improvement("Projects with settled profit can no longer be deleted"),
                 Improvement("Project status changes only through Shares & lifecycle, not the edit form")
+            ]),
+        new("1.11.2", new DateTime(2026, 11, 6), "Dashboard contribution figures",
+            "Dashboard contribution figures now come from approved member payments.",
+            [
+                Fix("Monthly Contribution showed zero; it now totals this month's approved payments"),
+                Fix("Contribution count, average, pending reviews and the 6-month trend use the same payments")
             ])
     ];
 }

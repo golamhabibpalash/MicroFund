@@ -139,7 +139,7 @@ interface MonthlyTrend {
               <div class="stat-content">
                 <span class="stat-label">Monthly Contribution</span>
                 <span class="stat-value">{{ stats.monthlyContributionTotal | bdtCurrency }}</span>
-                <div class="stat-detail">Avg: {{ stats.averageContribution | bdtCurrency }} per investor</div>
+                <div class="stat-detail">Avg: {{ stats.averageContribution | bdtCurrency }} per contributing investor</div>
               </div>
             </div>
 
