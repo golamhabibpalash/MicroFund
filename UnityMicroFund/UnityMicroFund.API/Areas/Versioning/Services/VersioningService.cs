@@ -418,6 +418,13 @@ public class VersioningService : IVersioningService
             [
                 Fix("Monthly Contribution showed zero; it now totals this month's approved payments"),
                 Fix("Contribution count, average, pending reviews and the 6-month trend use the same payments")
+            ]),
+        new("1.11.3", new DateTime(2026, 11, 6), "Account required on every transaction",
+            "Every new transaction now records the account it was paid into, whatever the receipt type.",
+            [
+                Improvement("Account is shown and required for bKash, Rocket, Nagad, Cash and Other, not only bank receipts"),
+                Fix("Choosing a receipt type in the form now matches the OCR receipt type selection"),
+                Fix("Creating a transaction could show an error even though it was saved")
             ])
     ];
 }

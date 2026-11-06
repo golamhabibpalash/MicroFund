@@ -370,7 +370,8 @@ interface Member {
             <div class="form-row">
               <div class="form-group">
                 <label for="receiptTypeField">Receipt Type</label>
-                <select id="receiptTypeField" [(ngModel)]="newTransaction.receiptType" name="receiptType">
+                <select id="receiptTypeField" [(ngModel)]="newTransaction.receiptType" name="receiptType"
+                        (ngModelChange)="selectReceiptType($event)">
                   <option value="">Select Receipt Type</option>
                   <option *ngFor="let type of receiptTypes" [value]="type.id">
                     {{ type.name }}
@@ -407,7 +408,7 @@ interface Member {
               </div>
             </div>
             <div class="form-row">
-              <div class="form-group" *ngIf="selectedReceiptType === 'DBBL' || selectedReceiptType === 'UCB' || selectedReceiptType === 'EBL' || selectedReceiptType === 'PBL'">
+              <div class="form-group">
                 <label for="accountId">Account *</label>
                 <select id="accountId" [(ngModel)]="newTransaction.accountId" name="accountId" required>
                   <option value="">Select Account</option>
@@ -2171,15 +2172,21 @@ export class PaymentsComponent implements OnInit, OnDestroy {
   openTransactionModal() {
     this.showModal = true;
     this.resetForm();
+    // Every receipt type needs an account; start from the organisation's primary funding
+    // account so the usual case needs no extra step (it can still be changed).
+    this.newTransaction.accountId = this.defaultAccountId();
     if (!this.isAdmin) {
-      const accountId = this.primaryFundingAccountId || (this.accounts[0]?.id ?? '');
-      this.newTransaction.accountId = accountId;
       if (!this.loggedInMemberId) {
         this.loadCurrentUserMember();
       } else {
         this.newTransaction.memberId = this.loggedInMemberId;
       }
     }
+  }
+
+  private defaultAccountId(): string {
+    const primary = this.accounts.find(a => a.id === this.primaryFundingAccountId);
+    return primary?.id ?? (this.isAdmin ? '' : (this.accounts[0]?.id ?? ''));
   }
 
   closeModal() {
@@ -2315,9 +2322,7 @@ export class PaymentsComponent implements OnInit, OnDestroy {
     if (!t.transferTo) { this.toastService.warning('Please enter Transfer To'); return; }
     if (!t.amount || t.amount <= 0) { this.toastService.warning('Please enter a valid Amount greater than 0'); return; }
 
-    const receiptType = this.selectedReceiptType;
-    const requiresAccount = receiptType === 'DBBL' || receiptType === 'UCB' || receiptType === 'EBL' || receiptType === 'PBL';
-    if (requiresAccount && !t.accountId) { this.toastService.warning('Please select an Account'); return; }
+    if (!t.accountId) { this.toastService.warning('Please select an Account'); return; }
 
     const transactionData: CreateTransactionRequest = {
       ...this.newTransaction,
@@ -2401,9 +2406,7 @@ export class PaymentsComponent implements OnInit, OnDestroy {
     if (!t.transferTo) { this.toastService.warning('Please enter Transfer To'); return; }
     if (!t.amount || t.amount <= 0) { this.toastService.warning('Please enter a valid Amount greater than 0'); return; }
 
-    const receiptType = this.selectedReceiptType;
-    const requiresAccount = receiptType === 'DBBL' || receiptType === 'UCB' || receiptType === 'EBL' || receiptType === 'PBL';
-    if (requiresAccount && !t.accountId) { this.toastService.warning('Please select an Account'); return; }
+    if (!t.accountId) { this.toastService.warning('Please select an Account'); return; }
 
     const updateData = {
       transferTo: t.transferTo,

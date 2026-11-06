@@ -269,6 +269,14 @@ public class TransactionService : ITransactionService
         return transaction == null ? null : MapToDto(transaction);
     }
 
+    private async Task EnsureActiveAccountAsync(Guid accountId)
+    {
+        if (!await _context.Accounts.AnyAsync(a => a.Id == accountId && a.IsActive))
+        {
+            throw new ArgumentException("Invalid or inactive account");
+        }
+    }
+
     public async Task<TransactionResponseDto> CreateTransactionAsync(CreateTransactionDto dto, Guid userId)
     {
         if (!Enum.TryParse<TransactionStatus>(dto.Status, true, out var status))
@@ -276,20 +284,14 @@ public class TransactionService : ITransactionService
             throw new ArgumentException("Invalid transaction status. Must be 'Fund' or 'Refund'");
         }
 
-        var requiresAccount = dto.ReceiptType is "DBBL" or "UCB" or "EBL" or "PBL";
-        if (requiresAccount && !dto.AccountId.HasValue)
+        // Every transaction lands in an account (bank, mobile wallet or cash alike);
+        // without one the money cannot be reconciled in the accounts ledger.
+        if (!dto.AccountId.HasValue)
         {
-            throw new ArgumentException("Account is required for bank transactions");
+            throw new ArgumentException("Account is required");
         }
 
-        if (dto.AccountId.HasValue)
-        {
-            var accountExists = await _context.Accounts.AnyAsync(a => a.Id == dto.AccountId.Value && a.IsActive);
-            if (!accountExists)
-            {
-                throw new ArgumentException("Invalid or inactive account");
-            }
-        }
+        await EnsureActiveAccountAsync(dto.AccountId.Value);
 
         var user = await _context.Users.FindAsync(userId);
         if (user == null)
@@ -363,7 +365,9 @@ public class TransactionService : ITransactionService
                 relatedMemberId: dto.MemberId
             );
 
-            _ = _emailService.SendTransactionCreatedEmailAsync(
+            // Awaited: the email service logs through this request's DbContext, and an
+            // un-awaited send races the next query ("a second operation was started...").
+            await _emailService.SendTransactionCreatedEmailAsync(
                 admin.Email,
                 admin.Name,
                 targetMember?.Name ?? "Unknown",
@@ -427,7 +431,15 @@ public class TransactionService : ITransactionService
             tx!.Status = status;
         }
         if (dto.Remarks != null) tx!.Remarks = dto.Remarks;
-        if (dto.AccountId.HasValue) tx!.AccountId = dto.AccountId.Value;
+        if (dto.AccountId.HasValue && dto.AccountId != tx!.AccountId)
+        {
+            await EnsureActiveAccountAsync(dto.AccountId.Value);
+            tx.AccountId = dto.AccountId.Value;
+        }
+        if (!tx!.AccountId.HasValue)
+        {
+            throw new ArgumentException("Account is required");
+        }
         if (!string.IsNullOrWhiteSpace(dto.ReceiptType)) tx!.ReceiptType = dto.ReceiptType;
         if (!string.IsNullOrWhiteSpace(dto.TransferFrom)) tx!.TransferFrom = dto.TransferFrom;
         if (!string.IsNullOrWhiteSpace(dto.TransactionDate) && DateTime.TryParse(dto.TransactionDate, out var parsedDate))
