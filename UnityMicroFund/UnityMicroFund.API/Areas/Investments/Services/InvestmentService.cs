@@ -25,6 +25,29 @@ public class InvestmentService : IInvestmentService
     private static decimal? DeriveSharePrice(decimal principalAmount, int? totalShares)
         => totalShares is > 0 ? Math.Round(principalAmount / totalShares.Value, 2, MidpointRounding.AwayFromZero) : null;
 
+    private static void GuardNotLocked(InvestmentStatus status)
+    {
+        if (InvestmentRecordLock.IsLocked(status))
+        {
+            throw new ValidationException(
+                $"This project is {InvestmentRecordLock.Describe(status)} and can no longer be changed.");
+        }
+    }
+
+    private async Task GuardNotLockedAsync(Guid investmentId, CancellationToken cancellationToken)
+    {
+        var status = await _context.Investments
+            .AsNoTracking()
+            .Where(i => i.Id == investmentId)
+            .Select(i => (InvestmentStatus?)i.Status)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (status.HasValue)
+        {
+            GuardNotLocked(status.Value);
+        }
+    }
+
     public async Task<IEnumerable<InvestmentResponseDto>> GetInvestmentsAsync(
         InvestmentType? type = null,
         CancellationToken cancellationToken = default)
@@ -212,6 +235,8 @@ public class InvestmentService : IInvestmentService
 
         if (investment == null) return null;
 
+        GuardNotLocked(investment.Status);
+
         if (!string.IsNullOrWhiteSpace(dto.Name))
             investment.Name = dto.Name;
         if (dto.Description != null)
@@ -245,8 +270,13 @@ public class InvestmentService : IInvestmentService
             investment.DateInvested = dto.DateInvested.Value;
         if (dto.MaturityDate.HasValue)
             investment.MaturityDate = dto.MaturityDate.Value;
-        if (!string.IsNullOrWhiteSpace(dto.Status))
-            investment.Status = ParseEnum<InvestmentStatus>(dto.Status, "investment status");
+        // Status moves only through the lifecycle actions, which run their own checks
+        // (completion, settlement, refunds); an edit may only resend the current one.
+        if (!string.IsNullOrWhiteSpace(dto.Status)
+            && ParseEnum<InvestmentStatus>(dto.Status, "investment status") != investment.Status)
+        {
+            throw new ValidationException("Change the project status from Shares & lifecycle, not the edit form.");
+        }
         if (dto.CertificateNumber != null)
             investment.CertificateNumber = NullIfBlank(dto.CertificateNumber);
         if (dto.ReferenceNumber != null)
@@ -331,6 +361,12 @@ public class InvestmentService : IInvestmentService
 
         if (investment == null) return null;
 
+        if (!InvestmentRecordLock.CanDelete(investment.Status))
+        {
+            throw new ValidationException(
+                $"This project is {InvestmentRecordLock.Describe(investment.Status)} and its records must be kept, so it cannot be deleted.");
+        }
+
         var fileUrls = investment.Documents.Select(d => d.FileUrl).ToList();
         if (!string.IsNullOrWhiteSpace(investment.CoverImageUrl))
         {
@@ -355,11 +391,14 @@ public class InvestmentService : IInvestmentService
         InvestmentDocumentDto document,
         CancellationToken cancellationToken = default)
     {
-        var exists = await _context.Investments
+        var status = await _context.Investments
             .AsNoTracking()
-            .AnyAsync(i => i.Id == investmentId, cancellationToken);
+            .Where(i => i.Id == investmentId)
+            .Select(i => (InvestmentStatus?)i.Status)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (!exists) return null;
+        if (status == null) return null;
+        GuardNotLocked(status.Value);
 
         var entity = new InvestmentDocument
         {
@@ -388,6 +427,8 @@ public class InvestmentService : IInvestmentService
             .FirstOrDefaultAsync(d => d.Id == documentId && d.InvestmentId == investmentId, cancellationToken);
 
         if (document == null) return null;
+
+        await GuardNotLockedAsync(investmentId, cancellationToken);
 
         var fileUrl = document.FileUrl;
         _context.InvestmentDocuments.Remove(document);
@@ -678,6 +719,8 @@ public class InvestmentService : IInvestmentService
             .FirstOrDefaultAsync(i => i.Id == investmentId, cancellationToken);
 
         if (investment == null) return null;
+
+        GuardNotLocked(investment.Status);
 
         var previous = investment.CoverImageUrl;
         investment.CoverImageUrl = fileUrl;

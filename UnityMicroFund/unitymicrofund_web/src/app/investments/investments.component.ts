@@ -11,6 +11,7 @@ import {
   DEFAULT_INVESTMENT_COVER,
   Investment,
   InvestmentService,
+  LOCKED_INVESTMENT_STATUSES,
 } from '../core/services/investment.service';
 import { ToastService } from '../core/services/toast.service';
 import { InvestmentFormComponent } from './investment-form.component';
@@ -229,13 +230,17 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
               <button class="btn-icon" (click)="viewInvestment(investment)" title="View details">
                 <span class="material-icons">visibility</span>
               </button>
-              <button class="btn-icon" *ngIf="isAdmin" (click)="editInvestment(investment)" title="Edit">
+              <button class="btn-icon" *ngIf="isAdmin && !isLocked(investment)" (click)="editInvestment(investment)" title="Edit">
                 <span class="material-icons">edit</span>
               </button>
+              <span class="btn-icon locked" *ngIf="isAdmin && isLocked(investment)"
+                    [title]="lockedTitle(investment)">
+                <span class="material-icons">lock</span>
+              </span>
               <button class="btn-icon" *ngIf="isAdmin" (click)="manageInvestment(investment)" title="Shares & lifecycle">
                 <span class="material-icons">tune</span>
               </button>
-              <button class="btn-icon danger" *ngIf="isAdmin" (click)="confirmDelete(investment)" title="Delete">
+              <button class="btn-icon danger" *ngIf="isAdmin && canDelete(investment)" (click)="confirmDelete(investment)" title="Delete">
                 <span class="material-icons">delete</span>
               </button>
             </div>
@@ -304,13 +309,16 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
                     (click)="openInvest(inv)">
                     <span class="material-icons">payments</span> Invest
                   </button>
-                  <button class="btn-icon" *ngIf="isAdmin" (click)="editInvestment(inv)" title="Edit">
+                  <button class="btn-icon" *ngIf="isAdmin && !isLocked(inv)" (click)="editInvestment(inv)" title="Edit">
                     <span class="material-icons">edit</span>
                   </button>
+                  <span class="btn-icon locked" *ngIf="isAdmin && isLocked(inv)" [title]="lockedTitle(inv)">
+                    <span class="material-icons">lock</span>
+                  </span>
                   <button class="btn-icon" *ngIf="isAdmin" (click)="manageInvestment(inv)" title="Shares & lifecycle">
                     <span class="material-icons">tune</span>
                   </button>
-                  <button class="btn-icon danger" *ngIf="isAdmin" (click)="confirmDelete(inv)" title="Delete">
+                  <button class="btn-icon danger" *ngIf="isAdmin && canDelete(inv)" (click)="confirmDelete(inv)" title="Delete">
                     <span class="material-icons">delete</span>
                   </button>
                 </td>
@@ -372,7 +380,7 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
             <span class="vmodal-status" [ngClass]="statusClass(selectedInvestment.status)">
               {{ selectedInvestment.status }}
             </span>
-            <ng-container *ngIf="isAdmin">
+            <ng-container *ngIf="isAdmin && !isLocked(selectedInvestment)">
               <input #coverInput type="file" hidden accept="image/jpeg,image/png,image/webp"
                      (change)="onCoverSelected($event, selectedInvestment)" />
               <button type="button" class="vmodal-cover-btn" [disabled]="isCoverUploading"
@@ -834,6 +842,8 @@ import { DraggableModalDirective } from '../shared/directives/draggable-modal.di
     .card-actions { display: flex; gap: 4px; }
     .btn-icon { background: white; border: 1px solid var(--color-border, #e2e8f0); border-radius: var(--radius-md, 8px); padding: 5px; cursor: pointer; color: var(--text-muted, #64748b); transition: all 0.2s; }
     .btn-icon .material-icons { font-size: 17px; }
+    .btn-icon.locked { display: inline-flex; cursor: default; color: var(--text-muted, #94a3b8); background: var(--color-background-alt, #f8fafc); }
+    .btn-icon.locked:hover { background: var(--color-background-alt, #f8fafc); color: var(--text-muted, #94a3b8); border-color: var(--color-border, #e2e8f0); }
     .btn-icon:hover { background: var(--color-background-alt, #f8fafc); color: var(--color-accent, #0d9488); border-color: var(--color-accent, #0d9488); }
 
     /* Empty State */
@@ -1403,6 +1413,20 @@ export class InvestmentsComponent implements OnInit, OnDestroy {
       'Cancelled': 'Cancelled'
     };
     return labels[status] || status;
+  }
+
+  /** Completed projects have committed books: the record is read-only (the API enforces the same rule). */
+  isLocked(investment: Investment): boolean {
+    return LOCKED_INVESTMENT_STATUSES.includes(investment.status);
+  }
+
+  /** Projects with settled money stay on record; drafts and cancelled projects can still be removed. */
+  canDelete(investment: Investment): boolean {
+    return !['Completed', 'ProfitDistributed', 'Closed'].includes(investment.status);
+  }
+
+  lockedTitle(investment: Investment): string {
+    return `Read-only: this project is ${this.statusLabel(investment.status)}`;
   }
 
   statusIcon(status: string): string {

@@ -14,6 +14,9 @@ export type InvestmentStatusName =
   | 'Closed'
   | 'Cancelled';
 
+/** Once completed, a project's record is read-only; only lifecycle actions still apply (mirrors the API). */
+export const LOCKED_INVESTMENT_STATUSES: readonly string[] = ['Completed', 'ProfitDistributed', 'Closed', 'Cancelled'];
+
 export const INVESTMENT_TYPES: InvestmentTypeName[] = [
   'Stocks',
   'RealEstate',

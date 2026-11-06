@@ -405,6 +405,13 @@ public class VersioningService : IVersioningService
                 Improvement("Distributed income and expense entries are locked and excluded from the final settlement"),
                 Improvement("Expenses that exceed income carry forward to the next period"),
                 Improvement("A processed distribution can be cancelled until the first investor is paid")
+            ]),
+        new("1.11.1", new DateTime(2026, 11, 6), "Completed projects are read-only",
+            "Once a project is completed, its details, documents and cover image can no longer be changed.",
+            [
+                Improvement("Completed, distributed, closed and cancelled projects can no longer be edited"),
+                Improvement("Projects with settled profit can no longer be deleted"),
+                Improvement("Project status changes only through Shares & lifecycle, not the edit form")
             ])
     ];
 }

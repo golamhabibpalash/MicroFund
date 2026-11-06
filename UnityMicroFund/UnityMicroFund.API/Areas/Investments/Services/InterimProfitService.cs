@@ -90,9 +90,10 @@ public class InterimProfitService : IInterimProfitService
             .AsNoTracking()
             .FirstOrDefaultAsync(i => i.Id == investmentId, cancellationToken);
 
-        if (investment != null && investment.Status == InvestmentStatus.Completed)
+        if (investment != null && investment.Status is not (InvestmentStatus.Active or InvestmentStatus.OpenForSubscription))
         {
-            throw new ValidationException("Interim profit cannot be edited after the project is completed.");
+            throw new ValidationException(
+                $"Income can no longer be changed: the project is {InvestmentRecordLock.Describe(investment.Status)}.");
         }
 
         _context.InvestmentInterimProfits.Remove(entry);

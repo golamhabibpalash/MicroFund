@@ -301,14 +301,24 @@ public class InvestmentsController : ControllerBase
             await file.CopyToAsync(stream, cancellationToken);
         }
 
-        var document = await _investmentService.AddDocumentAsync(id, new InvestmentDocumentDto
+        InvestmentDocumentDto? document;
+        try
         {
-            FileName = Path.GetFileName(file.FileName),
-            FileUrl = $"/assets/investment/{storedName}",
-            ContentType = file.ContentType,
-            FileSizeBytes = file.Length,
-            UploadedBy = GetCurrentUserName()
-        }, cancellationToken);
+            document = await _investmentService.AddDocumentAsync(id, new InvestmentDocumentDto
+            {
+                FileName = Path.GetFileName(file.FileName),
+                FileUrl = $"/assets/investment/{storedName}",
+                ContentType = file.ContentType,
+                FileSizeBytes = file.Length,
+                UploadedBy = GetCurrentUserName()
+            }, cancellationToken);
+        }
+        catch
+        {
+            // Rejected (e.g. the project is closed): do not leave the file behind.
+            TryDeleteFile($"/assets/investment/{storedName}");
+            throw;
+        }
 
         if (document == null)
         {
@@ -428,7 +438,17 @@ public class InvestmentsController : ControllerBase
             await file.CopyToAsync(stream, cancellationToken);
         }
 
-        var change = await _investmentService.SetCoverImageAsync(id, storedUrl, GetCurrentUserName(), cancellationToken);
+        InvestmentCoverImageChangeDto? change;
+        try
+        {
+            change = await _investmentService.SetCoverImageAsync(id, storedUrl, GetCurrentUserName(), cancellationToken);
+        }
+        catch
+        {
+            TryDeleteFile(storedUrl);
+            throw;
+        }
+
         if (change == null)
         {
             TryDeleteFile(storedUrl);
